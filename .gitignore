@@ -1,0 +1,56 @@
+### IntelliJ IDEA ###
+.idea/
+*.iml
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+.kotlin
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Node ###
+node_modules/
+dist/
+.env
+.env.*
+*.tsbuildinfo
+
+### Frontend ###
+frontend/.vite/
+frontend/coverage/
+frontend/vite.stdout.log
+frontend/vite.stderr.log
+
+### Backend ###
+backend/.gradle/
+backend/build/
+
+### Logs ###
+*.log
+
+### Temp ###
+.tmp_docx/
+.tmp_docx.zip
