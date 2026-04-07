@@ -1,0 +1,115 @@
+package com.texasholdem.tournament.application;
+
+import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.TournamentStatus;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+
+@Component
+final class TournamentLobbyManager {
+
+    private final TournamentStateAccess stateAccess;
+    private final TournamentRules rules;
+    private final TournamentIdentityFactory identityFactory;
+
+    // Wires waiting-room mutations to the shared state and rule helpers.
+    TournamentLobbyManager(
+            TournamentStateAccess stateAccess,
+            TournamentRules rules,
+            TournamentIdentityFactory identityFactory
+    ) {
+        this.stateAccess = stateAccess;
+        this.rules = rules;
+        this.identityFactory = identityFactory;
+    }
+
+    // Creates a waiting tournament state and seats the owner immediately.
+    TournamentState createTournament(String code, String guestId, String nickname) {
+        var tournament = new TournamentState(code);
+        tournament.players.add(TournamentPlayerState.owner(guestId, identityFactory.normalizeNickname(nickname), 0));
+        tournament.tableMessage = "Tournament created. Owner can wait for ready players.";
+        return tournament;
+    }
+
+    // Adds one guest to the next open waiting-room seat.
+    void joinTournament(TournamentState tournament, String guestId, String nickname) {
+        stateAccess.requireWaiting(tournament);
+        if (tournament.players.size() >= rules.maxSeats()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is full");
+        }
+        if (stateAccess.findPlayer(tournament, guestId) != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guest is already seated");
+        }
+
+        var normalizedNickname = identityFactory.normalizeNickname(nickname);
+        var nicknameTaken = tournament.players.stream()
+                .anyMatch(player -> player.nickname.equalsIgnoreCase(normalizedNickname));
+        if (nicknameTaken) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nickname is already taken");
+        }
+
+        tournament.players.add(new TournamentPlayerState(
+                guestId,
+                normalizedNickname,
+                stateAccess.nextSeatIndex(tournament.players)
+        ));
+        tournament.tableMessage = normalizedNickname + " joined the tournament.";
+    }
+
+    // Toggles the ready flag for one seated player before the tournament starts.
+    void changeReady(TournamentState tournament, String guestId, boolean ready) {
+        stateAccess.requireWaiting(tournament);
+        var player = stateAccess.requirePlayer(tournament, guestId);
+        player.status = ready ? PlayerStatus.READY : PlayerStatus.SEATED;
+        tournament.tableMessage = player.nickname + (ready ? " is ready." : " is not ready.");
+    }
+
+    // Verifies that the caller currently owns tournament start authority.
+    void requireOwner(TournamentState tournament, String guestId) {
+        var owner = stateAccess.requirePlayer(tournament, guestId);
+        if (!owner.owner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can start the tournament");
+        }
+    }
+
+    // Promotes ready players into the field and initializes the first tournament hand.
+    int startTournament(TournamentState tournament, String guestId) {
+        requireOwner(tournament, guestId);
+        stateAccess.requireWaiting(tournament);
+
+        var readyPlayers = tournament.players.stream()
+                .filter(player -> player.status == PlayerStatus.READY)
+                .sorted(Comparator.comparingInt(player -> player.seatIndex))
+                .toList();
+        if (readyPlayers.size() < 2) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least two ready players are required");
+        }
+
+        for (var player : tournament.players) {
+            player.acting = false;
+            player.participating = player.status == PlayerStatus.READY;
+            if (player.participating) {
+                player.stack = player.stack > 0 ? player.stack : rules.startingStack();
+                player.status = PlayerStatus.ACTIVE;
+            } else {
+                player.status = PlayerStatus.SEATED;
+                player.stack = 0;
+            }
+        }
+
+        tournament.status = TournamentStatus.IN_HAND;
+        tournament.levelIndex = 0;
+        tournament.levelActivatedAtEpochSecond = Instant.now().getEpochSecond();
+        tournament.dealerSeat = null;
+        tournament.smallBlindSeat = null;
+        tournament.bigBlindSeat = null;
+        tournament.actingSeat = null;
+        tournament.availableActions = new ArrayList<>();
+        return readyPlayers.size();
+    }
+}

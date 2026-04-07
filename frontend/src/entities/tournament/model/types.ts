@@ -24,6 +24,19 @@ export type PotView = {
   eligibleGuestIds: string[];
 };
 
+export type ShowdownPayout = {
+  guestId: string;
+  nickname: string;
+  amount: number;
+};
+
+export type ShowdownPot = {
+  id: string;
+  type: "MAIN" | "SIDE" | string;
+  amount: number;
+  payouts: ShowdownPayout[];
+};
+
 export type TournamentPlayer = {
   guestId: string;
   nickname: string;
@@ -51,6 +64,13 @@ export type TournamentSnapshot = {
   bigBlindSeat: number | null;
   actingSeat: number | null;
   players: TournamentPlayer[];
+  showdownPots: ShowdownPot[];
   availableActions: string[];
   tableMessage: string;
+};
+
+export type TournamentEvent = {
+  eventType: string;
+  snapshot: TournamentSnapshot;
+  payload: Record<string, unknown>;
 };

@@ -1,27 +1,86 @@
 # Texas Holdem
 
-Texas Holdem multiplayer web application skeleton.
+Single-table tournament MVP for a Texas Holdem web application.
+
+## Current scope
+
+- Guest-based tournament join and ready flow
+- Owner start and initial blind assignment
+- Tournament snapshot REST API and STOMP/WebSocket broadcast flow
+- Tournament table UI bound to the shared snapshot contract
+- In-hand action engine for `CHECK`, `CALL`, `RAISE`, `ALL_IN`, and `FOLD`
+- Contribution tracking, main pot and side pot calculation, showdown settlement, bust-out handling, and hand-end state transitions
+- Owner-triggered next-hand start from `HAND_RESULT` with blind-level progression on hand boundaries
 
 ## Stack
 
 - Backend: Java 17, Spring Boot, REST, WebSocket/STOMP, JPA, PostgreSQL, Flyway
-- Frontend: React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand
+- Frontend: React 19, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand
 - Infra: Docker Compose
 
-## Structure
+## Project structure
 
-- `backend/`: Spring Boot application, REST API, WebSocket/STOMP, game engine
-- `frontend/`: React + Vite client, lobby/table UI, realtime client
-- `docs/`: game rules, state flow, websocket event notes, roadmap, setup guide
-- `infra/`: local infrastructure files such as Docker Compose
+- `backend/`: Spring Boot API, tournament service, WebSocket handlers, tests
+- `frontend/`: tournament snapshot client, table UI, local fallback demo state
+- `docs/`: setup guide, state flow, websocket event contract, roadmap
+- `infra/`: local PostgreSQL compose file
 
 ## Quick start
 
-- Backend health endpoint: `GET /api/v1/status`
-- Backend websocket endpoint: `ws://localhost:8080/ws`
-- Frontend dev server: `http://localhost:5173`
+### Database
 
-## Notes
+From `infra/`:
 
-- The original root `src/` directory was left untouched because it was empty.
-- This repository now contains project setup files, but the current machine does not have Gradle or Node installed yet.
+```bash
+docker compose -f compose.yml up -d
+```
+
+### Backend
+
+From `backend/`:
+
+```bash
+./gradlew bootRun
+```
+
+- HTTP: `http://localhost:8080`
+- Health: `GET /api/v1/status`
+- WebSocket: `ws://localhost:8080/ws`
+
+### Frontend
+
+From `frontend/`:
+
+```bash
+npm install
+npm run dev
+```
+
+- App: `http://localhost:5173`
+
+## Verification
+
+From `backend/`:
+
+```bash
+./gradlew test
+```
+
+From `frontend/`:
+
+```bash
+npm run build
+```
+
+## Key docs
+
+- `docs/setup.md`
+- `docs/state-flow.md`
+- `docs/websocket-events.md`
+- `docs/roadmap.md`
+
+## Next work
+
+- Reconnect and persistence hardening
+- Richer hand-result events for client animation and replay
+- Production-grade deck/randomness and persistence-backed tournament recovery
