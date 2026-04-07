@@ -18,6 +18,16 @@ Single-table tournament MVP for a Texas Holdem web application.
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand
 - Infra: Docker Compose
 
+## Environment strategy
+
+- MVP development target: run the backend against a local native PostgreSQL instance
+- Current default profile: `SPRING_PROFILES_ACTIVE=local`
+- Deployment target: convert the runtime to Docker-based services in the final release stage
+- Implementation guideline: keep environment-specific configuration separated so the project can move from local PostgreSQL to Docker without large code or config rewrites
+- When adding infra or runtime configuration, prefer a structure that works for both:
+  - local development with native PostgreSQL
+  - final deployment with Docker and container-host based connection settings
+
 ## Project structure
 
 - `backend/`: Spring Boot API, tournament service, WebSocket handlers, tests
@@ -55,7 +65,7 @@ VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```
 
 - Current workflow: run the app against a local PostgreSQL instance with the `local` profile
-- Docker-ready path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
+- Final deployment path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
 
 ### Backend
 
@@ -106,3 +116,4 @@ npm run build
 - Reconnect and persistence hardening
 - Richer hand-result events for client animation and replay
 - Production-grade deck/randomness and persistence-backed tournament recovery
+- Preserve the local-PostgreSQL MVP workflow while preparing a clean Docker deployment path
