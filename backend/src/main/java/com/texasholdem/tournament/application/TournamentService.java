@@ -1,7 +1,6 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.GuestSession;
-import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.context.ApplicationEventPublisher;
@@ -71,7 +70,7 @@ public class TournamentService {
     public TournamentSnapshot getTournament(String code) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
-            advanceExpiredHandResultIfNeeded(tournament);
+            advanceExpiredHandResultIfNeeded(tournament, snapshotFactory.toSnapshot(tournament));
             publishStateChange(tournament);
             return snapshotFactory.toSnapshot(tournament);
         }
@@ -89,19 +88,21 @@ public class TournamentService {
     }
 
     // Toggles the ready flag for a seated player before the tournament starts.
-    public TournamentEvent changeReady(String code, String guestId, boolean ready) {
+    public TournamentBroadcast changeReady(String code, String guestId, boolean ready) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             lobbyManager.changeReady(tournament, guestId, ready);
             saveTournamentState(tournament);
-            return eventFactory.create("readyChanged", tournament, eventFactory.readyPayload(guestId, ready));
+            return eventFactory.createBroadcast("readyChanged", tournament, eventFactory.readyPayload(guestId, ready), beforeSnapshot);
         }
     }
 
     // Applies explicit disconnect handling for waiting-room exits and active-hand fallbacks.
-    public TournamentEvent disconnectPlayer(String code, String guestId) {
+    public TournamentBroadcast disconnectPlayer(String code, String guestId) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var change = connectionManager.disconnect(tournament, guestId);
             if (change.deleteTournament()) {
                 tournaments.remove(tournament.code);
@@ -109,25 +110,37 @@ public class TournamentService {
             } else {
                 saveTournamentState(tournament);
             }
-            return eventFactory.create("playerDisconnected", tournament, eventFactory.connectionPayload(change));
+            return eventFactory.createBroadcast(
+                    "playerDisconnected",
+                    tournament,
+                    eventFactory.connectionPayload(change),
+                    beforeSnapshot
+            );
         }
     }
 
     // Restores a disconnected player into the current tournament snapshot without changing chips.
-    public TournamentEvent reconnectPlayer(String code, String guestId) {
+    public TournamentBroadcast reconnectPlayer(String code, String guestId) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var change = connectionManager.reconnect(tournament, guestId);
             saveTournamentState(tournament);
-            return eventFactory.create("playerReconnected", tournament, eventFactory.connectionPayload(change));
+            return eventFactory.createBroadcast(
+                    "playerReconnected",
+                    tournament,
+                    eventFactory.connectionPayload(change),
+                    beforeSnapshot
+            );
         }
     }
 
     // Converts ready players into active participants and opens the first hand.
-    public TournamentEvent startTournament(String code, String guestId) {
+    public TournamentBroadcast startTournament(String code, String guestId) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
-            var expiredEvent = advanceExpiredHandResultIfNeeded(tournament);
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
+            var expiredEvent = advanceExpiredHandResultIfNeeded(tournament, beforeSnapshot);
             if (expiredEvent != null) {
                 return expiredEvent;
             }
@@ -135,36 +148,44 @@ public class TournamentService {
             if (tournament.status == TournamentStatus.HAND_RESULT) {
                 handEngine.openNextHand(tournament, "Next hand started.");
                 saveTournamentState(tournament);
-                return eventFactory.create(
+                return eventFactory.createBroadcast(
                         "handStarted",
                         tournament,
-                        eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament))
+                        eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament)),
+                        beforeSnapshot
                 );
             }
 
             var participants = lobbyManager.startTournament(tournament, guestId);
             handEngine.openNextHand(tournament, "Tournament started.");
             saveTournamentState(tournament);
-            return eventFactory.create("handStarted", tournament, eventFactory.participantsPayload(participants));
+            return eventFactory.createBroadcast(
+                    "handStarted",
+                    tournament,
+                    eventFactory.participantsPayload(participants),
+                    beforeSnapshot
+            );
         }
     }
 
     // Applies a betting action, updates contributions, and advances the hand state.
-    public TournamentEvent applyAction(String code, String guestId, String action, Integer amount) {
+    public TournamentBroadcast applyAction(String code, String guestId, String action, Integer amount) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var result = handEngine.applyAction(tournament, guestId, action, amount);
             saveTournamentState(tournament);
-            return eventFactory.create(
+            return eventFactory.createBroadcast(
                     "actionApplied",
                     tournament,
-                    eventFactory.actionPayload(guestId, result.action(), result.amount())
+                    eventFactory.actionPayload(guestId, result.action(), result.amount()),
+                    beforeSnapshot
             );
         }
     }
 
     // Advances one expired hand-result state into the next live hand for async transitions.
-    TournamentEvent autoAdvanceHandResult(String code, long expectedDeadlineEpochMilli) {
+    TournamentBroadcast autoAdvanceHandResult(String code, long expectedDeadlineEpochMilli) {
         var tournament = requireTournament(code);
         synchronized (tournament) {
             if (tournament.status != TournamentStatus.HAND_RESULT
@@ -173,12 +194,14 @@ public class TournamentService {
                 return null;
             }
 
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             handEngine.openNextHand(tournament, "Next hand started.");
             saveTournamentState(tournament);
-            return eventFactory.create(
+            return eventFactory.createBroadcast(
                     "handStarted",
                     tournament,
-                    eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament))
+                    eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament)),
+                    beforeSnapshot
             );
         }
     }
@@ -221,7 +244,10 @@ public class TournamentService {
     }
 
     // Converts an already-expired result state into the next hand before stale snapshots leak back out.
-    private TournamentEvent advanceExpiredHandResultIfNeeded(TournamentState tournament) {
+    private TournamentBroadcast advanceExpiredHandResultIfNeeded(
+            TournamentState tournament,
+            TournamentSnapshot beforeSnapshot
+    ) {
         if (tournament.status != TournamentStatus.HAND_RESULT
                 || tournament.handResultEndsAtEpochMilli == 0
                 || tournament.handResultEndsAtEpochMilli > Instant.now().toEpochMilli()) {
@@ -230,10 +256,11 @@ public class TournamentService {
 
         handEngine.openNextHand(tournament, "Next hand started.");
         saveTournamentState(tournament);
-        return eventFactory.create(
+        return eventFactory.createBroadcast(
                 "handStarted",
                 tournament,
-                eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament))
+                eventFactory.participantsPayload((int) stateAccess.countRemainingParticipants(tournament)),
+                beforeSnapshot
         );
     }
 }

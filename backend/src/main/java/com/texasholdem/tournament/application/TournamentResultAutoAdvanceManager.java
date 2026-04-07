@@ -68,9 +68,9 @@ final class TournamentResultAutoAdvanceManager {
         }
 
         scheduledTransitions.remove(code, scheduled);
-        var event = tournamentService.autoAdvanceHandResult(code, deadlineEpochMilli);
-        if (event != null) {
-            topicPublisher.publish(code, event);
+        var broadcast = tournamentService.autoAdvanceHandResult(code, deadlineEpochMilli);
+        if (broadcast != null) {
+            topicPublisher.publish(code, broadcast);
         }
     }
 

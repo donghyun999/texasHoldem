@@ -57,7 +57,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentReadyMessage request
     ) {
-        return ApiResponse.ok(tournamentService.changeReady(code, request.guestId(), request.ready()));
+        return ApiResponse.ok(tournamentService.changeReady(code, request.guestId(), request.ready()).primaryEvent());
     }
 
     // Removes or marks a player disconnected according to the current tournament state.
@@ -66,7 +66,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentConnectionMessage request
     ) {
-        return ApiResponse.ok(tournamentService.disconnectPlayer(code, request.guestId()));
+        return ApiResponse.ok(tournamentService.disconnectPlayer(code, request.guestId()).primaryEvent());
     }
 
     // Restores a previously disconnected player's seat and latest snapshot.
@@ -75,7 +75,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentConnectionMessage request
     ) {
-        return ApiResponse.ok(tournamentService.reconnectPlayer(code, request.guestId()));
+        return ApiResponse.ok(tournamentService.reconnectPlayer(code, request.guestId()).primaryEvent());
     }
 
     // Starts the first hand when the owner promotes ready players into the field.
@@ -84,6 +84,6 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentStartMessage request
     ) {
-        return ApiResponse.ok(tournamentService.startTournament(code, request.guestId()));
+        return ApiResponse.ok(tournamentService.startTournament(code, request.guestId()).primaryEvent());
     }
 }

@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +26,7 @@ class TournamentServiceTest {
         var code = snapshot.code();
 
         service.joinTournament(code, "guest-2", "Player2");
-        var event = service.disconnectPlayer(code, "guest-1");
+        var event = service.disconnectPlayer(code, "guest-1").primaryEvent();
         var disconnectedSnapshot = event.snapshot();
 
         assertThat(disconnectedSnapshot.status()).isEqualTo(TournamentStatus.WAITING);
@@ -46,7 +47,7 @@ class TournamentServiceTest {
         service.applyAction(code, "guest-1", "ALL_IN", null);
         service.applyAction(code, "guest-2", "CALL", null);
         service.applyAction(code, "guest-3", "RAISE", 600);
-        var event = service.applyAction(code, "guest-2", "CALL", null);
+        var event = service.applyAction(code, "guest-2", "CALL", null).primaryEvent();
         var snapshot = event.snapshot();
 
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
@@ -66,9 +67,11 @@ class TournamentServiceTest {
         var code = prepareTournament(service, 3);
 
         service.applyAction(code, "guest-1", "FOLD", null);
-        var event = service.applyAction(code, "guest-2", "FOLD", null);
+        var broadcast = service.applyAction(code, "guest-2", "FOLD", null);
+        var event = broadcast.primaryEvent();
         var snapshot = event.snapshot();
 
+        assertThat(eventTypes(broadcast)).containsExactly("potsUpdated", "handEnded", "actionApplied");
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
         assertThat(snapshot.actingSeat()).isNull();
         assertThat(snapshot.availableActions()).isEmpty();
@@ -89,7 +92,7 @@ class TournamentServiceTest {
         var service = createService();
         var code = prepareTournament(service, 2);
 
-        var event = service.disconnectPlayer(code, "guest-1");
+        var event = service.disconnectPlayer(code, "guest-1").primaryEvent();
         var snapshot = event.snapshot();
 
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
@@ -99,7 +102,7 @@ class TournamentServiceTest {
         assertThat(requireSnapshotPlayer(snapshot, "guest-2").owner()).isTrue();
         assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(1_010);
 
-        var nextHandEvent = service.startTournament(code, "guest-2");
+        var nextHandEvent = service.startTournament(code, "guest-2").primaryEvent();
         assertThat(nextHandEvent.snapshot().status()).isEqualTo(TournamentStatus.IN_HAND);
     }
 
@@ -109,7 +112,7 @@ class TournamentServiceTest {
         var service = createService();
         var code = prepareTournament(service, 3);
 
-        var event = service.disconnectPlayer(code, "guest-2");
+        var event = service.disconnectPlayer(code, "guest-2").primaryEvent();
         var snapshot = event.snapshot();
 
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
@@ -126,9 +129,18 @@ class TournamentServiceTest {
         var code = prepareTournament(service, 2);
 
         service.applyAction(code, "guest-1", "ALL_IN", null);
-        var event = service.applyAction(code, "guest-2", "CALL", null);
+        var broadcast = service.applyAction(code, "guest-2", "CALL", null);
+        var event = broadcast.primaryEvent();
         var snapshot = event.snapshot();
 
+        assertThat(eventTypes(broadcast)).containsExactly(
+                "potsUpdated",
+                "showdownStarted",
+                "handEnded",
+                "playerBusted",
+                "tournamentFinished",
+                "actionApplied"
+        );
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.FINISHED);
         assertThat(snapshot.mainPot()).isEqualTo(2_000);
         assertThat(snapshot.sidePots()).isEmpty();
@@ -162,9 +174,11 @@ class TournamentServiceTest {
         service.applyAction(code, "guest-2", "CHECK", null);
         service.applyAction(code, "guest-3", "CHECK", null);
         service.applyAction(code, "guest-2", "CHECK", null);
-        var event = service.applyAction(code, "guest-3", "CHECK", null);
+        var broadcast = service.applyAction(code, "guest-3", "CHECK", null);
+        var event = broadcast.primaryEvent();
         var snapshot = event.snapshot();
 
+        assertThat(eventTypes(broadcast)).containsExactly("potsUpdated", "showdownStarted", "handEnded", "actionApplied");
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
         assertThat(snapshot.boardCards()).containsExactly("AH", "KD", "7C", "4S", "2D");
         assertThat(snapshot.showdownPots()).hasSize(2);
@@ -192,9 +206,11 @@ class TournamentServiceTest {
         service.applyAction(code, "guest-2", "FOLD", null);
         setLevelActivatedAt(service, code, Instant.now().minusSeconds(301).getEpochSecond());
 
-        var event = service.startTournament(code, "guest-1");
+        var broadcast = service.startTournament(code, "guest-1");
+        var event = broadcast.primaryEvent();
         var snapshot = event.snapshot();
 
+        assertThat(eventTypes(broadcast)).containsExactly("levelChanged", "handStarted");
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
         assertThat(snapshot.currentLevel().level()).isEqualTo(2);
         assertThat(snapshot.currentLevel().smallBlind()).isEqualTo(15);
@@ -249,12 +265,14 @@ class TournamentServiceTest {
         var code = prepareTournament(service, 2);
 
         service.disconnectPlayer(code, "guest-1");
-        var disconnectedOwnerEvent = service.disconnectPlayer(code, "guest-2");
+        var disconnectedOwnerEvent = service.disconnectPlayer(code, "guest-2").primaryEvent();
         assertThat(disconnectedOwnerEvent.snapshot().players().stream().noneMatch(player -> player.owner())).isTrue();
 
-        var reconnectEvent = service.reconnectPlayer(code, "guest-1");
+        var reconnectBroadcast = service.reconnectPlayer(code, "guest-1");
+        var reconnectEvent = reconnectBroadcast.primaryEvent();
         var snapshot = reconnectEvent.snapshot();
 
+        assertThat(eventTypes(reconnectBroadcast)).containsExactly("tournamentSnapshot", "playerReconnected");
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").connected()).isTrue();
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").owner()).isTrue();
         assertThat(requireSnapshotPlayer(snapshot, "guest-2").connected()).isFalse();
@@ -320,7 +338,7 @@ class TournamentServiceTest {
         assertThat(restoredSnapshot.availableActions()).containsExactly("FOLD", "CALL", "RAISE", "ALL_IN");
         assertThat(requireSnapshotPlayer(restoredSnapshot, "guest-1").stack()).isEqualTo(980);
 
-        var resumedActionEvent = secondService.applyAction(code, "guest-2", "CALL", null);
+        var resumedActionEvent = secondService.applyAction(code, "guest-2", "CALL", null).primaryEvent();
         var resumedSnapshot = resumedActionEvent.snapshot();
 
         assertThat(resumedSnapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
@@ -348,7 +366,7 @@ class TournamentServiceTest {
         assertThat(restoredSnapshot.actingSeat()).isEqualTo(1);
         assertThat(restoredSnapshot.availableActions()).containsExactly("FOLD", "CALL", "RAISE", "ALL_IN");
 
-        var resumedActionEvent = service.applyAction(code, "guest-2", "CALL", null);
+        var resumedActionEvent = service.applyAction(code, "guest-2", "CALL", null).primaryEvent();
         var resumedSnapshot = resumedActionEvent.snapshot();
 
         assertThat(resumedSnapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
@@ -428,6 +446,13 @@ class TournamentServiceTest {
                 .filter(player -> player.guestId().equals(guestId))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    // Extracts the ordered websocket event names from one broadcast bundle.
+    private List<String> eventTypes(TournamentBroadcast broadcast) {
+        return broadcast.events().stream()
+                .map(TournamentEvent::eventType)
+                .toList();
     }
 
     // Reads the mutable tournament state from the in-memory service map.
