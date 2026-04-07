@@ -1,7 +1,9 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.TournamentStatus;
 import com.texasholdem.websocket.TournamentTopicPublisher;
 import jakarta.annotation.PreDestroy;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -19,20 +21,23 @@ final class TournamentResultAutoAdvanceManager {
     private final ConcurrentMap<String, ScheduledTransition> scheduledTransitions = new ConcurrentHashMap<>();
     private final TournamentService tournamentService;
     private final TournamentTopicPublisher topicPublisher;
+    private final TournamentStateStore stateStore;
 
     // Wires hand-result auto-advance to the tournament service and broker publisher.
     TournamentResultAutoAdvanceManager(
             TournamentService tournamentService,
-            TournamentTopicPublisher topicPublisher
+            TournamentTopicPublisher topicPublisher,
+            TournamentStateStore stateStore
     ) {
         this.tournamentService = tournamentService;
         this.topicPublisher = topicPublisher;
+        this.stateStore = stateStore;
     }
 
     // Schedules or cancels one result-state transition whenever tournament state changes are published.
     @EventListener
     void onTournamentStateChanged(TournamentStateChangedEvent event) {
-        if (event.status() != com.texasholdem.tournament.domain.TournamentStatus.HAND_RESULT
+        if (event.status() != TournamentStatus.HAND_RESULT
                 || event.handResultEndsAtEpochMilli() <= 0) {
             cancel(event.code());
             return;
@@ -51,6 +56,18 @@ final class TournamentResultAutoAdvanceManager {
                 TimeUnit.MILLISECONDS
         );
         scheduledTransitions.put(event.code(), new ScheduledTransition(event.handResultEndsAtEpochMilli(), future));
+    }
+
+    // Replays persisted hand-result transitions so auto-advance survives service restarts.
+    @EventListener(ApplicationReadyEvent.class)
+    void recoverPendingHandResults() {
+        stateStore.findPendingHandResults().forEach(pendingHandResult ->
+                onTournamentStateChanged(new TournamentStateChangedEvent(
+                        pendingHandResult.code(),
+                        TournamentStatus.HAND_RESULT,
+                        pendingHandResult.handResultEndsAtEpochMilli()
+                ))
+        );
     }
 
     // Stops any queued transition when the service shuts down.

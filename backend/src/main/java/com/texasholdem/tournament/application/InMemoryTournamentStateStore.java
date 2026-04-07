@@ -1,5 +1,8 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.TournamentStatus;
+
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,11 +40,22 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     public String findActiveTournamentCodeByGuestId(String guestId) {
         return payloads.values().stream()
                 .map(mapper::read)
-                .filter(tournament -> tournament.status != com.texasholdem.tournament.domain.TournamentStatus.FINISHED)
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
                 .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
                 .map(tournament -> tournament.code)
                 .findFirst()
                 .orElse(null);
+    }
+
+    // Lists in-memory hand-result tournaments whose delayed transition should be recovered.
+    @Override
+    public List<PendingHandResult> findPendingHandResults() {
+        return payloads.values().stream()
+                .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.HAND_RESULT)
+                .filter(tournament -> tournament.handResultEndsAtEpochMilli > 0)
+                .map(tournament -> new PendingHandResult(tournament.code, tournament.handResultEndsAtEpochMilli))
+                .toList();
     }
 
     // Removes one tournament from the backing map.
