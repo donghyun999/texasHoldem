@@ -289,8 +289,23 @@ class TournamentServiceTest {
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
         var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var handSetupManager = new TournamentHandSetupManager(rules, stateAccess);
+        var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
-        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver, handResultManager);
+        var handProgressManager = new TournamentHandProgressManager(
+                stateAccess,
+                potResolver,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager
+        );
+        var handEngine = new TournamentHandEngine(
+                stateAccess,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager,
+                handProgressManager
+        );
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper()));
         var firstService = new TournamentService(
@@ -402,8 +417,23 @@ class TournamentServiceTest {
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
         var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var handSetupManager = new TournamentHandSetupManager(rules, stateAccess);
+        var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
-        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver, handResultManager);
+        var handProgressManager = new TournamentHandProgressManager(
+                stateAccess,
+                potResolver,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager
+        );
+        var handEngine = new TournamentHandEngine(
+                stateAccess,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager,
+                handProgressManager
+        );
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper()));
         return new TournamentService(
