@@ -45,6 +45,18 @@ Docker Compose alternative from `infra/`:
 docker compose -f compose.yml up -d
 ```
 
+Runtime configuration defaults:
+
+```bash
+SPRING_PROFILES_ACTIVE=local
+APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+VITE_API_BASE_URL=http://localhost:8080
+VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
+```
+
+- Current workflow: run the app against a local PostgreSQL instance with the `local` profile
+- Docker-ready path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
+
 ### Backend
 
 From `backend/`:

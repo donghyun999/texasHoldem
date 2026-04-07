@@ -1,6 +1,5 @@
 import { Client } from "@stomp/stompjs";
-
-export const TOURNAMENT_WS_URL = "ws://localhost:8080/ws";
+import { TOURNAMENT_WS_URL } from "@/shared/config/runtime";
 
 // Creates the shared STOMP client configuration for tournament subscriptions.
 export function createTournamentClient() {

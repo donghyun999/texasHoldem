@@ -1,6 +1,5 @@
 import type { TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
-
-const API_BASE_URL = "http://localhost:8080";
+import { API_BASE_URL } from "@/shared/config/runtime";
 
 export type GuestSession = {
   guestId: string;

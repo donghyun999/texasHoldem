@@ -2,21 +2,21 @@
 
 React + Vite frontend for the Texas Holdem application.
 
-## Folder intent
+## Current scope
 
 - `app`: app bootstrap, router, providers
-- `pages`: route-level screens
-- `widgets`: larger composed UI blocks
-- `features`: user-facing feature modules
-- `entities`: core UI models such as player, room, game state
-- `shared`: shared API client, hooks, ui, model utilities
+- `pages`: tournament landing page and live table route
+- `widgets`: overview, table, and showdown panels
+- `features`: lobby entry, player seat, and action controls
+- `entities`: shared tournament snapshot and event contracts
+- `shared`: REST client, STOMP client, guest session, and runtime env helpers
 
-## Initial pages
+## Routes
 
 - `/`: lobby landing page
-- `/table/:roomCode`: table prototype page
+- `/tournaments/:tournamentCode`: live tournament table
 
-## Initial integrations
+## Runtime configuration
 
-- REST status check to `http://localhost:8080/api/v1/status`
-- STOMP client scaffold for `ws://localhost:8080/ws`
+- `VITE_API_BASE_URL`: backend HTTP origin, default `http://localhost:8080`
+- `VITE_TOURNAMENT_WS_URL`: backend WebSocket endpoint, default `ws://localhost:8080/ws`

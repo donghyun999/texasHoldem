@@ -2,21 +2,28 @@
 
 Spring Boot backend for the Texas Holdem application.
 
-## Package intent
+## Current scope
 
-- `common`: shared exceptions, response models, utilities
-- `config`: Spring configuration
-- `auth`: authentication and authorization
-- `user`: player and profile related features
-- `lobby`: room creation, join, waiting room
-- `game`: core Texas Holdem domain and application logic
-- `websocket`: STOMP/WebSocket message handling
-- `persistence`: repositories and storage adapters
+- Tournament REST API and STOMP/WebSocket messaging
+- Single-table tournament flow with ready/start/action/disconnect/reconnect handling
+- PostgreSQL-backed state persistence through JPA and Flyway
 
-## Initial endpoints
+## Runtime profiles
+
+- `local`: current development profile for native PostgreSQL on `localhost`
+- `docker`: future container-oriented profile that defaults the datasource host to `postgres`
+
+## Key endpoints
 
 - `GET /api/v1/status`
-- `GET /api/v1/lobby/echo?nickname=player_one`
+- `POST /api/v1/guests`
+- `POST /api/v1/tournaments`
+- `POST /api/v1/tournaments/{code}/join`
+- `GET /api/v1/tournaments/{code}`
 - `WS /ws`
-- `SEND /app/lobby.ping`
-- `SUBSCRIBE /topic/lobby`
+- `SEND /app/tournament.ready`
+- `SEND /app/tournament.disconnect`
+- `SEND /app/tournament.reconnect`
+- `SEND /app/tournament.start`
+- `SEND /app/game.action`
+- `SUBSCRIBE /topic/tournament.{code}`
