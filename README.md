@@ -10,7 +10,7 @@ Single-table tournament MVP for a Texas Holdem web application.
 - Tournament table UI bound to the shared snapshot contract
 - In-hand action engine for `CHECK`, `CALL`, `RAISE`, `ALL_IN`, and `FOLD`
 - Contribution tracking, main pot and side pot calculation, showdown settlement, bust-out handling, and hand-end state transitions
-- Owner-triggered next-hand start from `HAND_RESULT` with blind-level progression on hand boundaries
+- Automatic next-hand advance from `HAND_RESULT` after 5 seconds with blind-level progression on hand boundaries
 
 ## Stack
 
@@ -29,7 +29,17 @@ Single-table tournament MVP for a Texas Holdem web application.
 
 ### Database
 
-From `infra/`:
+Native PostgreSQL defaults:
+
+```bash
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=texas_holdem
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+```
+
+Docker Compose alternative from `infra/`:
 
 ```bash
 docker compose -f compose.yml up -d
@@ -40,7 +50,7 @@ docker compose -f compose.yml up -d
 From `backend/`:
 
 ```bash
-./gradlew bootRun
+./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
 - HTTP: `http://localhost:8080`
@@ -53,10 +63,10 @@ From `frontend/`:
 
 ```bash
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1
 ```
 
-- App: `http://localhost:5173`
+- App: `http://127.0.0.1:5173`
 
 ## Verification
 
