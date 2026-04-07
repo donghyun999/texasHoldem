@@ -9,7 +9,8 @@ Single-table tournament MVP for a Texas Holdem web application.
 - Tournament snapshot REST API and STOMP/WebSocket broadcast flow
 - Tournament table UI bound to the shared snapshot contract
 - In-hand action engine for `CHECK`, `CALL`, `RAISE`, `ALL_IN`, and `FOLD`
-- Contribution tracking, main pot and side pot calculation, and hand-end state transitions
+- Contribution tracking, main pot and side pot calculation, showdown settlement, bust-out handling, and hand-end state transitions
+- Owner-triggered next-hand start from `HAND_RESULT` with blind-level progression on hand boundaries
 
 ## Stack
 
@@ -80,7 +81,6 @@ npm run build
 
 ## Next work
 
-- Showdown winner evaluation and pot settlement
-- Bust-out processing and tournament-finished transition
-- Blind level progression across multiple hands
 - Reconnect and persistence hardening
+- Richer hand-result events for client animation and replay
+- Production-grade deck/randomness and persistence-backed tournament recovery

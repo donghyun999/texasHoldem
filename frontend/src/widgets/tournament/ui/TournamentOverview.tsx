@@ -40,7 +40,7 @@ export function TournamentOverview({ snapshot, syncState }: TournamentOverviewPr
           label="Next Level"
           value={`${formatBlindLevel(snapshot.nextLevel.smallBlind, snapshot.nextLevel.bigBlind)} in ${formatCountdown(snapshot.secondsUntilNextLevel)}`}
         />
-        <MetricCard label="Realtime" value={`${syncState} · ${TOURNAMENT_WS_URL}`} />
+        <MetricCard label="Realtime" value={`${syncState} @ ${TOURNAMENT_WS_URL}`} />
       </div>
     </div>
   );

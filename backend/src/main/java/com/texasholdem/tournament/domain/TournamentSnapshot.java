@@ -17,6 +17,7 @@ public record TournamentSnapshot(
         Integer bigBlindSeat,
         Integer actingSeat,
         List<TournamentPlayerView> players,
+        List<ShowdownPotView> showdownPots,
         List<String> availableActions,
         String tableMessage
 ) {

@@ -6,6 +6,7 @@ import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.presentation.dto.CreateTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.JoinTournamentRequest;
+import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentStartMessage;
 import jakarta.validation.Valid;
@@ -57,6 +58,24 @@ public class TournamentController {
             @Valid @RequestBody TournamentReadyMessage request
     ) {
         return ApiResponse.ok(tournamentService.changeReady(code, request.guestId(), request.ready()));
+    }
+
+    // Removes or marks a player disconnected according to the current tournament state.
+    @PostMapping("/{code}/disconnect")
+    public ApiResponse<TournamentEvent> disconnectTournamentPlayer(
+            @PathVariable String code,
+            @Valid @RequestBody TournamentConnectionMessage request
+    ) {
+        return ApiResponse.ok(tournamentService.disconnectPlayer(code, request.guestId()));
+    }
+
+    // Restores a previously disconnected player's seat and latest snapshot.
+    @PostMapping("/{code}/reconnect")
+    public ApiResponse<TournamentEvent> reconnectTournamentPlayer(
+            @PathVariable String code,
+            @Valid @RequestBody TournamentConnectionMessage request
+    ) {
+        return ApiResponse.ok(tournamentService.reconnectPlayer(code, request.guestId()));
     }
 
     // Starts the first hand when the owner promotes ready players into the field.

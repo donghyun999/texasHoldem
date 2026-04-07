@@ -5,6 +5,7 @@ const STORAGE_KEY = "texas-holdem-ui";
 type UiState = {
   guestId: string;
   nickname: string;
+  setGuestSession: (guestId: string, nickname: string) => void;
   setNickname: (nickname: string) => void;
 };
 
@@ -16,12 +17,12 @@ type PersistedUiState = {
 // Restores locally persisted guest identity for the current browser.
 function readPersistedUiState(): PersistedUiState {
   if (typeof window === "undefined") {
-    return { guestId: createGuestId(), nickname: "player_one" };
+    return { guestId: "", nickname: "player_one" };
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    const initialState = { guestId: createGuestId(), nickname: "player_one" };
+    const initialState = { guestId: "", nickname: "player_one" };
     writePersistedUiState(initialState);
     return initialState;
   }
@@ -29,13 +30,13 @@ function readPersistedUiState(): PersistedUiState {
   try {
     const parsed = JSON.parse(raw) as Partial<PersistedUiState>;
     const nextState = {
-      guestId: parsed.guestId?.trim() || createGuestId(),
+      guestId: parsed.guestId?.trim() || "",
       nickname: parsed.nickname?.trim() || "player_one",
     };
     writePersistedUiState(nextState);
     return nextState;
   } catch {
-    const fallbackState = { guestId: createGuestId(), nickname: "player_one" };
+    const fallbackState = { guestId: "", nickname: "player_one" };
     writePersistedUiState(fallbackState);
     return fallbackState;
   }
@@ -49,17 +50,17 @@ function writePersistedUiState(state: PersistedUiState) {
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
-
-// Creates a short guest id that is stable across reloads once persisted.
-function createGuestId() {
-  return `guest-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 const initialState = readPersistedUiState();
 
 export const useUiStore = create<UiState>((set) => ({
   guestId: initialState.guestId,
   nickname: initialState.nickname,
+  setGuestSession: (guestId, nickname) =>
+    set(() => {
+      const nextState = { guestId: guestId.trim(), nickname: nickname.trim() || "player_one" };
+      writePersistedUiState(nextState);
+      return nextState;
+    }),
   setNickname: (nickname) =>
     set((state) => {
       const nextState = { guestId: state.guestId, nickname };

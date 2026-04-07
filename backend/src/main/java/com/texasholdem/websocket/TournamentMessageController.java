@@ -2,6 +2,7 @@ package com.texasholdem.websocket;
 
 import com.texasholdem.tournament.application.TournamentService;
 import com.texasholdem.tournament.presentation.dto.GameActionMessage;
+import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentStartMessage;
 import jakarta.validation.Valid;
@@ -29,6 +30,20 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.ready")
     public void ready(@Valid @Payload TournamentReadyMessage message) {
         var event = tournamentService.changeReady(message.code(), message.guestId(), message.ready());
+        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+    }
+
+    // Broadcasts the disconnection fallback snapshot for one tournament player.
+    @MessageMapping("/tournament.disconnect")
+    public void disconnect(@Valid @Payload TournamentConnectionMessage message) {
+        var event = tournamentService.disconnectPlayer(message.code(), message.guestId());
+        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+    }
+
+    // Broadcasts the reconnect snapshot for one tournament player.
+    @MessageMapping("/tournament.reconnect")
+    public void reconnect(@Valid @Payload TournamentConnectionMessage message) {
+        var event = tournamentService.reconnectPlayer(message.code(), message.guestId());
         messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
     }
 
