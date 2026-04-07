@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
+import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-tournament-realtime-snapshot";
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
@@ -15,7 +16,7 @@ export function TablePage() {
   const tournamentCode = params.tournamentCode ?? params.roomCode ?? "DEMO1";
   const { guestId } = useGuestSession();
   const snapshotQuery = useQuery({
-    queryKey: ["tournament-snapshot", tournamentCode],
+    queryKey: buildTournamentSnapshotKey(tournamentCode),
     queryFn: () => getTournamentSnapshot(tournamentCode),
     retry: false,
   });

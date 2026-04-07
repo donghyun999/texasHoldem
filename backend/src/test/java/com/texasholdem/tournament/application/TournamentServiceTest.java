@@ -289,7 +289,8 @@ class TournamentServiceTest {
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
         var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
-        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver);
+        var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
+        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver, handResultManager);
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper()));
         var firstService = new TournamentService(
@@ -401,7 +402,8 @@ class TournamentServiceTest {
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
         var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
-        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver);
+        var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
+        var handEngine = new TournamentHandEngine(rules, stateAccess, potResolver, handResultManager);
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper()));
         return new TournamentService(

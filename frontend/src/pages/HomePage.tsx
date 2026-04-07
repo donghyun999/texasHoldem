@@ -2,15 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
+import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
 import { createTournament, getBackendStatus, joinTournament } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
-
-// Builds the shared React Query cache key for one tournament snapshot.
-function buildTournamentSnapshotKey(code: string) {
-  return ["tournament-snapshot", code.trim().toUpperCase()] as const;
-}
 
 // Converts unknown mutation failures into a short UI-safe message.
 function toErrorMessage(error: unknown, fallback: string) {

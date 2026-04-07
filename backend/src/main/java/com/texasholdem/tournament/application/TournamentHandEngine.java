@@ -10,33 +10,33 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 final class TournamentHandEngine {
 
-    private static final long HAND_RESULT_DURATION_MILLIS = 5_000L;
     private final TournamentRules rules;
     private final TournamentStateAccess stateAccess;
     private final TournamentPotResolver potResolver;
+    private final TournamentHandResultManager handResultManager;
 
     // Wires the hand engine to the shared rule set, state helpers, and pot resolver.
     TournamentHandEngine(
             TournamentRules rules,
             TournamentStateAccess stateAccess,
-            TournamentPotResolver potResolver
+            TournamentPotResolver potResolver,
+            TournamentHandResultManager handResultManager
     ) {
         this.rules = rules;
         this.stateAccess = stateAccess;
         this.potResolver = potResolver;
+        this.handResultManager = handResultManager;
     }
 
     // Opens a new hand from the current surviving participant set.
     void openNextHand(TournamentState tournament, String prefixMessage) {
         preparePlayersForNextHand(tournament);
         if (stateAccess.countRemainingParticipants(tournament) <= 1) {
-            finishTournament(tournament, buildChampionMessage(tournament, prefixMessage));
+            handResultManager.moveToFinished(tournament, handResultManager.buildChampionMessage(tournament, prefixMessage));
             return;
         }
 
@@ -64,12 +64,12 @@ final class TournamentHandEngine {
         refreshPots(tournament);
         if (stateAccess.countPlayersAbleToAct(tournament) == 0) {
             revealFullBoard(tournament);
-            finishHand(tournament, stateAccess.combineMessages(
+            handResultManager.moveToHandResult(tournament, stateAccess.combineMessages(
                     prefixMessage,
                     levelMessage,
                     "All remaining players are all-in. Showdown is ready."
             ));
-            settleCompletedHand(tournament);
+            handResultManager.settleCompletedHand(tournament);
             return;
         }
 
@@ -373,14 +373,14 @@ final class TournamentHandEngine {
             boolean preserveCurrentActingSeat
     ) {
         if (stateAccess.countContestingPlayers(tournament) <= 1) {
-            finishHand(tournament, "One player remains.");
-            settleCompletedHand(tournament);
+            handResultManager.moveToHandResult(tournament, "One player remains.");
+            handResultManager.settleCompletedHand(tournament);
             return;
         }
         if (stateAccess.countPlayersAbleToAct(tournament) == 0) {
             revealFullBoard(tournament);
-            finishHand(tournament, "All remaining players are all-in. Showdown is ready.");
-            settleCompletedHand(tournament);
+            handResultManager.moveToHandResult(tournament, "All remaining players are all-in. Showdown is ready.");
+            handResultManager.settleCompletedHand(tournament);
             return;
         }
 
@@ -405,8 +405,8 @@ final class TournamentHandEngine {
     private void advanceRoundOrFinish(TournamentState tournament) {
         if (tournament.round == BettingRound.RIVER) {
             revealFullBoard(tournament);
-            finishHand(tournament, "River action is closed. Showdown is ready.");
-            settleCompletedHand(tournament);
+            handResultManager.moveToHandResult(tournament, "River action is closed. Showdown is ready.");
+            handResultManager.settleCompletedHand(tournament);
             return;
         }
 
@@ -416,93 +416,14 @@ final class TournamentHandEngine {
         revealBoardForRound(tournament);
         if (stateAccess.countPlayersAbleToAct(tournament) <= 1) {
             revealFullBoard(tournament);
-            finishHand(tournament, "Further betting is closed. Showdown is ready.");
-            settleCompletedHand(tournament);
+            handResultManager.moveToHandResult(tournament, "Further betting is closed. Showdown is ready.");
+            handResultManager.settleCompletedHand(tournament);
             return;
         }
 
         markAwaitingPlayers(tournament);
         var startSeat = stateAccess.nextActiveSeatAfter(tournament, tournament.dealerSeat == null ? -1 : tournament.dealerSeat);
         activateSeat(tournament, startSeat, tournament.round.openMessage());
-    }
-
-    // Settles the finished hand, marks bust-outs, and leaves the table ready for the next hand.
-    private void settleCompletedHand(TournamentState tournament) {
-        var settlement = potResolver.settle(
-                tournament.players.stream().map(this::toPotState).toList(),
-                tournament.hiddenBoardCards,
-                tournament.dealerSeat
-        );
-        for (var player : tournament.players) {
-            player.stack += settlement.stackCredits().getOrDefault(player.guestId, 0);
-        }
-        tournament.showdownPots = new ArrayList<>(settlement.showdownPots());
-
-        var bustedPlayers = markBustedPlayers(tournament);
-        var summary = buildCompletionMessage(tournament, settlement, bustedPlayers);
-        if (stateAccess.countRemainingParticipants(tournament) <= 1) {
-            finishTournament(tournament, buildChampionMessage(tournament, stateAccess.combineMessages(tournament.tableMessage, summary)));
-            return;
-        }
-        tournament.tableMessage = stateAccess.combineMessages(tournament.tableMessage, summary);
-    }
-
-    // Marks every zero-stack participant as busted out after a settlement step.
-    private List<TournamentPlayerState> markBustedPlayers(TournamentState tournament) {
-        var bustedPlayers = new ArrayList<TournamentPlayerState>();
-        for (var player : tournament.players) {
-            if (!player.participating || player.stack > 0) {
-                continue;
-            }
-            player.stack = 0;
-            player.participating = false;
-            player.status = PlayerStatus.BUSTED_OUT;
-            player.acting = false;
-            bustedPlayers.add(player);
-        }
-        return bustedPlayers;
-    }
-
-    // Builds the settlement summary shown in the result state after a finished hand.
-    private String buildCompletionMessage(
-            TournamentState tournament,
-            TournamentPotResolver.Settlement settlement,
-            List<TournamentPlayerState> bustedPlayers
-    ) {
-        var fragments = new ArrayList<String>();
-        settlement.potAwards().entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .forEach(entry -> fragments.add(stateAccess.requirePlayer(tournament, entry.getKey()).nickname + " won " + entry.getValue() + "."));
-        if (!bustedPlayers.isEmpty()) {
-            fragments.add(bustedPlayers.stream()
-                    .map(player -> player.nickname + " busted out.")
-                    .collect(Collectors.joining(" ")));
-        }
-        return String.join(" ", fragments);
-    }
-
-    // Builds the terminal winner message once only one participant still has chips.
-    private String buildChampionMessage(TournamentState tournament, String prefixMessage) {
-        var champion = tournament.players.stream()
-                .filter(player -> player.participating && player.stack > 0)
-                .findFirst()
-                .orElse(null);
-        if (champion == null) {
-            return prefixMessage == null || prefixMessage.isBlank()
-                    ? "Tournament finished."
-                    : prefixMessage.trim();
-        }
-        return stateAccess.combineMessages(prefixMessage, champion.nickname + " wins the tournament.");
-    }
-
-    // Clears action affordances and moves the tournament into the terminal state.
-    private void finishTournament(TournamentState tournament, String tableMessage) {
-        tournament.status = TournamentStatus.FINISHED;
-        tournament.actingSeat = null;
-        tournament.handResultEndsAtEpochMilli = 0;
-        tournament.availableActions = new ArrayList<>();
-        stateAccess.setActingPlayer(tournament, null);
-        tournament.tableMessage = tableMessage;
     }
 
     // Clears round-local contributions once a street is complete.
@@ -531,17 +452,7 @@ final class TournamentHandEngine {
         tournament.boardCards = new ArrayList<>(tournament.hiddenBoardCards);
     }
 
-    // Moves the tournament into hand-result state and clears action affordances.
-    private void finishHand(TournamentState tournament, String tableMessage) {
-        tournament.status = TournamentStatus.HAND_RESULT;
-        tournament.actingSeat = null;
-        tournament.handResultEndsAtEpochMilli = Instant.now().toEpochMilli() + HAND_RESULT_DURATION_MILLIS;
-        tournament.availableActions = new ArrayList<>();
-        stateAccess.setActingPlayer(tournament, null);
-        tournament.tableMessage = tableMessage;
-    }
-
-    // Converts mutable player state into the pure data structure used for pot resolution.
+    // Converts mutable player state into the pure data structure used for pot snapshots.
     private TournamentPotResolver.PlayerPotState toPotState(TournamentPlayerState player) {
         return new TournamentPotResolver.PlayerPotState(
                 player.guestId,

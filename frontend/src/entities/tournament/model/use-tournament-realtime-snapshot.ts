@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Client, IMessage } from "@stomp/stompjs";
 import { useQueryClient } from "@tanstack/react-query";
+import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import type { TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { disconnectTournamentPlayer } from "@/shared/api/http";
 import {
@@ -12,11 +13,6 @@ import {
 } from "@/shared/api/stomp-client";
 
 type TournamentRealtimeState = "IDLE" | "CONNECTING" | "CONNECTED" | "RECONNECTING" | "ERROR";
-
-// Normalizes the shared React Query key used for one tournament snapshot.
-function buildTournamentSnapshotKey(code: string) {
-  return ["tournament-snapshot", code] as const;
-}
 
 // Parses one broker message into the shared tournament event contract.
 function parseTournamentEvent(message: IMessage) {
