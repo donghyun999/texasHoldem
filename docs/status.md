@@ -42,6 +42,7 @@
 - Browser refresh no longer auto-sends the fallback disconnect for in-hand seats, so reloading the active actor restores the latest snapshot instead of forcing an immediate fold
 - Table REST snapshot now accepts an optional viewing `guestId` and returns `selfHoleCards`, so the current player can see their own hand without exposing opponents' cards
 - Finished tournaments now clean themselves up after the result screen window, either 20 seconds after `FINISHED` or earlier when the last connected player leaves
+- Persisted stale tournaments now clean themselves up from `updated_at` TTL rules before active-tournament lookup and capacity-sensitive create/join flows, so abandoned waiting or in-hand rows no longer block new MVP testing sessions
 
 ## In progress / focus
 
@@ -77,6 +78,7 @@
 - Waiting-room participant lists now refresh immediately on join because REST join mirrors one websocket snapshot broadcast to existing subscribers
 - Reload recovery now preserves the current in-hand seat instead of converting the refresh into an automatic disconnect/fold path
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
+- Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
 
 ## MVP closeout boundary
 

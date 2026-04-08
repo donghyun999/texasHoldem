@@ -1,5 +1,6 @@
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
+import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
@@ -45,12 +46,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
             <p className="mt-2 text-4xl font-semibold text-white">{snapshot.mainPot}</p>
             <div className="mt-6 flex justify-center gap-3">
               {snapshot.boardCards.map((card) => (
-                <div
-                  key={card}
-                  className="grid h-24 w-16 place-items-center rounded-2xl border border-white/15 bg-white text-xl font-semibold text-slate-900"
-                >
-                  {card}
-                </div>
+                <PlayingCard key={card} card={card} />
               ))}
             </div>
             <div className="mt-6 flex flex-wrap justify-center gap-3">

@@ -5,7 +5,9 @@ import com.texasholdem.tournament.domain.ActiveTournamentSession;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,6 +31,9 @@ public class TournamentService {
     private final TournamentStateStore stateStore;
     private final ApplicationEventPublisher eventPublisher;
     private final int maxActivePlayers;
+    private final long waitingIdleTtlMillis;
+    private final long inHandIdleTtlMillis;
+    private final long hardTtlMillis;
 
     // Wires the tournament orchestrator to the focused lifecycle and hand collaborators.
     public TournamentService(
@@ -41,7 +46,10 @@ public class TournamentService {
             TournamentHandEngine handEngine,
             TournamentStateStore stateStore,
             ApplicationEventPublisher eventPublisher,
-            @Value("${app.tournament.max-active-players:50}") int maxActivePlayers
+            @Value("${app.tournament.max-active-players:50}") int maxActivePlayers,
+            @Value("${app.tournament.waiting-idle-ttl-seconds:1800}") long waitingIdleTtlSeconds,
+            @Value("${app.tournament.in-hand-idle-ttl-seconds:7200}") long inHandIdleTtlSeconds,
+            @Value("${app.tournament.hard-ttl-seconds:86400}") long hardTtlSeconds
     ) {
         this.identityFactory = identityFactory;
         this.snapshotFactory = snapshotFactory;
@@ -53,6 +61,9 @@ public class TournamentService {
         this.stateStore = stateStore;
         this.eventPublisher = eventPublisher;
         this.maxActivePlayers = maxActivePlayers;
+        this.waitingIdleTtlMillis = ttlToMillis(waitingIdleTtlSeconds);
+        this.inHandIdleTtlMillis = ttlToMillis(inHandIdleTtlSeconds);
+        this.hardTtlMillis = ttlToMillis(hardTtlSeconds);
     }
 
     // Issues a lightweight guest identity for the tournament flow.
@@ -60,8 +71,15 @@ public class TournamentService {
         return identityFactory.registerGuest(nickname);
     }
 
+    // Clears stale persisted tournaments once the app is ready to serve traffic.
+    @EventListener(ApplicationReadyEvent.class)
+    void cleanupStaleTournamentsOnStartup() {
+        cleanupStaleTournaments();
+    }
+
     // Returns the active non-finished tournament already occupied by the guest, when one exists.
     public ActiveTournamentSession findActiveTournament(String guestId) {
+        cleanupStaleTournaments();
         var activeTournamentCode = stateStore.findActiveTournamentCodeByGuestId(guestId);
         if (activeTournamentCode == null) {
             return null;
@@ -80,6 +98,7 @@ public class TournamentService {
 
     // Creates a waiting tournament and optionally reserves the caller-supplied code.
     public TournamentSnapshot createTournament(String guestId, String nickname, String requestedCode) {
+        cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, null);
         ensureCapacityForNewGuest();
         var code = identityFactory.resolveTournamentCode(requestedCode, currentCode ->
@@ -108,6 +127,7 @@ public class TournamentService {
 
     // Seats a guest into the next available seat while the tournament is waiting.
     public TournamentSnapshot joinTournament(String code, String guestId, String nickname) {
+        cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, code);
         ensureCapacityForNewGuest();
         var tournament = requireTournament(code);
@@ -120,6 +140,7 @@ public class TournamentService {
 
     // Seats a guest and returns the broadcast bundle so waiting-room subscribers can refresh immediately.
     public TournamentBroadcast joinTournamentBroadcast(String code, String guestId, String nickname) {
+        cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, code);
         ensureCapacityForNewGuest();
         var tournament = requireTournament(code);
@@ -411,5 +432,27 @@ public class TournamentService {
         var mergedEvents = new java.util.ArrayList<>(first.events());
         mergedEvents.addAll(second.events());
         return new TournamentBroadcast(mergedEvents);
+    }
+
+    // Deletes stale waiting and abandoned in-hand tournaments whose update timestamp exceeded the TTL policy.
+    void cleanupStaleTournaments() {
+        if (waitingIdleTtlMillis <= 0 && inHandIdleTtlMillis <= 0 && hardTtlMillis <= 0) {
+            return;
+        }
+
+        var staleCodes = stateStore.findStaleTournamentCodes(
+                Instant.now().toEpochMilli(),
+                waitingIdleTtlMillis,
+                inHandIdleTtlMillis,
+                hardTtlMillis
+        );
+        staleCodes.forEach(code -> {
+            tournaments.remove(code);
+            stateStore.delete(code);
+        });
+    }
+
+    private long ttlToMillis(long ttlSeconds) {
+        return ttlSeconds <= 0 ? 0 : ttlSeconds * 1_000L;
     }
 }

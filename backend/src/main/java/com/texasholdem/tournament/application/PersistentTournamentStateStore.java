@@ -5,6 +5,7 @@ import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.stereotype.Component;
 
+import java.time.ZoneId;
 import java.util.List;
 
 @Component
@@ -93,9 +94,48 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .toList();
     }
 
+    // Finds stale persisted tournaments using updated_at as the idle-TTL source of truth.
+    @Override
+    public List<String> findStaleTournamentCodes(
+            long nowEpochMilli,
+            long waitingIdleTtlMillis,
+            long inHandIdleTtlMillis,
+            long hardTtlMillis
+    ) {
+        return repository.findAll().stream()
+                .filter(entity -> isStale(entity, nowEpochMilli, waitingIdleTtlMillis, inHandIdleTtlMillis, hardTtlMillis))
+                .map(TournamentStateEntity::getCode)
+                .toList();
+    }
+
     // Deletes one persisted tournament aggregate from the database.
     @Override
     public void delete(String code) {
         repository.deleteById(code);
+    }
+
+    private boolean isStale(
+            TournamentStateEntity entity,
+            long nowEpochMilli,
+            long waitingIdleTtlMillis,
+            long inHandIdleTtlMillis,
+            long hardTtlMillis
+    ) {
+        var tournament = mapper.read(entity.getPayload());
+        var updatedAtEpochMilli = entity.getUpdatedAt()
+                .atZone(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli();
+        var ageMillis = Math.max(0, nowEpochMilli - updatedAtEpochMilli);
+
+        if (hardTtlMillis > 0 && ageMillis >= hardTtlMillis) {
+            return true;
+        }
+        if (tournament.status == TournamentStatus.WAITING && waitingIdleTtlMillis > 0 && ageMillis >= waitingIdleTtlMillis) {
+            return true;
+        }
+        return tournament.status == TournamentStatus.IN_HAND
+                && inHandIdleTtlMillis > 0
+                && ageMillis >= inHandIdleTtlMillis;
     }
 }
