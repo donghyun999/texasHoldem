@@ -4,8 +4,10 @@
 
 - `WAITING`: players can join, toggle ready, and the owner can start once at least two players are ready
 - `IN_HAND`: blinds are posted, a hand is active, and only the acting player can submit an action
-- `HAND_RESULT`: action is closed, showdown and settlement are already reflected, and the owner can open the next hand
+- `HAND_RESULT`: action is closed, showdown and settlement are already reflected, and the result screen is held for 5 seconds before auto-advance
   - settled pot-by-pot payouts are available in `snapshot.showdownPots`
+  - hand-local eliminations are preserved in `snapshot.recentlyBustedGuestIds` so reconnect can render the same result context
+  - the final hand also stays in `HAND_RESULT` for the same 5-second window before transitioning to `FINISHED`
 - `FINISHED`: one player remains and the tournament no longer accepts actions
 
 ## Player lifecycle
@@ -27,21 +29,39 @@
 5. Build the main pot and any side pots from matched contribution tiers, ignoring uncalled excess chips
 6. Resolve showdown, distribute chips, refund unmatched excess chips, and mark busted-out players
    Result snapshots keep both aggregate pot totals and per-pot payouts for the result panel
-7. Wait in `HAND_RESULT` for the owner to open the next hand, or transition to `FINISHED`
+7. Hold `HAND_RESULT` for 5 seconds, then auto-open the next hand or transition to `FINISHED`
 
 ## Current engine notes
 
 - `CALL` supports short all-in calls when the stack is smaller than the amount to call
 - `ALL_IN` can either call or reopen action depending on whether it raises the current round bet
 - The hand moves to `HAND_RESULT` as soon as one player remains eligible for the pot or no player can act because everyone left is all-in
-- Showdown uses deterministic hidden hole cards and awards main pots and side pots before the snapshot is broadcast
+- Each hand now deals hole cards and hidden board cards from a shuffled 52-card deck before snapshots are broadcast
 - Blind levels advance only on the next hand boundary, never in the middle of an active hand
 - Waiting-room disconnects remove the player immediately and delegate owner rights by lowest eligible seat
+- Waiting-room leave/disconnect semantics are the same server-side operation
+  - when WebSocket is unavailable, the frontend falls back to `POST /api/v1/tournaments/{code}/disconnect` and applies the returned snapshot locally
+- Browser refresh no longer auto-disconnects the current table seat
+  - waiting-room route exit inside the SPA still falls back to `POST /api/v1/tournaments/{code}/disconnect`
+  - in-hand refresh now preserves the seat so the same `guestId` can restore the latest snapshot after reload
 - In-hand disconnects mark the player offline, auto-fold active actors, and allow reconnect by the same `guestId`
+- The browser table page now keeps one stable STOMP session per tournament code
+  - explicit in-page `Disconnect` keeps the player offline until the user presses `Reconnect`
+  - transport reconnect after reload or temporary websocket loss still restores the seat automatically once the topic connection is back
+- Reconnect and disconnect requests now normalize stale expired `HAND_RESULT` snapshots before they publish live recovery state
+- The backend still accepts `/app/tournament.start` from non-final `HAND_RESULT` for compatibility, but the current frontend waits for automatic next-hand transition instead of rendering a manual button
 
 ## Persistence notes
 
 - Tournament mutations are persisted as one JSON aggregate after create, join, ready, start, action, disconnect, and reconnect flows
 - `TournamentService` first reads from the in-memory cache and falls back to persisted state on cache miss or service restart
 - Waiting-room tournaments are deleted only when the last player leaves the table
-- `HAND_RESULT` and `FINISHED` tournaments are currently retained so reconnect and result-screen fetches can still resolve the latest snapshot
+- `HAND_RESULT` tournaments are retained through the 5-second result window so reconnect and result-screen fetches can still resolve the latest snapshot
+- `FINISHED` tournaments are retained only briefly after the final result
+  - the server deletes them 20 seconds after `FINISHED`
+  - the server also deletes them earlier when the last connected player leaves the result screen
+
+## Spec vs implementation
+
+- Spec: section 15 requires `HAND_RESULT` to remain visible for 5 seconds before the table advances to the next hand or `FINISHED`
+- Implementation: auto-advance is implemented, and stale persisted `HAND_RESULT` state is also advanced eagerly when `GET /api/v1/tournaments/{code}` reloads the tournament

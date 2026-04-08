@@ -1,5 +1,5 @@
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
-import { TOURNAMENT_WS_URL } from "@/shared/api/stomp-client";
+import { TOURNAMENT_WS_URL } from "@/shared/config/runtime";
 
 type TournamentOverviewProps = {
   snapshot: TournamentSnapshot;

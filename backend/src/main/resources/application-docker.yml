@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:texas_holdem}
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    org.springframework.web.socket: info

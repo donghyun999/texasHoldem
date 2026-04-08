@@ -1,6 +1,8 @@
-import { useParams } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
+import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-tournament-realtime-snapshot";
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
@@ -12,11 +14,12 @@ import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 // Renders a tournament table from either a live server snapshot or a local fallback.
 export function TablePage() {
   const params = useParams();
+  const navigate = useNavigate();
   const tournamentCode = params.tournamentCode ?? params.roomCode ?? "DEMO1";
   const { guestId } = useGuestSession();
   const snapshotQuery = useQuery({
-    queryKey: ["tournament-snapshot", tournamentCode],
-    queryFn: () => getTournamentSnapshot(tournamentCode),
+    queryKey: buildTournamentSnapshotKey(tournamentCode),
+    queryFn: () => getTournamentSnapshot(tournamentCode, guestId),
     retry: false,
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
@@ -30,11 +33,25 @@ export function TablePage() {
         : "SYNCING";
   const currentPlayer =
     realtimeSnapshot.currentPlayer ?? snapshot.players.find((player) => player.guestId === guestId) ?? null;
+  const wasSeatedRef = useRef(false);
+
+  // Returns the user to the lobby after an explicit waiting-room leave removes the seat.
+  useEffect(() => {
+    if (currentPlayer) {
+      wasSeatedRef.current = true;
+      return;
+    }
+
+    if (wasSeatedRef.current && snapshot.status === "WAITING") {
+      wasSeatedRef.current = false;
+      navigate("/", { replace: true });
+    }
+  }, [currentPlayer, navigate, snapshot.status]);
 
   return (
     <section className="space-y-6">
       <TournamentOverview snapshot={snapshot} syncState={syncState} />
-      <TournamentTable snapshot={snapshot} />
+      <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
       <TournamentShowdownPanel snapshot={snapshot} />
       <ActionPanel
         actions={snapshot.availableActions}

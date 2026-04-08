@@ -1,6 +1,20 @@
 package com.texasholdem.tournament.application;
 
+import java.util.List;
+
 interface TournamentStateStore {
+
+    record PendingHandResult(
+            String code,
+            long handResultEndsAtEpochMilli
+    ) {
+    }
+
+    record PendingFinishedCleanup(
+            String code,
+            long finishedCleanupAtEpochMilli
+    ) {
+    }
 
     // Tells whether a tournament code is already reserved in durable storage.
     boolean exists(String code);
@@ -13,6 +27,15 @@ interface TournamentStateStore {
 
     // Finds another non-finished tournament that already contains the guest.
     String findActiveTournamentCodeByGuestId(String guestId);
+
+    // Counts all guests currently occupying non-finished tournaments.
+    int countActiveGuests();
+
+    // Lists persisted hand-result tournaments whose delayed transition must survive a restart.
+    List<PendingHandResult> findPendingHandResults();
+
+    // Lists persisted finished tournaments whose delayed cleanup must survive a restart.
+    List<PendingFinishedCleanup> findPendingFinishedCleanups();
 
     // Removes one tournament completely from durable storage.
     void delete(String code);

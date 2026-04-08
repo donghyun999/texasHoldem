@@ -10,7 +10,6 @@ final class TournamentRules {
 
     private static final int MAX_SEATS = 6;
     private static final int STARTING_STACK = 1_000;
-    private static final List<String> DEFAULT_BOARD_RUNOUT = List.of("AH", "KD", "7C", "4S", "2D");
     private static final List<BlindLevel> DEFAULT_LEVELS = List.of(
             new BlindLevel(1, 10, 20, 300),
             new BlindLevel(2, 15, 30, 300),
@@ -28,11 +27,6 @@ final class TournamentRules {
     // Returns the starting stack assigned when the tournament begins.
     int startingStack() {
         return STARTING_STACK;
-    }
-
-    // Returns the deterministic board runout used by the MVP hand engine.
-    List<String> defaultBoardRunout() {
-        return DEFAULT_BOARD_RUNOUT;
     }
 
     // Returns the configured blind level ladder for the tournament.

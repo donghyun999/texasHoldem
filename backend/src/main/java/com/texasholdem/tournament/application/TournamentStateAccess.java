@@ -146,12 +146,12 @@ final class TournamentStateAccess {
             return List.of();
         }
 
-        var chipsToCall = Math.max(0, tournament.currentBet - player.roundContribution);
+        var chipsToCall = TournamentBetSizing.chipsToCall(tournament, player);
         var actions = new ArrayList<String>();
         if (chipsToCall > 0) {
             actions.add("FOLD");
             actions.add("CALL");
-            if (player.stack > chipsToCall) {
+            if (player.raiseRightsAvailable && TournamentBetSizing.canMakeFullRaise(rules, tournament, player)) {
                 actions.add("RAISE");
             }
             actions.add("ALL_IN");
@@ -159,7 +159,9 @@ final class TournamentStateAccess {
         }
 
         actions.add("CHECK");
-        actions.add(tournament.currentBet == 0 ? "BET" : "RAISE");
+        if (player.raiseRightsAvailable && TournamentBetSizing.canMakeFullRaise(rules, tournament, player)) {
+            actions.add(tournament.currentBet == 0 ? "BET" : "RAISE");
+        }
         actions.add("ALL_IN");
         return actions;
     }

@@ -1,7 +1,9 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.GuestSession;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -20,6 +22,24 @@ final class TournamentIdentityFactory {
         return nickname == null ? "" : nickname.trim();
     }
 
+    // Resolves an optional caller-supplied code or generates one when omitted.
+    String resolveTournamentCode(String requestedCode, Predicate<String> alreadyExists) {
+        var normalizedRequestedCode = normalizeTournamentCode(requestedCode);
+        if (normalizedRequestedCode.isBlank()) {
+            return nextTournamentCode(alreadyExists);
+        }
+        if (!normalizedRequestedCode.matches("[A-Z0-9]{3,10}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Tournament code must be 3 to 10 letters or digits"
+            );
+        }
+        if (alreadyExists.test(normalizedRequestedCode)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament code already exists");
+        }
+        return normalizedRequestedCode;
+    }
+
     // Generates a short room code that does not collide with current tournaments.
     String nextTournamentCode(Predicate<String> alreadyExists) {
         while (true) {
@@ -33,6 +53,11 @@ final class TournamentIdentityFactory {
     // Creates a stable guest id suitable for local persistence on the client.
     private String nextGuestId() {
         return "guest-" + UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    // Normalizes caller input before the code is used as a persistence key.
+    private String normalizeTournamentCode(String code) {
+        return code == null ? "" : code.trim().toUpperCase();
     }
 
     // Builds an uppercase code using a typo-resistant alphabet.

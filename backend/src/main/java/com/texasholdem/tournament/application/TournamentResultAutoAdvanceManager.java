@@ -1,7 +1,9 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.TournamentStatus;
 import com.texasholdem.websocket.TournamentTopicPublisher;
 import jakarta.annotation.PreDestroy;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -19,38 +21,67 @@ final class TournamentResultAutoAdvanceManager {
     private final ConcurrentMap<String, ScheduledTransition> scheduledTransitions = new ConcurrentHashMap<>();
     private final TournamentService tournamentService;
     private final TournamentTopicPublisher topicPublisher;
+    private final TournamentStateStore stateStore;
 
     // Wires hand-result auto-advance to the tournament service and broker publisher.
     TournamentResultAutoAdvanceManager(
             TournamentService tournamentService,
-            TournamentTopicPublisher topicPublisher
+            TournamentTopicPublisher topicPublisher,
+            TournamentStateStore stateStore
     ) {
         this.tournamentService = tournamentService;
         this.topicPublisher = topicPublisher;
+        this.stateStore = stateStore;
     }
 
     // Schedules or cancels one result-state transition whenever tournament state changes are published.
     @EventListener
     void onTournamentStateChanged(TournamentStateChangedEvent event) {
-        if (event.status() != com.texasholdem.tournament.domain.TournamentStatus.HAND_RESULT
-                || event.handResultEndsAtEpochMilli() <= 0) {
+        var transitionKind = transitionKind(event);
+        if (transitionKind == null) {
             cancel(event.code());
             return;
         }
+        var deadlineEpochMilli = transitionDeadline(event, transitionKind);
 
         var current = scheduledTransitions.get(event.code());
-        if (current != null && current.deadlineEpochMilli() == event.handResultEndsAtEpochMilli()) {
+        if (current != null
+                && current.kind() == transitionKind
+                && current.deadlineEpochMilli() == deadlineEpochMilli) {
             return;
         }
 
         cancel(event.code());
-        var delayMillis = Math.max(0, event.handResultEndsAtEpochMilli() - System.currentTimeMillis());
+        var scheduledTransition = new ScheduledTransition(transitionKind, deadlineEpochMilli);
+        scheduledTransitions.put(event.code(), scheduledTransition);
+        var delayMillis = Math.max(0, deadlineEpochMilli - System.currentTimeMillis());
         var future = scheduler.schedule(
-                () -> advanceTournament(event.code(), event.handResultEndsAtEpochMilli()),
+                () -> runTransition(event.code(), transitionKind, deadlineEpochMilli),
                 delayMillis,
                 TimeUnit.MILLISECONDS
         );
-        scheduledTransitions.put(event.code(), new ScheduledTransition(event.handResultEndsAtEpochMilli(), future));
+        scheduledTransition.attachFuture(future);
+    }
+
+    // Replays persisted hand-result transitions so auto-advance survives service restarts.
+    @EventListener(ApplicationReadyEvent.class)
+    void recoverPendingHandResults() {
+        stateStore.findPendingHandResults().forEach(pendingHandResult ->
+                onTournamentStateChanged(new TournamentStateChangedEvent(
+                        pendingHandResult.code(),
+                        TournamentStatus.HAND_RESULT,
+                        pendingHandResult.handResultEndsAtEpochMilli(),
+                        0
+                ))
+        );
+        stateStore.findPendingFinishedCleanups().forEach(pendingCleanup ->
+                onTournamentStateChanged(new TournamentStateChangedEvent(
+                        pendingCleanup.code(),
+                        TournamentStatus.FINISHED,
+                        0,
+                        pendingCleanup.finishedCleanupAtEpochMilli()
+                ))
+        );
     }
 
     // Stops any queued transition when the service shuts down.
@@ -61,30 +92,80 @@ final class TournamentResultAutoAdvanceManager {
     }
 
     // Runs one delayed transition and broadcasts the fresh snapshot when the result timer expires.
-    private void advanceTournament(String code, long deadlineEpochMilli) {
+    private void runTransition(String code, TransitionKind transitionKind, long deadlineEpochMilli) {
         var scheduled = scheduledTransitions.get(code);
-        if (scheduled == null || scheduled.deadlineEpochMilli() != deadlineEpochMilli) {
+        if (scheduled == null
+                || scheduled.kind() != transitionKind
+                || scheduled.deadlineEpochMilli() != deadlineEpochMilli) {
             return;
         }
 
         scheduledTransitions.remove(code, scheduled);
-        var event = tournamentService.autoAdvanceHandResult(code, deadlineEpochMilli);
-        if (event != null) {
-            topicPublisher.publish(code, event);
+        if (transitionKind == TransitionKind.HAND_RESULT) {
+            var broadcast = tournamentService.autoAdvanceHandResult(code, deadlineEpochMilli);
+            if (broadcast != null) {
+                topicPublisher.publish(code, broadcast);
+            }
+            return;
         }
+
+        tournamentService.cleanupFinishedTournament(code, deadlineEpochMilli);
     }
 
     // Cancels one existing delayed transition when the tournament leaves result state.
     private void cancel(String code) {
         var existing = scheduledTransitions.remove(code);
-        if (existing != null) {
+        if (existing != null && existing.future() != null) {
             existing.future().cancel(false);
         }
     }
 
-    private record ScheduledTransition(
-            long deadlineEpochMilli,
-            ScheduledFuture<?> future
-    ) {
+    private TransitionKind transitionKind(TournamentStateChangedEvent event) {
+        if (event.status() == TournamentStatus.HAND_RESULT && event.handResultEndsAtEpochMilli() > 0) {
+            return TransitionKind.HAND_RESULT;
+        }
+        if (event.status() == TournamentStatus.FINISHED && event.finishedCleanupAtEpochMilli() > 0) {
+            return TransitionKind.FINISHED_CLEANUP;
+        }
+        return null;
+    }
+
+    private long transitionDeadline(TournamentStateChangedEvent event, TransitionKind transitionKind) {
+        return transitionKind == TransitionKind.HAND_RESULT
+                ? event.handResultEndsAtEpochMilli()
+                : event.finishedCleanupAtEpochMilli();
+    }
+
+    private static final class ScheduledTransition {
+
+        private final TransitionKind kind;
+        private final long deadlineEpochMilli;
+        private volatile ScheduledFuture<?> future;
+
+        private ScheduledTransition(TransitionKind kind, long deadlineEpochMilli) {
+            this.kind = kind;
+            this.deadlineEpochMilli = deadlineEpochMilli;
+        }
+
+        TransitionKind kind() {
+            return kind;
+        }
+
+        long deadlineEpochMilli() {
+            return deadlineEpochMilli;
+        }
+
+        ScheduledFuture<?> future() {
+            return future;
+        }
+
+        void attachFuture(ScheduledFuture<?> future) {
+            this.future = future;
+        }
+    }
+
+    private enum TransitionKind {
+        HAND_RESULT,
+        FINISHED_CLEANUP
     }
 }

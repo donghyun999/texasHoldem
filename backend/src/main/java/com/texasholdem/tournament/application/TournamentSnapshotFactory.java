@@ -21,6 +21,11 @@ final class TournamentSnapshotFactory {
 
     // Converts mutable in-memory state into the API snapshot contract.
     TournamentSnapshot toSnapshot(TournamentState tournament) {
+        return toSnapshot(tournament, null);
+    }
+
+    // Converts mutable in-memory state into the API snapshot contract for one viewing guest.
+    TournamentSnapshot toSnapshot(TournamentState tournament, String viewerGuestId) {
         var currentLevel = rules.currentLevel(tournament.levelIndex);
         var nextLevel = rules.nextLevel(tournament.levelIndex);
         var now = Instant.now().getEpochSecond();
@@ -48,8 +53,10 @@ final class TournamentSnapshotFactory {
                         .map(this::toView)
                         .collect(Collectors.toList()),
                 List.copyOf(tournament.showdownPots),
+                List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
-                tournament.tableMessage
+                tournament.tableMessage,
+                viewerHoleCards(tournament, viewerGuestId)
         );
     }
 
@@ -66,5 +73,18 @@ final class TournamentSnapshotFactory {
                 player.participating,
                 player.acting
         );
+    }
+
+    // Exposes only the viewing player's own hole cards, never opponents' hidden cards.
+    private List<String> viewerHoleCards(TournamentState tournament, String viewerGuestId) {
+        if (viewerGuestId == null || viewerGuestId.isBlank()) {
+            return List.of();
+        }
+
+        return tournament.players.stream()
+                .filter(player -> player.guestId.equals(viewerGuestId))
+                .findFirst()
+                .map(player -> List.copyOf(player.holeCards))
+                .orElseGet(List::of);
     }
 }

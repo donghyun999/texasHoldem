@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
+import {
+  buildActionPanelViewModel,
+  parseTargetAmount,
+  toActionLabel,
+} from "@/features/table/model/action-panel";
 
 type ActionPanelProps = {
   actions: string[];
@@ -13,49 +18,6 @@ type ActionPanelProps = {
   onDisconnect: () => void;
   onReconnect: () => void;
 };
-
-// Converts server action keys into stable button labels.
-function toActionLabel(action: string) {
-  return action.replaceAll("_", " ");
-}
-
-// Detects which actions need an explicit target contribution amount.
-function requiresAmount(action: string) {
-  return action === "BET" || action === "RAISE";
-}
-
-// Builds a short local-player hint from the latest snapshot view.
-function describeControlState(
-  currentPlayer: TournamentPlayer | null,
-  tournamentStatus: TournamentStatus,
-  actions: string[],
-) {
-  if (!currentPlayer) {
-    return "Current guest is not seated in this tournament.";
-  }
-
-  if (!currentPlayer.connected) {
-    return "Reconnect to restore seat ownership and receive live updates.";
-  }
-
-  if (tournamentStatus === "WAITING") {
-    return currentPlayer.status === "READY"
-      ? "You are ready. The owner can start once at least two players are ready."
-      : "Mark ready when you want to be included in the next tournament start.";
-  }
-
-  if (tournamentStatus === "HAND_RESULT") {
-    return "The hand is settled. The table will advance automatically after the short result window.";
-  }
-
-  if (currentPlayer.acting) {
-    return actions.length > 0
-      ? "It is your turn. Use the actions below to submit the next move."
-      : "It is your turn, but the server has not exposed any actions yet.";
-  }
-
-  return "Waiting for the next server-side state change.";
-}
 
 // Renders websocket-backed tournament controls for the current browser player.
 export function ActionPanel({
@@ -71,20 +33,26 @@ export function ActionPanel({
   onReconnect,
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
-  const sizeAction = actions.find(requiresAmount) ?? null;
-  const directActions = actions.filter((action) => !requiresAmount(action));
-  const isWaiting = tournamentStatus === "WAITING";
-  const isReady = currentPlayer?.status === "READY";
-  const canToggleReady =
-    !!currentPlayer &&
-    currentPlayer.connected &&
-    isWaiting &&
-    (currentPlayer.status === "SEATED" || currentPlayer.status === "READY");
-  const canStart = !!currentPlayer && currentPlayer.connected && currentPlayer.owner && isWaiting;
-  const canAct = !!currentPlayer && currentPlayer.connected && currentPlayer.acting;
-  const controlHint = describeControlState(currentPlayer, tournamentStatus, actions);
-  const parsedTargetAmount = Number.parseInt(targetAmount, 10);
-  const hasValidTargetAmount = Number.isFinite(parsedTargetAmount) && parsedTargetAmount > 0;
+  const {
+    sizeAction,
+    directActions,
+    isReady,
+    canToggleReady,
+    canStart,
+    canAct,
+    showDisconnect,
+    showReconnect,
+    canSubmitSizedAction,
+    controlHint,
+  } = buildActionPanelViewModel({
+    actions,
+    currentPlayer,
+    tournamentStatus,
+    canPublish,
+  });
+  const parsedTargetAmount = parseTargetAmount(targetAmount);
+  const hasValidTargetAmount = parsedTargetAmount !== null;
+  const disconnectLabel = tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect";
 
   // Clears stale bet sizing whenever the server rotates the action set.
   useEffect(() => {
@@ -140,16 +108,15 @@ export function ActionPanel({
           </button>
         ) : null}
 
-        {currentPlayer?.connected ? (
+        {showDisconnect ? (
           <button
             type="button"
             onClick={onDisconnect}
-            disabled={!canPublish}
             className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Disconnect
+            {disconnectLabel}
           </button>
-        ) : currentPlayer ? (
+        ) : showReconnect ? (
           <button
             type="button"
             onClick={onReconnect}
@@ -179,11 +146,11 @@ export function ActionPanel({
             <button
               type="button"
               onClick={() => {
-                if (hasValidTargetAmount) {
+                if (sizeAction && hasValidTargetAmount) {
                   onAction(sizeAction, parsedTargetAmount);
                 }
               }}
-              disabled={!canPublish || !canAct || !hasValidTargetAmount}
+              disabled={!canSubmitSizedAction || !hasValidTargetAmount}
               className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send {toActionLabel(sizeAction)}

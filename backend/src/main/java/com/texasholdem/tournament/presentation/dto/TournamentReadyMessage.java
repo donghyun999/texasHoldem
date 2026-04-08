@@ -1,12 +1,12 @@
 package com.texasholdem.tournament.presentation.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
 public record TournamentReadyMessage(
-        @NotBlank
         String code,
-        @NotBlank
+        @jakarta.validation.constraints.NotBlank
         String guestId,
         boolean ready
 ) {
+    public String resolveCode(String fallbackCode) {
+        return TournamentRequestCodeResolver.resolve(code, fallbackCode);
+    }
 }

@@ -65,12 +65,20 @@ export type TournamentSnapshot = {
   actingSeat: number | null;
   players: TournamentPlayer[];
   showdownPots: ShowdownPot[];
+  recentlyBustedGuestIds: string[];
   availableActions: string[];
   tableMessage: string;
+  selfHoleCards: string[];
 };
 
 export type TournamentEvent = {
   eventType: string;
   snapshot: TournamentSnapshot;
   payload: Record<string, unknown>;
+};
+
+export type ActiveTournamentSession = {
+  guestId: string;
+  tournamentCode: string;
+  status: TournamentStatus;
 };

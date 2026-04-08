@@ -6,10 +6,16 @@ type PlayerSeatProps = {
   dealerSeat: number | null;
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
+  currentGuestId?: string;
+  selfHoleCards?: string[];
 };
 
 // Maps player state into a small seat-specific tone for the table grid.
 function getSeatTone(player: TournamentPlayer) {
+  if (!player.connected) {
+    return "border-sky-300/40 bg-sky-300/10";
+  }
+
   if (player.acting) {
     return "border-amber-300/80 bg-amber-300/10 shadow-lg shadow-amber-950/40";
   }
@@ -29,6 +35,10 @@ function getSeatTone(player: TournamentPlayer) {
 
 // Converts raw player status into a short seat label.
 function getStatusLabel(player: TournamentPlayer) {
+  if (!player.connected) {
+    return "OFFLINE";
+  }
+
   switch (player.status) {
     case "ALL_IN":
       return "ALL-IN";
@@ -48,6 +58,8 @@ export function PlayerSeat({
   dealerSeat,
   smallBlindSeat,
   bigBlindSeat,
+  currentGuestId,
+  selfHoleCards = [],
 }: PlayerSeatProps) {
   if (!player) {
     return (
@@ -64,6 +76,7 @@ export function PlayerSeat({
     smallBlindSeat === player.seatIndex ? "SB" : null,
     bigBlindSeat === player.seatIndex ? "BB" : null,
   ].filter(Boolean);
+  const visibleHoleCards = player.guestId === currentGuestId && selfHoleCards.length === 2 ? selfHoleCards : ["XX", "XX"];
 
   return (
     <div className={`rounded-[1.75rem] border p-4 transition ${getSeatTone(player)}`}>
@@ -90,12 +103,14 @@ export function PlayerSeat({
         </span>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="grid h-16 place-items-center rounded-xl bg-white text-sm font-semibold text-slate-900">
-          XX
-        </div>
-        <div className="grid h-16 place-items-center rounded-xl bg-white text-sm font-semibold text-slate-900">
-          XX
-        </div>
+        {visibleHoleCards.map((card, index) => (
+          <div
+            key={`${player.guestId}-card-${index}`}
+            className="grid h-16 place-items-center rounded-xl bg-white text-sm font-semibold text-slate-900"
+          >
+            {card}
+          </div>
+        ))}
       </div>
     </div>
   );

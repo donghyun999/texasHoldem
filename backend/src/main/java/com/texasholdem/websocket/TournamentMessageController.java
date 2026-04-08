@@ -8,56 +8,59 @@ import com.texasholdem.tournament.presentation.dto.TournamentStartMessage;
 import jakarta.validation.Valid;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 @Controller
 public class TournamentMessageController {
 
     private final TournamentService tournamentService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final TournamentTopicPublisher topicPublisher;
 
     // Wires tournament message mappings to the application service and broker.
     public TournamentMessageController(
             TournamentService tournamentService,
-            SimpMessagingTemplate messagingTemplate
+            TournamentTopicPublisher topicPublisher
     ) {
         this.tournamentService = tournamentService;
-        this.messagingTemplate = messagingTemplate;
+        this.topicPublisher = topicPublisher;
     }
 
     // Broadcasts ready-state updates into the tournament topic.
     @MessageMapping("/tournament.ready")
     public void ready(@Valid @Payload TournamentReadyMessage message) {
-        var event = tournamentService.changeReady(message.code(), message.guestId(), message.ready());
-        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+        var code = message.resolveCode(null);
+        var broadcast = tournamentService.changeReady(code, message.guestId(), message.ready());
+        topicPublisher.publish(code, broadcast);
     }
 
     // Broadcasts the disconnection fallback snapshot for one tournament player.
     @MessageMapping("/tournament.disconnect")
     public void disconnect(@Valid @Payload TournamentConnectionMessage message) {
-        var event = tournamentService.disconnectPlayer(message.code(), message.guestId());
-        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+        var code = message.resolveCode(null);
+        var broadcast = tournamentService.disconnectPlayer(code, message.guestId());
+        topicPublisher.publish(code, broadcast);
     }
 
     // Broadcasts the reconnect snapshot for one tournament player.
     @MessageMapping("/tournament.reconnect")
     public void reconnect(@Valid @Payload TournamentConnectionMessage message) {
-        var event = tournamentService.reconnectPlayer(message.code(), message.guestId());
-        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+        var code = message.resolveCode(null);
+        var broadcast = tournamentService.reconnectPlayer(code, message.guestId());
+        topicPublisher.publish(code, broadcast);
     }
 
     // Broadcasts the hand-start snapshot when the owner starts the tournament.
     @MessageMapping("/tournament.start")
     public void start(@Valid @Payload TournamentStartMessage message) {
-        var event = tournamentService.startTournament(message.code(), message.guestId());
-        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+        var code = message.resolveCode(null);
+        var broadcast = tournamentService.startTournament(code, message.guestId());
+        topicPublisher.publish(code, broadcast);
     }
 
     // Broadcasts the accepted in-hand action event for the current actor.
     @MessageMapping("/game.action")
     public void action(@Valid @Payload GameActionMessage message) {
-        var event = tournamentService.applyAction(message.code(), message.guestId(), message.action(), message.amount());
-        messagingTemplate.convertAndSend("/topic/tournament." + message.code().toUpperCase(), event);
+        var broadcast = tournamentService.applyAction(message.code(), message.guestId(), message.action(), message.amount());
+        topicPublisher.publish(message.code(), broadcast);
     }
 }

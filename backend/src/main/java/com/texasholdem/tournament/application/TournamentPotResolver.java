@@ -24,13 +24,13 @@ final class TournamentPotResolver {
 
     // Builds the public main-pot and side-pot snapshot view from player contributions.
     PotOverview describePots(List<PlayerPotState> players) {
-        var build = buildPots(players);
-        if (build.pots().isEmpty()) {
+        var displayPots = buildDisplayPots(players);
+        if (displayPots.isEmpty()) {
             return new PotOverview(0, List.of());
         }
         return new PotOverview(
-                build.pots().get(0).amount(),
-                build.pots().stream().skip(1).map(ResolvedPot::toView).toList()
+                displayPots.get(0).amount(),
+                displayPots.stream().skip(1).map(ResolvedPot::toView).toList()
         );
     }
 
@@ -88,6 +88,74 @@ final class TournamentPotResolver {
         }
 
         return new PotBuild(pots, matchedContributions);
+    }
+
+    // Builds the snapshot-facing pots from all currently committed chips, splitting only on all-in caps.
+    private List<ResolvedPot> buildDisplayPots(List<PlayerPotState> players) {
+        var committedPlayers = players.stream()
+                .filter(player -> player.totalContribution() > 0)
+                .toList();
+        if (committedPlayers.isEmpty()) {
+            return List.of();
+        }
+
+        var pots = new ArrayList<ResolvedPot>();
+        var allInBoundaries = committedPlayers.stream()
+                .filter(PlayerPotState::allIn)
+                .mapToInt(PlayerPotState::totalContribution)
+                .filter(amount -> amount > 0)
+                .distinct()
+                .sorted()
+                .toArray();
+
+        var previousBoundary = 0;
+        for (var boundary : allInBoundaries) {
+            var amount = committedSegmentAmount(committedPlayers, previousBoundary, boundary);
+            if (amount > 0) {
+                pots.add(new ResolvedPot(
+                        pots.isEmpty() ? "main" : "side-" + pots.size(),
+                        pots.isEmpty() ? "MAIN" : "SIDE",
+                        amount,
+                        eligiblePlayersForSegment(committedPlayers, previousBoundary)
+                ));
+            }
+            previousBoundary = boundary;
+        }
+
+        var remainingBoundary = previousBoundary;
+        var remainingAmount = committedPlayers.stream()
+                .mapToInt(player -> Math.max(0, player.totalContribution() - remainingBoundary))
+                .sum();
+        if (remainingAmount > 0) {
+            pots.add(new ResolvedPot(
+                    pots.isEmpty() ? "main" : "side-" + pots.size(),
+                    pots.isEmpty() ? "MAIN" : "SIDE",
+                    remainingAmount,
+                    eligiblePlayersForSegment(committedPlayers, remainingBoundary)
+            ));
+        }
+
+        return pots;
+    }
+
+    // Sums the committed chips that sit between one contribution boundary and the next.
+    private int committedSegmentAmount(List<PlayerPotState> players, int lowerBoundary, int upperBoundary) {
+        var width = upperBoundary - lowerBoundary;
+        if (width <= 0) {
+            return 0;
+        }
+
+        return players.stream()
+                .mapToInt(player -> Math.min(Math.max(0, player.totalContribution() - lowerBoundary), width))
+                .sum();
+    }
+
+    // Keeps only the players that can still win the chips inside the current display segment.
+    private List<PlayerPotState> eligiblePlayersForSegment(List<PlayerPotState> players, int lowerBoundary) {
+        return players.stream()
+                .filter(player -> player.totalContribution() > lowerBoundary)
+                .filter(PlayerPotState::eligibleForPot)
+                .toList();
     }
 
     // Returns every unmatched chip above the highest payable tier to its original owner.
@@ -179,6 +247,7 @@ final class TournamentPotResolver {
             int seatIndex,
             int totalContribution,
             boolean eligibleForPot,
+            boolean allIn,
             List<String> holeCards
     ) {
     }

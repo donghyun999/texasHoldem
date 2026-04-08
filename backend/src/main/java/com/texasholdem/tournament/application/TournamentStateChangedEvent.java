@@ -5,6 +5,7 @@ import com.texasholdem.tournament.domain.TournamentStatus;
 record TournamentStateChangedEvent(
         String code,
         TournamentStatus status,
-        long handResultEndsAtEpochMilli
+        long handResultEndsAtEpochMilli,
+        long finishedCleanupAtEpochMilli
 ) {
 }
