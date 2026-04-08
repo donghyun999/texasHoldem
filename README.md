@@ -41,13 +41,7 @@ Single-table tournament MVP for a Texas Holdem web application.
 
 Native PostgreSQL defaults:
 
-```bash
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=texas_holdem
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-```
+
 
 Docker Compose alternative from `infra/`:
 
