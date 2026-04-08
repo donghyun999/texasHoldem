@@ -102,7 +102,9 @@ export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
       },
     ],
     showdownPots: [],
+    recentlyBustedGuestIds: [],
     availableActions: ["FOLD", "CALL", "RAISE", "ALL_IN"],
     tableMessage: "Noah is facing action for 50 more chips. Side pot is active.",
+    selfHoleCards: ["QS", "QH"],
   };
 }

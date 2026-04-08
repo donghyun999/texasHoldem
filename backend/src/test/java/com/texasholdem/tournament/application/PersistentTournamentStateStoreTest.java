@@ -63,4 +63,31 @@ class PersistentTournamentStateStoreTest {
         assertThat(store.findPendingHandResults())
                 .containsExactly(new TournamentStateStore.PendingHandResult("PEND1", 123_456L));
     }
+
+    // Verifies that restart recovery also sees persisted finished tournaments waiting for cleanup.
+    @Test
+    void findsPendingFinishedCleanupsForRestartRecovery() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        var waitingTournament = new TournamentState("WAIT1");
+        var finishedTournament = new TournamentState("DONE1");
+        finishedTournament.status = TournamentStatus.FINISHED;
+        finishedTournament.finishedCleanupAtEpochMilli = 654_321L;
+        var missingDeadlineTournament = new TournamentState("DONE2");
+        missingDeadlineTournament.status = TournamentStatus.FINISHED;
+
+        when(repository.findAll()).thenReturn(List.of(
+                new TournamentStateEntity("WAIT1", "waiting"),
+                new TournamentStateEntity("DONE1", "finished"),
+                new TournamentStateEntity("DONE2", "missing-deadline")
+        ));
+        when(mapper.read("waiting")).thenReturn(waitingTournament);
+        when(mapper.read("finished")).thenReturn(finishedTournament);
+        when(mapper.read("missing-deadline")).thenReturn(missingDeadlineTournament);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findPendingFinishedCleanups())
+                .containsExactly(new TournamentStateStore.PendingFinishedCleanup("DONE1", 654_321L));
+    }
 }

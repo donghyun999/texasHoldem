@@ -13,14 +13,17 @@ final class TournamentHandSetupManager {
 
     private final TournamentRules rules;
     private final TournamentStateAccess stateAccess;
+    private final TournamentDeckFactory deckFactory;
 
     // Wires hand setup to the shared tournament rules and seat navigation helpers.
     TournamentHandSetupManager(
             TournamentRules rules,
-            TournamentStateAccess stateAccess
+            TournamentStateAccess stateAccess,
+            TournamentDeckFactory deckFactory
     ) {
         this.rules = rules;
         this.stateAccess = stateAccess;
+        this.deckFactory = deckFactory;
     }
 
     // Restores surviving entrants to an active hand state and drops busted players.
@@ -28,6 +31,7 @@ final class TournamentHandSetupManager {
         for (var player : tournament.players) {
             player.acting = false;
             player.awaitingAction = false;
+            player.raiseRightsAvailable = false;
             player.totalContribution = 0;
             player.roundContribution = 0;
             player.holeCards = new ArrayList<>();
@@ -51,14 +55,20 @@ final class TournamentHandSetupManager {
         tournament.status = TournamentStatus.IN_HAND;
         tournament.round = BettingRound.PRE_FLOP;
         tournament.currentBet = 0;
+        tournament.lastFullRaiseSize = rules.bigBlindFor(tournament.levelIndex);
         tournament.boardCards = new ArrayList<>();
-        tournament.hiddenBoardCards = new ArrayList<>(rules.defaultBoardRunout());
+        tournament.hiddenBoardCards = new ArrayList<>();
         tournament.sidePots = new ArrayList<>();
         tournament.mainPot = 0;
         tournament.handResultEndsAtEpochMilli = 0;
+        tournament.finishedCleanupAtEpochMilli = 0;
         tournament.showdownPots = new ArrayList<>();
+        tournament.recentlyBustedGuestIds = new ArrayList<>();
         assignDealerAndBlinds(tournament);
-        dealHoleCards(tournament);
+        var orderedSeats = buildDealOrder(tournament);
+        var deck = deckFactory.createDeck(orderedSeats.size());
+        dealHoleCards(tournament, orderedSeats, deck);
+        tournament.hiddenBoardCards = drawCards(deck, 5);
         resetHandState(tournament);
         postBlind(tournament, tournament.smallBlindSeat, rules.currentLevel(tournament.levelIndex).smallBlind());
         postBlind(tournament, tournament.bigBlindSeat, rules.currentLevel(tournament.levelIndex).bigBlind());
@@ -76,6 +86,7 @@ final class TournamentHandSetupManager {
         tournament.round = tournament.round.next();
         resetRoundContributions(tournament);
         tournament.currentBet = 0;
+        tournament.lastFullRaiseSize = rules.bigBlindFor(tournament.levelIndex);
         revealBoardForRound(tournament);
         markAwaitingPlayers(tournament);
     }
@@ -121,10 +132,8 @@ final class TournamentHandSetupManager {
         tournament.bigBlindSeat = stateAccess.nextSeatFrom(activeSeats, tournament.smallBlindSeat);
     }
 
-    // Deals two hidden cards to each surviving player from a deterministic deck.
-    private void dealHoleCards(TournamentState tournament) {
-        var deck = buildDealDeck(tournament.hiddenBoardCards);
-        var orderedSeats = buildDealOrder(tournament);
+    // Deals two hidden cards to each surviving player from the current hand deck.
+    private void dealHoleCards(TournamentState tournament, List<Integer> orderedSeats, List<String> deck) {
         for (var round = 0; round < 2; round++) {
             for (var seatIndex : orderedSeats) {
                 stateAccess.requireSeatPlayer(tournament, seatIndex).holeCards.add(deck.remove(0));
@@ -148,20 +157,13 @@ final class TournamentHandSetupManager {
         return orderedSeats;
     }
 
-    // Builds the fixed deck after removing the predetermined board runout.
-    private List<String> buildDealDeck(List<String> boardCards) {
-        var ranks = "23456789TJQKA";
-        var suits = "CDHS";
-        var deck = new ArrayList<String>();
-        for (var rankIndex = 0; rankIndex < ranks.length(); rankIndex++) {
-            for (var suitIndex = 0; suitIndex < suits.length(); suitIndex++) {
-                var card = "" + ranks.charAt(rankIndex) + suits.charAt(suitIndex);
-                if (!boardCards.contains(card)) {
-                    deck.add(card);
-                }
-            }
+    // Consumes one contiguous run of cards from the top of the current hand deck.
+    private List<String> drawCards(List<String> deck, int count) {
+        var cards = new ArrayList<String>(count);
+        for (var index = 0; index < count; index++) {
+            cards.add(deck.remove(0));
         }
-        return deck;
+        return cards;
     }
 
     // Clears hand-local counters before blinds and player actions are applied.
@@ -170,6 +172,7 @@ final class TournamentHandSetupManager {
             player.totalContribution = 0;
             player.roundContribution = 0;
             player.awaitingAction = false;
+            player.raiseRightsAvailable = false;
         }
     }
 
@@ -202,6 +205,7 @@ final class TournamentHandSetupManager {
         for (var player : tournament.players) {
             player.roundContribution = 0;
             player.awaitingAction = false;
+            player.raiseRightsAvailable = false;
         }
     }
 
@@ -209,6 +213,7 @@ final class TournamentHandSetupManager {
     private void markAwaitingPlayers(TournamentState tournament) {
         for (var player : tournament.players) {
             player.awaitingAction = player.status == PlayerStatus.ACTIVE;
+            player.raiseRightsAvailable = player.status == PlayerStatus.ACTIVE;
         }
     }
 

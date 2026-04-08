@@ -19,6 +19,7 @@ final class TournamentPlayerState {
     int totalContribution = 0;
     int roundContribution = 0;
     boolean awaitingAction = false;
+    boolean raiseRightsAvailable = false;
     List<String> holeCards = new ArrayList<>();
 
     // Stores mutable player state for the in-memory tournament model.

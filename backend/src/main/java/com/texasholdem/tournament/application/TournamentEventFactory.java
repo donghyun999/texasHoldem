@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -100,26 +101,82 @@ final class TournamentEventFactory {
         );
     }
 
+    // Builds the settled pot list shared by showdown, hand-end, and final-result payloads.
+    private List<Map<String, Object>> settledPotsPayload(TournamentSnapshot snapshot) {
+        return snapshot.showdownPots().stream()
+                .map(pot -> Map.<String, Object>of(
+                        "id", pot.id(),
+                        "type", pot.type(),
+                        "amount", pot.amount(),
+                        "winnerGuestIds", pot.payouts().stream().map(payout -> payout.guestId()).toList(),
+                        "split", pot.payouts().size() > 1,
+                        "payouts", pot.payouts().stream()
+                                .map(payout -> Map.<String, Object>of(
+                                        "guestId", payout.guestId(),
+                                        "nickname", payout.nickname(),
+                                        "amount", payout.amount()
+                                ))
+                                .toList()
+                ))
+                .toList();
+    }
+
     // Builds the showdown payload once the server exposes fully revealed settlement state.
     private Map<String, Object> showdownPayload(TournamentSnapshot snapshot) {
-        return Map.of("boardCards", snapshot.boardCards());
+        return Map.of(
+                "boardCards", snapshot.boardCards(),
+                "showdownPotCount", snapshot.showdownPots().size(),
+                "pots", settledPotsPayload(snapshot)
+        );
+    }
+
+    // Builds the hand-local busted-player detail preserved on result snapshots for reconnect-safe rendering.
+    private List<Map<String, Object>> recentlyBustedPlayersPayload(TournamentSnapshot snapshot) {
+        var recentlyBustedGuestIds = Set.copyOf(snapshot.recentlyBustedGuestIds());
+        return snapshot.players().stream()
+                .filter(player -> recentlyBustedGuestIds.contains(player.guestId()))
+                .map(player -> Map.<String, Object>of(
+                        "guestId", player.guestId(),
+                        "nickname", player.nickname(),
+                        "seatIndex", player.seatIndex(),
+                        "finalStack", player.stack()
+                ))
+                .toList();
     }
 
     // Builds the hand-end payload from the terminal hand snapshot state.
     private Map<String, Object> handEndedPayload(TournamentSnapshot snapshot) {
-        return Map.of("status", snapshot.status().name());
+        return Map.of(
+                "status", snapshot.status().name(),
+                "showdown", isShowdownSnapshot(snapshot),
+                "boardCards", snapshot.boardCards(),
+                "mainPot", snapshot.mainPot(),
+                "sidePotCount", snapshot.sidePots().size(),
+                "showdownPotCount", snapshot.showdownPots().size(),
+                "pots", settledPotsPayload(snapshot),
+                "recentlyBustedGuestIds", snapshot.recentlyBustedGuestIds(),
+                "recentlyBustedPlayers", recentlyBustedPlayersPayload(snapshot)
+        );
     }
 
     // Builds the busted-player payload from the newly eliminated participant set.
     private Map<String, Object> bustedPayload(List<TournamentPlayerView> bustedPlayers) {
         return Map.of(
                 "guestIds", bustedPlayers.stream().map(TournamentPlayerView::guestId).toList(),
-                "nicknames", bustedPlayers.stream().map(TournamentPlayerView::nickname).toList()
+                "nicknames", bustedPlayers.stream().map(TournamentPlayerView::nickname).toList(),
+                "players", bustedPlayers.stream()
+                        .map(player -> Map.<String, Object>of(
+                                "guestId", player.guestId(),
+                                "nickname", player.nickname(),
+                                "seatIndex", player.seatIndex(),
+                                "finalStack", player.stack()
+                        ))
+                        .toList()
         );
     }
 
     // Builds the tournament-finished payload around the current winner, when one remains.
-    private Map<String, Object> tournamentFinishedPayload(TournamentSnapshot snapshot) {
+    Map<String, Object> tournamentFinishedPayload(TournamentSnapshot snapshot) {
         var winner = snapshot.players().stream()
                 .filter(player -> player.participating() && player.stack() > 0)
                 .findFirst()
@@ -130,7 +187,12 @@ final class TournamentEventFactory {
         return Map.of(
                 "winnerGuestId", winner.guestId(),
                 "winnerNickname", winner.nickname(),
-                "winnerStack", winner.stack()
+                "winnerStack", winner.stack(),
+                "boardCards", snapshot.boardCards(),
+                "showdownPotCount", snapshot.showdownPots().size(),
+                "pots", settledPotsPayload(snapshot),
+                "recentlyBustedGuestIds", snapshot.recentlyBustedGuestIds(),
+                "recentlyBustedPlayers", recentlyBustedPlayersPayload(snapshot)
         );
     }
 
@@ -164,7 +226,7 @@ final class TournamentEventFactory {
         if (!bustedPlayers.isEmpty()) {
             supplementalEvents.add(new TournamentEvent("playerBusted", afterSnapshot, bustedPayload(bustedPlayers)));
         }
-        if (tournamentFinished(beforeSnapshot, afterSnapshot)) {
+        if (!"tournamentFinished".equals(primaryEventType) && tournamentFinished(beforeSnapshot, afterSnapshot)) {
             supplementalEvents.add(new TournamentEvent(
                     "tournamentFinished",
                     afterSnapshot,
@@ -194,9 +256,7 @@ final class TournamentEventFactory {
     // Detects when a live hand resolves through a real showdown path rather than a simple fold-out.
     private boolean showdownStarted(TournamentSnapshot beforeSnapshot, TournamentSnapshot afterSnapshot) {
         return beforeSnapshot.status() == TournamentStatus.IN_HAND
-                && !afterSnapshot.showdownPots().isEmpty()
-                && afterSnapshot.boardCards().size() == 5
-                && countShowdownParticipants(afterSnapshot) > 1;
+                && isShowdownSnapshot(afterSnapshot);
     }
 
     // Detects when one in-hand snapshot closes into a result or finished snapshot.
@@ -218,6 +278,13 @@ final class TournamentEventFactory {
                 .filter(player -> player.participating()
                         || player.status() == com.texasholdem.tournament.domain.PlayerStatus.BUSTED_OUT)
                 .count();
+    }
+
+    // Detects whether a settled result snapshot came from a real board showdown instead of a fold-out.
+    private boolean isShowdownSnapshot(TournamentSnapshot snapshot) {
+        return !snapshot.showdownPots().isEmpty()
+                && snapshot.boardCards().size() == 5
+                && countShowdownParticipants(snapshot) > 1;
     }
 
     // Finds players whose snapshot status changed into BUSTED_OUT during the latest transition.

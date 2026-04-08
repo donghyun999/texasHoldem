@@ -5,7 +5,7 @@ import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-s
 import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
-import { createTournament, getBackendStatus, joinTournament } from "@/shared/api/http";
+import { createTournament, getActiveTournamentForGuest, getBackendStatus, joinTournament } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
 
 // Converts unknown mutation failures into a short UI-safe message.
@@ -17,36 +17,129 @@ function toErrorMessage(error: unknown, fallback: string) {
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { guestId, nickname, setNickname, isBootstrappingGuest } = useGuestSession();
+  const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession();
   const [tournamentCode, setTournamentCode] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
     queryFn: getBackendStatus,
     retry: false,
   });
+  const activeTournamentQuery = useQuery({
+    queryKey: ["active-tournament", guestId],
+    queryFn: () => getActiveTournamentForGuest(guestId),
+    enabled: !!guestId.trim(),
+    retry: false,
+  });
   const previewSnapshot = createDemoTournamentSnapshot(tournamentCode || "MVP01");
   const createMutation = useMutation({
-    mutationFn: () => createTournament(guestId, nickname),
+    mutationFn: ({ guestId, nickname, code }: { guestId: string; nickname: string; code?: string }) =>
+      createTournament(guestId, nickname, code),
     onSuccess: (snapshot) => handleTournamentEntry(snapshot),
   });
   const joinMutation = useMutation({
-    mutationFn: () => joinTournament(tournamentCode.trim().toUpperCase(), guestId, nickname),
+    mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
+      joinTournament(code, guestId, nickname),
     onSuccess: (snapshot) => handleTournamentEntry(snapshot),
   });
   const activeError =
+    validationError ||
     (createMutation.error && toErrorMessage(createMutation.error, "Failed to create tournament.")) ||
     (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join tournament.")) ||
     null;
+  const activeTournament = activeTournamentQuery.data;
+  const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
+  const controlsDisabled =
+    !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
   const busyLabel = createMutation.isPending
     ? "Creating tournament..."
     : joinMutation.isPending
       ? "Joining tournament..."
+      : isCheckingActiveTournament
+        ? "Checking your current tournament..."
       : null;
 
   // Seeds the destination snapshot cache before navigation so the table paints immediately.
   function handleTournamentEntry(snapshot: TournamentSnapshot) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code), snapshot);
     navigate(`/tournaments/${snapshot.code}`);
+  }
+
+  function handleNicknameChange(value: string) {
+    setValidationError(null);
+    setNickname(value);
+  }
+
+  function handleTournamentCodeChange(value: string) {
+    setValidationError(null);
+    setTournamentCode(value);
+  }
+
+  async function handleCreate() {
+    if (isCheckingActiveTournament) {
+      setValidationError("Checking whether this guest is already seated in another tournament.");
+      return;
+    }
+    if (activeTournament) {
+      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
+      return;
+    }
+    if (!nickname.trim()) {
+      setValidationError("Enter a nickname before creating a tournament.");
+      return;
+    }
+
+    setValidationError(null);
+    try {
+      const resolvedGuestId = await ensureGuestSession();
+      createMutation.mutate({
+        guestId: resolvedGuestId,
+        nickname: nickname.trim(),
+        code: tournamentCode.trim() ? tournamentCode.trim().toUpperCase() : undefined,
+      });
+    } catch (error) {
+      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+    }
+  }
+
+  async function handleJoin() {
+    if (isCheckingActiveTournament) {
+      setValidationError("Checking whether this guest is already seated in another tournament.");
+      return;
+    }
+    if (activeTournament) {
+      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
+      return;
+    }
+    if (!nickname.trim()) {
+      setValidationError("Enter a nickname before joining a tournament.");
+      return;
+    }
+    if (!tournamentCode.trim()) {
+      setValidationError("Enter a tournament code before joining.");
+      return;
+    }
+
+    setValidationError(null);
+    try {
+      const resolvedGuestId = await ensureGuestSession();
+      joinMutation.mutate({
+        code: tournamentCode.trim().toUpperCase(),
+        guestId: resolvedGuestId,
+        nickname: nickname.trim(),
+      });
+    } catch (error) {
+      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+    }
+  }
+
+  function handleResumeTournament() {
+    if (!activeTournament) {
+      return;
+    }
+
+    setValidationError(null);
+    navigate(`/tournaments/${activeTournament.tournamentCode}`);
   }
 
   return (
@@ -71,21 +164,17 @@ export function HomePage() {
         guestId={guestId}
         nickname={nickname}
         tournamentCode={tournamentCode}
-        createDisabled={isBootstrappingGuest || createMutation.isPending || joinMutation.isPending || !guestId || !nickname.trim()}
-        joinDisabled={
-          isBootstrappingGuest ||
-          createMutation.isPending ||
-          joinMutation.isPending ||
-          !guestId ||
-          !nickname.trim() ||
-          !tournamentCode.trim()
-        }
+        activeTournamentCode={activeTournament?.tournamentCode ?? null}
+        activeTournamentStatus={activeTournament?.status ?? null}
+        createDisabled={controlsDisabled}
+        joinDisabled={controlsDisabled}
         busyLabel={busyLabel}
         errorMessage={activeError}
-        onNicknameChange={setNickname}
-        onTournamentCodeChange={setTournamentCode}
-        onCreate={() => createMutation.mutate()}
-        onJoin={() => joinMutation.mutate()}
+        onNicknameChange={handleNicknameChange}
+        onTournamentCodeChange={handleTournamentCodeChange}
+        onResumeTournament={handleResumeTournament}
+        onCreate={handleCreate}
+        onJoin={handleJoin}
       />
     </section>
   );

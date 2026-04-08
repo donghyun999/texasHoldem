@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 final class TournamentHandResultManager {
 
     private static final long HAND_RESULT_DURATION_MILLIS = 5_000L;
+    private static final long FINISHED_CLEANUP_DURATION_MILLIS = 20_000L;
 
     private final TournamentStateAccess stateAccess;
     private final TournamentPotResolver potResolver;
@@ -40,9 +41,15 @@ final class TournamentHandResultManager {
         tournament.showdownPots = new ArrayList<>(settlement.showdownPots());
 
         var bustedPlayers = markBustedPlayers(tournament);
+        tournament.recentlyBustedGuestIds = bustedPlayers.stream()
+                .map(player -> player.guestId)
+                .toList();
         var summary = buildCompletionMessage(tournament, settlement, bustedPlayers);
         if (stateAccess.countRemainingParticipants(tournament) <= 1) {
-            moveToFinished(tournament, buildChampionMessage(tournament, stateAccess.combineMessages(tournament.tableMessage, summary)));
+            tournament.tableMessage = buildChampionMessage(
+                    tournament,
+                    stateAccess.combineMessages(tournament.tableMessage, summary)
+            );
             return;
         }
         tournament.tableMessage = stateAccess.combineMessages(tournament.tableMessage, summary);
@@ -67,9 +74,15 @@ final class TournamentHandResultManager {
         tournament.status = TournamentStatus.FINISHED;
         tournament.actingSeat = null;
         tournament.handResultEndsAtEpochMilli = 0;
+        tournament.finishedCleanupAtEpochMilli = Instant.now().toEpochMilli() + FINISHED_CLEANUP_DURATION_MILLIS;
         tournament.availableActions = new ArrayList<>();
         stateAccess.setActingPlayer(tournament, null);
         tournament.tableMessage = tableMessage;
+    }
+
+    // Completes a previously displayed final-hand result once the short result window expires.
+    void finalizePendingTournamentResult(TournamentState tournament) {
+        moveToFinished(tournament, tournament.tableMessage);
     }
 
     // Moves the tournament into hand-result state and clears action affordances.
@@ -77,6 +90,7 @@ final class TournamentHandResultManager {
         tournament.status = TournamentStatus.HAND_RESULT;
         tournament.actingSeat = null;
         tournament.handResultEndsAtEpochMilli = Instant.now().toEpochMilli() + HAND_RESULT_DURATION_MILLIS;
+        tournament.finishedCleanupAtEpochMilli = 0;
         tournament.availableActions = new ArrayList<>();
         stateAccess.setActingPlayer(tournament, null);
         tournament.tableMessage = tableMessage;
@@ -124,6 +138,7 @@ final class TournamentHandResultManager {
                 player.seatIndex,
                 player.totalContribution,
                 player.isEligibleForPot(),
+                player.status == PlayerStatus.ALL_IN,
                 List.copyOf(player.holeCards)
         );
     }

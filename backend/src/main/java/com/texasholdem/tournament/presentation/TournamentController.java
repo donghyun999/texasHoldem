@@ -9,11 +9,13 @@ import com.texasholdem.tournament.presentation.dto.JoinTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentStartMessage;
+import com.texasholdem.websocket.TournamentTopicPublisher;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,22 +26,27 @@ import org.springframework.web.bind.annotation.RestController;
 public class TournamentController {
 
     private final TournamentService tournamentService;
+    private final TournamentTopicPublisher topicPublisher;
 
     // Wires tournament REST endpoints to the application service.
-    public TournamentController(TournamentService tournamentService) {
+    public TournamentController(TournamentService tournamentService, TournamentTopicPublisher topicPublisher) {
         this.tournamentService = tournamentService;
+        this.topicPublisher = topicPublisher;
     }
 
     // Creates a waiting tournament snapshot for the owner.
     @PostMapping
     public ApiResponse<TournamentSnapshot> createTournament(@Valid @RequestBody CreateTournamentRequest request) {
-        return ApiResponse.ok(tournamentService.createTournament(request.guestId(), request.nickname()));
+        return ApiResponse.ok(tournamentService.createTournament(request.guestId(), request.nickname(), request.code()));
     }
 
     // Returns the latest server snapshot for a tournament code.
     @GetMapping("/{code}")
-    public ApiResponse<TournamentSnapshot> getTournament(@PathVariable String code) {
-        return ApiResponse.ok(tournamentService.getTournament(code));
+    public ApiResponse<TournamentSnapshot> getTournament(
+            @PathVariable String code,
+            @RequestParam(required = false) String guestId
+    ) {
+        return ApiResponse.ok(tournamentService.getTournament(code, guestId));
     }
 
     // Adds a guest to a waiting tournament seat.
@@ -48,7 +55,9 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody JoinTournamentRequest request
     ) {
-        return ApiResponse.ok(tournamentService.joinTournament(code, request.guestId(), request.nickname()));
+        var broadcast = tournamentService.joinTournamentBroadcast(code, request.guestId(), request.nickname());
+        topicPublisher.publish(code, broadcast);
+        return ApiResponse.ok(broadcast.primaryEvent().snapshot());
     }
 
     // Mirrors the ready toggle as a REST endpoint for quick testing.
@@ -57,7 +66,9 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentReadyMessage request
     ) {
-        return ApiResponse.ok(tournamentService.changeReady(code, request.guestId(), request.ready()).primaryEvent());
+        return ApiResponse.ok(
+                tournamentService.changeReady(request.resolveCode(code), request.guestId(), request.ready()).primaryEvent()
+        );
     }
 
     // Removes or marks a player disconnected according to the current tournament state.
@@ -66,7 +77,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentConnectionMessage request
     ) {
-        return ApiResponse.ok(tournamentService.disconnectPlayer(code, request.guestId()).primaryEvent());
+        return ApiResponse.ok(tournamentService.disconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
     }
 
     // Restores a previously disconnected player's seat and latest snapshot.
@@ -75,7 +86,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentConnectionMessage request
     ) {
-        return ApiResponse.ok(tournamentService.reconnectPlayer(code, request.guestId()).primaryEvent());
+        return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
     }
 
     // Starts the first hand when the owner promotes ready players into the field.
@@ -84,6 +95,6 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody TournamentStartMessage request
     ) {
-        return ApiResponse.ok(tournamentService.startTournament(code, request.guestId()).primaryEvent());
+        return ApiResponse.ok(tournamentService.startTournament(request.resolveCode(code), request.guestId()).primaryEvent());
     }
 }

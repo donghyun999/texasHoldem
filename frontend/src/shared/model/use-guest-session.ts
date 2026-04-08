@@ -26,10 +26,21 @@ export function useGuestSession() {
     setGuestSession(guestSessionQuery.data.guestId, guestSessionQuery.data.nickname);
   }, [guestSessionQuery.data, setGuestSession]);
 
+  async function ensureGuestSession() {
+    if (guestId.trim()) {
+      return guestId.trim();
+    }
+
+    const session = await createGuestSession(nickname);
+    setGuestSession(session.guestId, session.nickname);
+    return session.guestId;
+  }
+
   return {
     guestId,
     nickname,
     setNickname,
+    ensureGuestSession,
     isBootstrappingGuest: guestSessionQuery.isPending,
   };
 }

@@ -15,10 +15,12 @@ import java.util.List;
 final class TournamentStatePersistenceMapper {
 
     private final ObjectMapper objectMapper;
+    private final TournamentRules rules;
 
     // Wires JSON serialization for the mutable in-memory tournament aggregate.
-    TournamentStatePersistenceMapper(ObjectMapper objectMapper) {
+    TournamentStatePersistenceMapper(ObjectMapper objectMapper, TournamentRules rules) {
         this.objectMapper = objectMapper;
+        this.rules = rules;
     }
 
     // Serializes one mutable tournament state into a durable JSON payload.
@@ -50,6 +52,7 @@ final class TournamentStatePersistenceMapper {
                 List.copyOf(tournament.sidePots),
                 tournament.round,
                 tournament.currentBet,
+                tournament.lastFullRaiseSize,
                 List.copyOf(tournament.boardCards),
                 List.copyOf(tournament.hiddenBoardCards),
                 tournament.dealerSeat,
@@ -57,8 +60,10 @@ final class TournamentStatePersistenceMapper {
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
                 tournament.handResultEndsAtEpochMilli,
+                tournament.finishedCleanupAtEpochMilli,
                 tournament.players.stream().map(this::toPayload).toList(),
                 List.copyOf(tournament.showdownPots),
+                List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
                 tournament.tableMessage
         );
@@ -79,6 +84,7 @@ final class TournamentStatePersistenceMapper {
                 player.totalContribution,
                 player.roundContribution,
                 player.awaitingAction,
+                player.raiseRightsAvailable,
                 List.copyOf(player.holeCards)
         );
     }
@@ -93,6 +99,9 @@ final class TournamentStatePersistenceMapper {
         tournament.sidePots = new ArrayList<>(payload.sidePots());
         tournament.round = payload.round();
         tournament.currentBet = payload.currentBet();
+        tournament.lastFullRaiseSize = payload.lastFullRaiseSize() == null
+                ? inferLastFullRaiseSize(payload)
+                : payload.lastFullRaiseSize();
         tournament.boardCards = new ArrayList<>(payload.boardCards());
         tournament.hiddenBoardCards = new ArrayList<>(payload.hiddenBoardCards());
         tournament.dealerSeat = payload.dealerSeat();
@@ -100,7 +109,13 @@ final class TournamentStatePersistenceMapper {
         tournament.bigBlindSeat = payload.bigBlindSeat();
         tournament.actingSeat = payload.actingSeat();
         tournament.handResultEndsAtEpochMilli = payload.handResultEndsAtEpochMilli();
+        tournament.finishedCleanupAtEpochMilli = payload.finishedCleanupAtEpochMilli() == null
+                ? 0
+                : payload.finishedCleanupAtEpochMilli();
         tournament.showdownPots = new ArrayList<>(payload.showdownPots());
+        tournament.recentlyBustedGuestIds = payload.recentlyBustedGuestIds() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(payload.recentlyBustedGuestIds());
         tournament.availableActions = new ArrayList<>(payload.availableActions());
         tournament.tableMessage = payload.tableMessage();
         payload.players().stream()
@@ -121,8 +136,32 @@ final class TournamentStatePersistenceMapper {
         player.totalContribution = payload.totalContribution();
         player.roundContribution = payload.roundContribution();
         player.awaitingAction = payload.awaitingAction();
+        player.raiseRightsAvailable = payload.raiseRightsAvailable() == null
+                ? payload.awaitingAction()
+                : payload.raiseRightsAvailable();
         player.holeCards = new ArrayList<>(payload.holeCards());
         return player;
+    }
+
+    // Older payloads do not track the last full raise size, so fall back to the biggest observed jump.
+    private int inferLastFullRaiseSize(PersistedTournamentState payload) {
+        var distinctPositiveContributions = payload.players().stream()
+                .map(PersistedTournamentPlayerState::roundContribution)
+                .filter(contribution -> contribution > 0)
+                .distinct()
+                .sorted()
+                .toList();
+        if (distinctPositiveContributions.size() >= 2) {
+            var lastIndex = distinctPositiveContributions.size() - 1;
+            return Math.max(
+                    rules.bigBlindFor(payload.levelIndex()),
+                    distinctPositiveContributions.get(lastIndex) - distinctPositiveContributions.get(lastIndex - 1)
+            );
+        }
+        if (payload.currentBet() > 0) {
+            return Math.max(rules.bigBlindFor(payload.levelIndex()), payload.currentBet());
+        }
+        return rules.bigBlindFor(payload.levelIndex());
     }
 
     private record PersistedTournamentState(
@@ -134,6 +173,7 @@ final class TournamentStatePersistenceMapper {
             List<PotView> sidePots,
             BettingRound round,
             int currentBet,
+            Integer lastFullRaiseSize,
             List<String> boardCards,
             List<String> hiddenBoardCards,
             Integer dealerSeat,
@@ -141,8 +181,10 @@ final class TournamentStatePersistenceMapper {
             Integer bigBlindSeat,
             Integer actingSeat,
             long handResultEndsAtEpochMilli,
+            Long finishedCleanupAtEpochMilli,
             List<PersistedTournamentPlayerState> players,
             List<ShowdownPotView> showdownPots,
+            List<String> recentlyBustedGuestIds,
             List<String> availableActions,
             String tableMessage
     ) {
@@ -161,6 +203,7 @@ final class TournamentStatePersistenceMapper {
             int totalContribution,
             int roundContribution,
             boolean awaitingAction,
+            Boolean raiseRightsAvailable,
             List<String> holeCards
     ) {
     }

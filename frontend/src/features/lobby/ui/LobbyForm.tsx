@@ -1,13 +1,18 @@
+import type { TournamentStatus } from "@/entities/tournament/model/types";
+
 type LobbyFormProps = {
   guestId: string;
   nickname: string;
   tournamentCode: string;
+  activeTournamentCode?: string | null;
+  activeTournamentStatus?: TournamentStatus | null;
   createDisabled?: boolean;
   joinDisabled?: boolean;
   busyLabel?: string | null;
   errorMessage?: string | null;
   onNicknameChange: (value: string) => void;
   onTournamentCodeChange: (value: string) => void;
+  onResumeTournament?: () => void;
   onCreate: () => void;
   onJoin: () => void;
 };
@@ -17,12 +22,15 @@ export function LobbyForm({
   guestId,
   nickname,
   tournamentCode,
+  activeTournamentCode = null,
+  activeTournamentStatus = null,
   createDisabled = false,
   joinDisabled = false,
   busyLabel = null,
   errorMessage = null,
   onNicknameChange,
   onTournamentCodeChange,
+  onResumeTournament,
   onCreate,
   onJoin,
 }: LobbyFormProps) {
@@ -32,7 +40,26 @@ export function LobbyForm({
       <h3 className="mt-3 text-2xl font-semibold text-white">Tournament Entry</h3>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         Create a new table as owner or join an existing waiting room with the current guest session.
+        Leave the code blank to auto-generate one, or enter your own code before creating.
       </p>
+      {activeTournamentCode ? (
+        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-200/10 px-4 py-4 text-sm text-amber-50">
+          <p className="font-semibold">Active tournament detected</p>
+          <p className="mt-2">
+            You are already participating in <span className="font-semibold">{activeTournamentCode}</span>
+            {activeTournamentStatus ? ` (${activeTournamentStatus})` : ""}.
+          </p>
+          {onResumeTournament ? (
+            <button
+              type="button"
+              onClick={onResumeTournament}
+              className="mt-3 rounded-2xl bg-amber-300 px-4 py-3 font-semibold text-slate-950 transition hover:bg-amber-200"
+            >
+              Resume Tournament
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-6 space-y-4">
         <label className="block">
           <span className="mb-2 block text-sm text-zinc-300">Guest ID</span>
@@ -56,7 +83,7 @@ export function LobbyForm({
           <input
             value={tournamentCode}
             onChange={(event) => onTournamentCodeChange(event.target.value.toUpperCase())}
-            placeholder="ABCDE"
+            placeholder="Optional for create, required for join"
             className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
           />
         </label>

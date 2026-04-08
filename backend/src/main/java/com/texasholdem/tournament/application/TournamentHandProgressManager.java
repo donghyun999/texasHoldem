@@ -153,6 +153,7 @@ final class TournamentHandProgressManager {
                 player.seatIndex,
                 player.totalContribution,
                 player.isEligibleForPot(),
+                player.status == PlayerStatus.ALL_IN,
                 List.copyOf(player.holeCards)
         );
     }

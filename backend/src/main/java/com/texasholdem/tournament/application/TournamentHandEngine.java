@@ -84,4 +84,9 @@ final class TournamentHandEngine {
     void applyForcedFold(TournamentState tournament, TournamentPlayerState player, boolean wasActing) {
         handProgressManager.applyForcedFoldAndAdvance(tournament, player, !wasActing);
     }
+
+    // Completes a final pending hand-result window once no further hands can start.
+    void finalizePendingTournamentResult(TournamentState tournament) {
+        handResultManager.finalizePendingTournamentResult(tournament);
+    }
 }

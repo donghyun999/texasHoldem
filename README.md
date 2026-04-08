@@ -60,6 +60,7 @@ Runtime configuration defaults:
 ```bash
 SPRING_PROFILES_ACTIVE=local
 APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+APP_MAX_ACTIVE_PLAYERS=50
 VITE_API_BASE_URL=http://localhost:8080
 VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```
@@ -115,5 +116,5 @@ npm run build
 
 - Reconnect and persistence hardening
 - Richer hand-result events for client animation and replay
-- Production-grade deck/randomness and persistence-backed tournament recovery
+- Final showdown/result UX polish and reconnect edge-case review
 - Preserve the local-PostgreSQL MVP workflow while preparing a clean Docker deployment path

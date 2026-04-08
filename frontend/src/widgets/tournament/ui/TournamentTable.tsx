@@ -3,6 +3,7 @@ import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
+  currentGuestId?: string;
 };
 
 // Spreads players into a fixed six-seat array for the ring layout.
@@ -17,7 +18,7 @@ function buildSeatMap(players: TournamentPlayer[]) {
 }
 
 // Renders the table, board cards, main pot, and side-pot summary.
-export function TournamentTable({ snapshot }: TournamentTableProps) {
+export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
 
   return (
@@ -33,6 +34,8 @@ export function TournamentTable({ snapshot }: TournamentTableProps) {
                 dealerSeat={snapshot.dealerSeat}
                 smallBlindSeat={snapshot.smallBlindSeat}
                 bigBlindSeat={snapshot.bigBlindSeat}
+                currentGuestId={currentGuestId}
+                selfHoleCards={snapshot.selfHoleCards}
               />
             ))}
           </div>
@@ -71,6 +74,8 @@ export function TournamentTable({ snapshot }: TournamentTableProps) {
                 dealerSeat={snapshot.dealerSeat}
                 smallBlindSeat={snapshot.smallBlindSeat}
                 bigBlindSeat={snapshot.bigBlindSeat}
+                currentGuestId={currentGuestId}
+                selfHoleCards={snapshot.selfHoleCards}
               />
             ))}
           </div>

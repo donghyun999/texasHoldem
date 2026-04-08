@@ -18,6 +18,7 @@ final class TournamentState {
     List<PotView> sidePots = new ArrayList<>();
     BettingRound round = BettingRound.PRE_FLOP;
     int currentBet = 0;
+    int lastFullRaiseSize = 0;
     List<String> boardCards = new ArrayList<>();
     List<String> hiddenBoardCards = new ArrayList<>();
     Integer dealerSeat;
@@ -25,7 +26,9 @@ final class TournamentState {
     Integer bigBlindSeat;
     Integer actingSeat;
     long handResultEndsAtEpochMilli = 0;
+    long finishedCleanupAtEpochMilli = 0;
     List<ShowdownPotView> showdownPots = new ArrayList<>();
+    List<String> recentlyBustedGuestIds = new ArrayList<>();
     List<String> availableActions = new ArrayList<>();
     String tableMessage = "";
 

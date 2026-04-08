@@ -28,7 +28,7 @@ final class TournamentBettingActionManager {
         var contribution = switch (normalizedAction) {
             case "CHECK" -> applyCheck(tournament, player);
             case "CALL" -> applyCall(tournament, player);
-            case "BET", "RAISE" -> applyRaise(tournament, player, amount);
+            case "BET", "RAISE" -> applyWager(tournament, player, normalizedAction, amount);
             case "ALL_IN" -> applyAllIn(tournament, player);
             case "FOLD" -> applyFold(player);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action: " + normalizedAction);
@@ -43,21 +43,23 @@ final class TournamentBettingActionManager {
 
     // Validates a zero-cost action when the player has matched the current bet.
     private int applyCheck(TournamentState tournament, TournamentPlayerState player) {
-        if (chipsToCall(tournament, player) > 0) {
+        if (TournamentBetSizing.chipsToCall(tournament, player) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player must call, raise, or fold");
         }
         player.awaitingAction = false;
+        player.raiseRightsAvailable = false;
         return 0;
     }
 
     // Matches the current bet and allows short all-in calls when the stack is not enough.
     private int applyCall(TournamentState tournament, TournamentPlayerState player) {
-        var chipsToCall = chipsToCall(tournament, player);
+        var chipsToCall = TournamentBetSizing.chipsToCall(tournament, player);
         if (chipsToCall <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nothing to call");
         }
         var paid = contribute(player, chipsToCall);
         player.awaitingAction = false;
+        player.raiseRightsAvailable = false;
         if (player.stack == 0) {
             player.status = PlayerStatus.ALL_IN;
         }
@@ -65,10 +67,27 @@ final class TournamentBettingActionManager {
     }
 
     // Raises the round bet to a target contribution and reopens action for others.
-    private int applyRaise(TournamentState tournament, TournamentPlayerState player, Integer amount) {
+    private int applyWager(TournamentState tournament, TournamentPlayerState player, String action, Integer amount) {
+        if ("BET".equals(action) && tournament.currentBet > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bet is only available before any wager in the round");
+        }
+        if ("RAISE".equals(action) && tournament.currentBet == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise requires an existing bet");
+        }
+        if (!player.raiseRightsAvailable) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise is not reopened for this player");
+        }
+
         var targetContribution = resolveRaiseTarget(tournament, amount);
+        var minimumTargetContribution = TournamentBetSizing.minimumTotalContributionForFullRaise(rules, tournament);
         if (targetContribution <= tournament.currentBet) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise must increase the current bet");
+        }
+        if (targetContribution < minimumTargetContribution) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Raise must reach at least " + minimumTargetContribution
+            );
         }
 
         var additionalChips = targetContribution - player.roundContribution;
@@ -79,10 +98,13 @@ final class TournamentBettingActionManager {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise exceeds the remaining stack");
         }
 
+        var previousBet = tournament.currentBet;
         var paid = contribute(player, additionalChips);
         tournament.currentBet = player.roundContribution;
+        tournament.lastFullRaiseSize = player.roundContribution - previousBet;
         player.awaitingAction = false;
-        reopenAction(tournament, player.seatIndex);
+        player.raiseRightsAvailable = false;
+        offerResponseToChangedBet(tournament, player.seatIndex, true);
         if (player.stack == 0) {
             player.status = PlayerStatus.ALL_IN;
         }
@@ -96,12 +118,20 @@ final class TournamentBettingActionManager {
         }
 
         var previousBet = tournament.currentBet;
+        var minimumRaiseIncrement = TournamentBetSizing.minimumRaiseIncrement(rules, tournament);
         var paid = contribute(player, player.stack);
         player.status = PlayerStatus.ALL_IN;
         player.awaitingAction = false;
+        player.raiseRightsAvailable = false;
         if (player.roundContribution > previousBet) {
+            var wagerIncrease = player.roundContribution - previousBet;
             tournament.currentBet = player.roundContribution;
-            reopenAction(tournament, player.seatIndex);
+            if (wagerIncrease >= minimumRaiseIncrement) {
+                tournament.lastFullRaiseSize = wagerIncrease;
+                offerResponseToChangedBet(tournament, player.seatIndex, true);
+            } else {
+                offerResponseToChangedBet(tournament, player.seatIndex, false);
+            }
         }
         return paid;
     }
@@ -110,13 +140,21 @@ final class TournamentBettingActionManager {
     private int applyFold(TournamentPlayerState player) {
         player.status = PlayerStatus.FOLDED;
         player.awaitingAction = false;
+        player.raiseRightsAvailable = false;
         return 0;
     }
 
-    // Reopens action for remaining active players after a new highest bet appears.
-    private void reopenAction(TournamentState tournament, int actorSeat) {
+    // Marks which active players still owe a response after the table price changes.
+    private void offerResponseToChangedBet(TournamentState tournament, int actorSeat, boolean reopenRaiseRights) {
         for (var candidate : tournament.players) {
-            candidate.awaitingAction = candidate.status == PlayerStatus.ACTIVE && candidate.seatIndex != actorSeat;
+            if (candidate.status != PlayerStatus.ACTIVE || candidate.seatIndex == actorSeat) {
+                candidate.awaitingAction = false;
+                continue;
+            }
+            candidate.awaitingAction = candidate.roundContribution < tournament.currentBet;
+            if (reopenRaiseRights) {
+                candidate.raiseRightsAvailable = candidate.awaitingAction;
+            }
         }
     }
 
@@ -137,13 +175,6 @@ final class TournamentBettingActionManager {
         if (amount != null) {
             return amount;
         }
-        return tournament.currentBet == 0
-                ? rules.bigBlindFor(tournament.levelIndex)
-                : tournament.currentBet + rules.bigBlindFor(tournament.levelIndex);
-    }
-
-    // Returns how many chips the player still needs to match the current round bet.
-    private int chipsToCall(TournamentState tournament, TournamentPlayerState player) {
-        return Math.max(0, tournament.currentBet - player.roundContribution);
+        return TournamentBetSizing.minimumTotalContributionForFullRaise(rules, tournament);
     }
 }

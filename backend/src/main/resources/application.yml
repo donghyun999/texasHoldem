@@ -30,6 +30,8 @@ management:
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  tournament:
+    max-active-players: ${APP_MAX_ACTIVE_PLAYERS:50}
 
 logging:
   level:

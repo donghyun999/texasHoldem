@@ -25,6 +25,7 @@ DB_NAME=texas_holdem
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 APP_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+APP_MAX_ACTIVE_PLAYERS=50
 VITE_API_BASE_URL=http://localhost:8080
 VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```

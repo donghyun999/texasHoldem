@@ -52,6 +52,7 @@ export function ActionPanel({
   });
   const parsedTargetAmount = parseTargetAmount(targetAmount);
   const hasValidTargetAmount = parsedTargetAmount !== null;
+  const disconnectLabel = tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect";
 
   // Clears stale bet sizing whenever the server rotates the action set.
   useEffect(() => {
@@ -111,10 +112,9 @@ export function ActionPanel({
           <button
             type="button"
             onClick={onDisconnect}
-            disabled={!canPublish}
             className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Disconnect
+            {disconnectLabel}
           </button>
         ) : showReconnect ? (
           <button

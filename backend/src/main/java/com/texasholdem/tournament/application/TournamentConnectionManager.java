@@ -49,16 +49,20 @@ final class TournamentConnectionManager {
         } else {
             tournament.tableMessage = stateAccess.combineMessages(
                     player.nickname + " disconnected.",
-                    ownershipManager.buildOwnerDelegationMessage(delegatedOwner)
+                    ownershipManager.buildOwnerDelegationMessage(delegatedOwner),
+                    tournament.tableMessage
             );
         }
+
+        var deleteTournament = tournament.status == TournamentStatus.FINISHED
+                && tournament.players.stream().noneMatch(connectedPlayer -> connectedPlayer.connected);
 
         return new TournamentConnectionChange(
                 guestId,
                 false,
                 false,
                 delegatedOwner == null ? null : delegatedOwner.guestId,
-                false
+                deleteTournament
         );
     }
 
@@ -73,7 +77,8 @@ final class TournamentConnectionManager {
         var delegatedOwner = ownershipManager.assignOwnerIfMissing(tournament);
         tournament.tableMessage = stateAccess.combineMessages(
                 player.nickname + " reconnected.",
-                ownershipManager.buildOwnerDelegationMessage(delegatedOwner)
+                ownershipManager.buildOwnerDelegationMessage(delegatedOwner),
+                tournament.tableMessage
         );
         return new TournamentConnectionChange(
                 guestId,
