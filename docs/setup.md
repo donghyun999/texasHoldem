@@ -33,6 +33,31 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```
 
+### Railway deployment variables
+
+Backend service:
+
+```bash
+APP_CORS_ALLOWED_ORIGINS=https://<frontend-domain>
+DB_HOST=${{Postgres.PGHOST}}
+DB_PORT=${{Postgres.PGPORT}}
+DB_NAME=${{Postgres.PGDATABASE}}
+DB_USERNAME=${{Postgres.PGUSER}}
+DB_PASSWORD=${{Postgres.PGPASSWORD}}
+```
+
+Frontend service:
+
+```bash
+VITE_API_BASE_URL=https://<backend-domain>
+VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
+```
+
+- Railway backend deploys should use `/backend/railway.json`
+- Railway frontend deploys should use `/frontend/railway.json`
+- Keep the backend at one replica and keep service sleep disabled for this MVP websocket runtime
+- See `docs/railway.md` for the full deploy sequence and smoke-check list
+
 ### Option 2. Docker Compose
 
 1. Open `infra/`
