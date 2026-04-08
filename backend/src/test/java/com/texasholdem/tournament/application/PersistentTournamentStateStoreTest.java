@@ -4,8 +4,10 @@ import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,5 +91,40 @@ class PersistentTournamentStateStoreTest {
 
         assertThat(store.findPendingFinishedCleanups())
                 .containsExactly(new TournamentStateStore.PendingFinishedCleanup("DONE1", 654_321L));
+    }
+
+    // Verifies that waiting and in-hand tournaments can be identified as stale from updated_at timestamps.
+    @Test
+    void findsStaleTournamentCodesFromUpdatedAtTtlPolicy() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        var waitingTournament = new TournamentState("WAIT1");
+        waitingTournament.status = TournamentStatus.WAITING;
+        var inHandTournament = new TournamentState("HAND1");
+        inHandTournament.status = TournamentStatus.IN_HAND;
+        var freshTournament = new TournamentState("FRESH1");
+        freshTournament.status = TournamentStatus.WAITING;
+        var finishedTournament = new TournamentState("DONE1");
+        finishedTournament.status = TournamentStatus.FINISHED;
+
+        var staleWaitingEntity = new TournamentStateEntity("WAIT1", "waiting");
+        var staleInHandEntity = new TournamentStateEntity("HAND1", "in-hand");
+        var freshEntity = new TournamentStateEntity("FRESH1", "fresh");
+        var finishedEntity = new TournamentStateEntity("DONE1", "finished");
+        ReflectionTestUtils.setField(staleWaitingEntity, "updatedAt", LocalDateTime.now().minusMinutes(45));
+        ReflectionTestUtils.setField(staleInHandEntity, "updatedAt", LocalDateTime.now().minusHours(3));
+        ReflectionTestUtils.setField(freshEntity, "updatedAt", LocalDateTime.now().minusMinutes(5));
+        ReflectionTestUtils.setField(finishedEntity, "updatedAt", LocalDateTime.now().minusDays(2));
+
+        when(repository.findAll()).thenReturn(List.of(staleWaitingEntity, staleInHandEntity, freshEntity, finishedEntity));
+        when(mapper.read("waiting")).thenReturn(waitingTournament);
+        when(mapper.read("in-hand")).thenReturn(inHandTournament);
+        when(mapper.read("fresh")).thenReturn(freshTournament);
+        when(mapper.read("finished")).thenReturn(finishedTournament);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findStaleTournamentCodes(System.currentTimeMillis(), 30 * 60 * 1_000L, 2 * 60 * 60 * 1_000L, 24 * 60 * 60 * 1_000L))
+                .containsExactly("WAIT1", "HAND1", "DONE1");
     }
 }

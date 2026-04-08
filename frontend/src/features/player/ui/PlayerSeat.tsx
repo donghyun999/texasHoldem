@@ -1,4 +1,5 @@
 import type { TournamentPlayer } from "@/entities/tournament/model/types";
+import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type PlayerSeatProps = {
   player?: TournamentPlayer;
@@ -104,12 +105,7 @@ export function PlayerSeat({
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {visibleHoleCards.map((card, index) => (
-          <div
-            key={`${player.guestId}-card-${index}`}
-            className="grid h-16 place-items-center rounded-xl bg-white text-sm font-semibold text-slate-900"
-          >
-            {card}
-          </div>
+          <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
         ))}
       </div>
     </div>

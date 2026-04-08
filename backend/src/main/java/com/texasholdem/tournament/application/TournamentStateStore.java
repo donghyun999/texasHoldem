@@ -37,6 +37,14 @@ interface TournamentStateStore {
     // Lists persisted finished tournaments whose delayed cleanup must survive a restart.
     List<PendingFinishedCleanup> findPendingFinishedCleanups();
 
+    // Lists stale tournaments whose persisted update timestamp exceeded the configured TTL policy.
+    List<String> findStaleTournamentCodes(
+            long nowEpochMilli,
+            long waitingIdleTtlMillis,
+            long inHandIdleTtlMillis,
+            long hardTtlMillis
+    );
+
     // Removes one tournament completely from durable storage.
     void delete(String code);
 }

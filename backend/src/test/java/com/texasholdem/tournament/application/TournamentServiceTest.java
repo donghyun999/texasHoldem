@@ -60,6 +60,20 @@ class TournamentServiceTest {
         assertThat(service.findActiveTournament("missing-guest")).isNull();
     }
 
+    // Verifies that stale waiting tournaments are cleaned before active-seat lookup runs.
+    @Test
+    void ignoresStaleWaitingTournamentWhenLookingUpActiveTournament() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner");
+
+        touchPersistedTournament(service, snapshot.code(), Instant.now().minusSeconds(31 * 60L).toEpochMilli());
+
+        assertThat(service.findActiveTournament("guest-1")).isNull();
+        assertThatThrownBy(() -> service.getTournament(snapshot.code()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Tournament not found");
+    }
+
     // Verifies that caller-supplied codes are reserved and reusable by join requests.
     @Test
     void createsTournamentWithRequestedCode() {
@@ -102,6 +116,38 @@ class TournamentServiceTest {
         assertThatThrownBy(() -> service.joinTournament(firstCode, "guest-3", "LatePlayer"))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("at capacity");
+    }
+
+    // Verifies that stale waiting tournaments are removed before the capacity cap blocks new creates.
+    @Test
+    void cleansStaleWaitingTournamentBeforeCapacityCheck() {
+        var service = createService(1);
+        var staleCode = service.createTournament("guest-1", "Owner").code();
+
+        touchPersistedTournament(service, staleCode, Instant.now().minusSeconds(31 * 60L).toEpochMilli());
+
+        var replacementSnapshot = service.createTournament("guest-2", "NextOwner");
+
+        assertThat(replacementSnapshot.code()).isNotEqualTo(staleCode);
+        assertThat(replacementSnapshot.players()).singleElement().satisfies(player ->
+                assertThat(player.guestId()).isEqualTo("guest-2")
+        );
+    }
+
+    // Verifies that stale in-hand tournaments are removed before the capacity cap blocks new creates.
+    @Test
+    void cleansStaleInHandTournamentBeforeCapacityCheck() {
+        var service = createService(2);
+        var staleCode = prepareTournament(service, 2);
+
+        touchPersistedTournament(service, staleCode, Instant.now().minusSeconds(2 * 60L * 60L + 60L).toEpochMilli());
+
+        var replacementSnapshot = service.createTournament("guest-3", "FreshOwner");
+
+        assertThat(replacementSnapshot.status()).isEqualTo(TournamentStatus.WAITING);
+        assertThat(replacementSnapshot.players()).singleElement().satisfies(player ->
+                assertThat(player.guestId()).isEqualTo("guest-3")
+        );
     }
 
     // Verifies that reconnect remains available even when the service is already at the active-player cap.
@@ -774,7 +820,10 @@ class TournamentServiceTest {
                 stateStore,
                 event -> {
                 },
-                50
+                50,
+                1_800,
+                7_200,
+                86_400
         );
 
         var code = prepareTournament(firstService, 3);
@@ -796,7 +845,10 @@ class TournamentServiceTest {
                 stateStore,
                 event -> {
                 },
-                50
+                50,
+                1_800,
+                7_200,
+                86_400
         );
 
         var restoredSnapshot = secondService.getTournament(code);
@@ -947,7 +999,10 @@ class TournamentServiceTest {
                 stateStore,
                 event -> {
                 },
-                50
+                50,
+                1_800,
+                7_200,
+                86_400
         );
 
         var code = prepareTournament(firstService, 3);
@@ -971,7 +1026,10 @@ class TournamentServiceTest {
                 stateStore,
                 event -> {
                 },
-                50
+                50,
+                1_800,
+                7_200,
+                86_400
         );
         var restoredSnapshot = secondService.getTournament(code);
 
@@ -1044,6 +1102,16 @@ class TournamentServiceTest {
 
     // Builds the same dependency graph with a configurable active-player capacity cap.
     private TournamentService createService(int maxActivePlayers) {
+        return createService(maxActivePlayers, 1_800, 7_200, 86_400);
+    }
+
+    // Builds the same dependency graph with configurable capacity and TTL cleanup settings.
+    private TournamentService createService(
+            int maxActivePlayers,
+            long waitingIdleTtlSeconds,
+            long inHandIdleTtlSeconds,
+            long hardTtlSeconds
+    ) {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
         var snapshotFactory = new TournamentSnapshotFactory(rules);
@@ -1082,7 +1150,10 @@ class TournamentServiceTest {
                 stateStore,
                 event -> {
                 },
-                maxActivePlayers
+                maxActivePlayers,
+                waitingIdleTtlSeconds,
+                inHandIdleTtlSeconds,
+                hardTtlSeconds
         );
     }
 
@@ -1117,6 +1188,15 @@ class TournamentServiceTest {
         var stateStore = (TournamentStateStore) ReflectionTestUtils.getField(service, "stateStore");
         assertThat(stateStore).isNotNull();
         stateStore.save((TournamentState) tournament);
+    }
+
+    // Overrides one persisted update timestamp so stale-cleanup tests can model idle tournaments.
+    private void touchPersistedTournament(TournamentService service, String code, long updatedAtEpochMilli) {
+        persistCurrentTournamentState(service, code);
+        var stateStore = (TournamentStateStore) ReflectionTestUtils.getField(service, "stateStore");
+        assertThat(stateStore).isInstanceOf(InMemoryTournamentStateStore.class);
+        ((InMemoryTournamentStateStore) stateStore).touch(code, updatedAtEpochMilli);
+        evictTournamentFromCache(service, code);
     }
 
     // Finds one player in a snapshot by guest id so the assertions stay readable.

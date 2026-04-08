@@ -1,4 +1,5 @@
 import type { TournamentPlayer, TournamentSnapshot, TournamentStatus } from "@/entities/tournament/model/types";
+import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type TournamentShowdownPanelProps = {
   snapshot: TournamentSnapshot;
@@ -92,12 +93,7 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
           {snapshot.boardCards.length > 0 ? (
             <div className="mt-4 flex flex-wrap gap-3">
               {snapshot.boardCards.map((card) => (
-                <div
-                  key={card}
-                  className="grid h-16 w-12 place-items-center rounded-2xl border border-white/15 bg-white text-sm font-semibold text-slate-900"
-                >
-                  {card}
-                </div>
+                <PlayingCard key={card} card={card} variant="seat" />
               ))}
             </div>
           ) : (

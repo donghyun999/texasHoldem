@@ -2,13 +2,14 @@ package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.TournamentStatus;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class InMemoryTournamentStateStore implements TournamentStateStore {
 
-    private final Map<String, String> payloads = new ConcurrentHashMap<>();
+    private final Map<String, StoredPayload> payloads = new ConcurrentHashMap<>();
     private final TournamentStatePersistenceMapper mapper;
 
     // Keeps test persistence behavior aligned with the production JSON mapping path.
@@ -25,20 +26,24 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     // Serializes and stores one tournament state in the backing map.
     @Override
     public void save(TournamentState tournament) {
-        payloads.put(tournament.code, mapper.write(tournament));
+        payloads.put(
+                tournament.code,
+                new StoredPayload(mapper.write(tournament), Instant.now().toEpochMilli())
+        );
     }
 
     // Deserializes one persisted tournament state from the backing map.
     @Override
     public TournamentState load(String code) {
-        var payload = payloads.get(code);
-        return payload == null ? null : mapper.read(payload);
+        var storedPayload = payloads.get(code);
+        return storedPayload == null ? null : mapper.read(storedPayload.payload());
     }
 
     // Scans stored tournament payloads for one unfinished seat held by the guest.
     @Override
     public String findActiveTournamentCodeByGuestId(String guestId) {
         return payloads.values().stream()
+                .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
                 .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
@@ -51,6 +56,7 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     @Override
     public int countActiveGuests() {
         return (int) payloads.values().stream()
+                .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
                 .flatMap(tournament -> tournament.players.stream())
@@ -63,6 +69,7 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     @Override
     public List<PendingHandResult> findPendingHandResults() {
         return payloads.values().stream()
+                .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status == TournamentStatus.HAND_RESULT)
                 .filter(tournament -> tournament.handResultEndsAtEpochMilli > 0)
@@ -74,6 +81,7 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     @Override
     public List<PendingFinishedCleanup> findPendingFinishedCleanups() {
         return payloads.values().stream()
+                .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status == TournamentStatus.FINISHED)
                 .filter(tournament -> tournament.finishedCleanupAtEpochMilli > 0)
@@ -81,9 +89,60 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .toList();
     }
 
+    // Finds stale in-memory tournaments using the same idle-TTL rules as the persistent store.
+    @Override
+    public List<String> findStaleTournamentCodes(
+            long nowEpochMilli,
+            long waitingIdleTtlMillis,
+            long inHandIdleTtlMillis,
+            long hardTtlMillis
+    ) {
+        return payloads.entrySet().stream()
+                .filter(entry -> isStale(
+                        mapper.read(entry.getValue().payload()),
+                        entry.getValue().updatedAtEpochMilli(),
+                        nowEpochMilli,
+                        waitingIdleTtlMillis,
+                        inHandIdleTtlMillis,
+                        hardTtlMillis
+                ))
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
     // Removes one tournament from the backing map.
     @Override
     public void delete(String code) {
         payloads.remove(code);
+    }
+
+    // Overrides one stored update timestamp so tests can model stale persisted tournaments.
+    void touch(String code, long updatedAtEpochMilli) {
+        payloads.computeIfPresent(code, (currentCode, storedPayload) ->
+                new StoredPayload(storedPayload.payload(), updatedAtEpochMilli)
+        );
+    }
+
+    private boolean isStale(
+            TournamentState tournament,
+            long updatedAtEpochMilli,
+            long nowEpochMilli,
+            long waitingIdleTtlMillis,
+            long inHandIdleTtlMillis,
+            long hardTtlMillis
+    ) {
+        var ageMillis = Math.max(0, nowEpochMilli - updatedAtEpochMilli);
+        if (hardTtlMillis > 0 && ageMillis >= hardTtlMillis) {
+            return true;
+        }
+        if (tournament.status == TournamentStatus.WAITING && waitingIdleTtlMillis > 0 && ageMillis >= waitingIdleTtlMillis) {
+            return true;
+        }
+        return tournament.status == TournamentStatus.IN_HAND
+                && inHandIdleTtlMillis > 0
+                && ageMillis >= inHandIdleTtlMillis;
+    }
+
+    private record StoredPayload(String payload, long updatedAtEpochMilli) {
     }
 }
