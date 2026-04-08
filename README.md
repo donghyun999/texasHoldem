@@ -72,19 +72,20 @@ Railway deployment notes:
 
 ```bash
 # backend service
-SPRING_PROFILES_ACTIVE=local
 APP_CORS_ALLOWED_ORIGINS=https://<frontend-domain>
-DB_HOST=<railway-postgres-host>
-DB_PORT=<railway-postgres-port>
-DB_NAME=<railway-postgres-db>
-DB_USERNAME=<railway-postgres-user>
-DB_PASSWORD=<railway-postgres-password>
+DB_HOST=${{Postgres.PGHOST}}
+DB_PORT=${{Postgres.PGPORT}}
+DB_NAME=${{Postgres.PGDATABASE}}
+DB_USERNAME=${{Postgres.PGUSER}}
+DB_PASSWORD=${{Postgres.PGPASSWORD}}
 
 # frontend service
 VITE_API_BASE_URL=https://<backend-domain>
 VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
 ```
 
+- Use `/backend/railway.json` and `/frontend/railway.json` as the Railway config-as-code files
+- Keep the Railway backend service at one replica and leave service sleep disabled for this MVP
 - Current workflow: run the app against a local PostgreSQL instance with the `local` profile
 - Final deployment path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
 
@@ -128,6 +129,7 @@ npm run build
 ## Key docs
 
 - `docs/setup.md`
+- `docs/railway.md`
 - `docs/state-flow.md`
 - `docs/websocket-events.md`
 - `docs/roadmap.md`

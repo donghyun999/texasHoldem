@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    show-sql: false
+
+server:
+  forward-headers-strategy: framework
+
+logging:
+  level:
+    com.texasholdem: info
+    org.springframework.web.socket: info
