@@ -68,6 +68,23 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```
 
+Railway deployment notes:
+
+```bash
+# backend service
+SPRING_PROFILES_ACTIVE=local
+APP_CORS_ALLOWED_ORIGINS=https://<frontend-domain>
+DB_HOST=<railway-postgres-host>
+DB_PORT=<railway-postgres-port>
+DB_NAME=<railway-postgres-db>
+DB_USERNAME=<railway-postgres-user>
+DB_PASSWORD=<railway-postgres-password>
+
+# frontend service
+VITE_API_BASE_URL=https://<backend-domain>
+VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
+```
+
 - Current workflow: run the app against a local PostgreSQL instance with the `local` profile
 - Final deployment path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
 
