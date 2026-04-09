@@ -7,15 +7,32 @@ type TournamentTableProps = {
   currentGuestId?: string;
 };
 
+const TOTAL_SEATS = 6;
+const HERO_TABLE_POSITION_INDEX = 4;
+
 // Spreads players into a fixed six-seat array for the ring layout.
 function buildSeatMap(players: TournamentPlayer[]) {
-  const seats: Array<TournamentPlayer | undefined> = new Array(6).fill(undefined);
+  const seats: Array<TournamentPlayer | undefined> = new Array(TOTAL_SEATS).fill(undefined);
 
   for (const player of players) {
     seats[player.seatIndex] = player;
   }
 
   return seats;
+}
+
+function normalizeSeatIndex(index: number) {
+  return (index + TOTAL_SEATS) % TOTAL_SEATS;
+}
+
+function buildDisplayedSeatIndexes(players: TournamentPlayer[], currentGuestId?: string) {
+  const currentPlayerSeat = players.find((player) => player.guestId === currentGuestId)?.seatIndex;
+  const rotationOffset =
+    currentPlayerSeat === undefined ? 0 : normalizeSeatIndex(currentPlayerSeat - HERO_TABLE_POSITION_INDEX);
+
+  return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) =>
+    normalizeSeatIndex(tablePositionIndex + rotationOffset),
+  );
 }
 
 function getStreetLabel(boardCards: string[]) {
@@ -78,6 +95,7 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
 // Renders the table, board cards, main pot, and side-pot summary.
 export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
+  const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
   const topRowSeatIndexes = [0, 1, 2];
   const bottomRowSeatIndexes = [5, 4, 3];
   const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
@@ -89,18 +107,22 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
       <div className="mx-auto grid min-h-[500px] max-w-5xl place-items-center rounded-[2.5rem] border-[10px] border-[#5c341f] bg-[radial-gradient(circle,_#2b7c57,_#18533b_68%,_#123021)] px-2.5 py-5 sm:min-h-[560px] sm:rounded-[999px] sm:border-[18px] sm:px-6 sm:py-12">
         <div className="grid w-full gap-4 sm:gap-10">
           <div className="grid grid-cols-3 gap-1.5 sm:gap-6">
-            {topRowSeatIndexes.map((seatIndex) => (
-              <PlayerSeat
-                key={`seat-${seatIndex}`}
-                player={seats[seatIndex]}
-                seatIndex={seatIndex}
-                dealerSeat={snapshot.dealerSeat}
-                smallBlindSeat={snapshot.smallBlindSeat}
-                bigBlindSeat={snapshot.bigBlindSeat}
-                currentGuestId={currentGuestId}
-                selfHoleCards={snapshot.selfHoleCards}
-              />
-            ))}
+            {topRowSeatIndexes.map((tablePositionIndex) => {
+              const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
+              return (
+                <PlayerSeat
+                  key={`seat-${tablePositionIndex}`}
+                  player={seats[actualSeatIndex]}
+                  seatIndex={actualSeatIndex}
+                  tablePositionIndex={tablePositionIndex}
+                  dealerSeat={snapshot.dealerSeat}
+                  smallBlindSeat={snapshot.smallBlindSeat}
+                  bigBlindSeat={snapshot.bigBlindSeat}
+                  currentGuestId={currentGuestId}
+                  selfHoleCards={snapshot.selfHoleCards}
+                />
+              );
+            })}
           </div>
 
           <div className="mx-auto w-full max-w-[21rem] min-w-0 rounded-[1.75rem] border border-white/10 bg-black/25 px-3 py-4 text-center sm:max-w-2xl sm:rounded-[2rem] sm:px-8 sm:py-6">
@@ -134,18 +156,22 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 sm:gap-6">
-            {bottomRowSeatIndexes.map((seatIndex) => (
-              <PlayerSeat
-                key={`seat-${seatIndex}`}
-                player={seats[seatIndex]}
-                seatIndex={seatIndex}
-                dealerSeat={snapshot.dealerSeat}
-                smallBlindSeat={snapshot.smallBlindSeat}
-                bigBlindSeat={snapshot.bigBlindSeat}
-                currentGuestId={currentGuestId}
-                selfHoleCards={snapshot.selfHoleCards}
-              />
-            ))}
+            {bottomRowSeatIndexes.map((tablePositionIndex) => {
+              const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
+              return (
+                <PlayerSeat
+                  key={`seat-${tablePositionIndex}`}
+                  player={seats[actualSeatIndex]}
+                  seatIndex={actualSeatIndex}
+                  tablePositionIndex={tablePositionIndex}
+                  dealerSeat={snapshot.dealerSeat}
+                  smallBlindSeat={snapshot.smallBlindSeat}
+                  bigBlindSeat={snapshot.bigBlindSeat}
+                  currentGuestId={currentGuestId}
+                  selfHoleCards={snapshot.selfHoleCards}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

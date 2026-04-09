@@ -11,7 +11,7 @@
 - Tournament MVP implementation
 - Local development target uses native PostgreSQL
 - Final deployment target should remain Docker-ready
-- MVP staging can now be prepared on Railway without changing the local PostgreSQL workflow
+- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified
 
 ## Completed
 
@@ -29,6 +29,7 @@
 - Richer showdown/result payload detail and frontend result-panel summaries
 - Showdown hand-class labels now flow from backend settlement into result snapshots and frontend rendering
 - Hand-local elimination summary preserved in snapshots and result payloads for reconnect-safe result rendering
+- Result UX now keeps the detailed showdown panel below the table while showing only a compact winner / payout / hand-label summary badge above the table
 - Shuffled deck-based hole-card dealing and board runout with persisted in-hand card recovery
 - Result-state auto-advance after 5 seconds
 - Final-hand result hold before `FINISHED`, including expired reconnect/reload normalization
@@ -46,6 +47,7 @@
 - Finished tournaments now clean themselves up after the result screen window, either 20 seconds after `FINISHED` or earlier when the last connected player leaves
 - Persisted stale tournaments now clean themselves up from `updated_at` TTL rules before active-tournament lookup and capacity-sensitive create/join flows, so abandoned waiting or in-hand rows no longer block new MVP testing sessions
 - Railway deployment profile and service manifests now separate MVP hosting concerns from the local `local` profile workflow
+- Railway public-domain smoke verification has been completed through create, join, ready, start, all-in, call, and showdown, including showdown hand-label rendering
 
 ## In progress / focus
 
@@ -54,13 +56,13 @@
 - Harden reconnect and persistence behavior
 - Keep backend betting state, snapshot actions, and persisted hand state aligned with the tournament spec
 - Finish MVP closeout by separating true must-fix items from explicit out-of-scope items
-- Run the first real Railway smoke deploy against the new deployment profile and service settings
+- Keep local and Railway behavior aligned as result UX and reconnect handling are finalized
 
 ## Next work
 
 - Final reconnect and persistence hardening review for any newly found edge case
 - Final browser smoke test across create, join, leave, resume, and reconnect flows
-- First Railway deployment smoke test with public domains, Postgres variable references, and single-replica websocket verification
+- Repeat the Railway smoke pass only after the next meaningful gameplay or UI change
 - Final MVP closeout review for features that should stay explicitly out of scope
 - Continue organizing runtime configuration so local and Docker profiles stay easy to switch
 
@@ -75,6 +77,7 @@
 - Result handling now exposes richer websocket payload summaries while keeping the snapshot-driven client contract
 - Result snapshots now include server-evaluated showdown hand labels, so the UI can name revealed hands without client-side re-evaluation
 - Result snapshots now preserve hand-local bust context, so split-pot / side-pot result screens no longer have to infer eliminations from cumulative tournament state
+- The current table UX now matches the intended deployed behavior: a compact in-table result summary badge remains above the felt, and the full settled-pot detail stays below the table instead of using a full-table overlay
 - Hand setup now consumes cards from a shuffled 52-card deck while preserving board and hole-card consistency across persisted reloads
 - Local PostgreSQL development flow remains unchanged, and the changes do not add Docker-host-specific assumptions
 - Local browser dev hosts now share one origin allowlist for REST and WebSocket entry, so `127.0.0.1:5173` no longer fails the STOMP handshake by configuration
@@ -85,7 +88,7 @@
 - Reload recovery now preserves the current in-hand seat instead of converting the refresh into an automatic disconnect/fold path
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
 - Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
-- Railway-targeted deployment config now exists separately from the local profile, so the MVP can be hosted without reusing the verbose `local` runtime settings in production-like hosting
+- Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
 
 ## MVP closeout boundary
 

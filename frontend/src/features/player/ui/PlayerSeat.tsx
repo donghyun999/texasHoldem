@@ -4,6 +4,7 @@ import { PlayingCard } from "@/shared/ui/PlayingCard";
 type PlayerSeatProps = {
   player?: TournamentPlayer;
   seatIndex: number;
+  tablePositionIndex: number;
   dealerSeat: number | null;
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
@@ -109,6 +110,7 @@ function DealerButton({ seatIndex }: { seatIndex: number }) {
 export function PlayerSeat({
   player,
   seatIndex,
+  tablePositionIndex,
   dealerSeat,
   smallBlindSeat,
   bigBlindSeat,
@@ -142,7 +144,7 @@ export function PlayerSeat({
     <div
       className={`relative min-w-0 rounded-[1.5rem] border p-2.5 backdrop-blur-[2px] transition sm:rounded-[1.75rem] sm:p-4 ${getSeatTone(player)} ${isSelfSeat ? "ring-1 ring-sky-300/45 sm:ring-2" : ""}`}
     >
-      {isDealerSeat ? <DealerButton seatIndex={seatIndex} /> : null}
+      {isDealerSeat ? <DealerButton seatIndex={tablePositionIndex} /> : null}
       <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[10px] font-medium text-white sm:text-sm">{player.nickname}</p>
