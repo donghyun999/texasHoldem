@@ -9,7 +9,6 @@ import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
 import { TournamentOverview } from "@/widgets/tournament/ui/TournamentOverview";
-import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 
 // Renders a tournament table from either a live server snapshot or a local fallback.
@@ -72,7 +71,6 @@ export function TablePage() {
         />
       </div>
       <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
-      <TournamentShowdownPanel snapshot={snapshot} />
       <div className="hidden lg:block">
         <ActionPanel
           actions={snapshot.availableActions}

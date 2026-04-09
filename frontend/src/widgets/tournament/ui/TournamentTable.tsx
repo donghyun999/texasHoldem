@@ -1,6 +1,7 @@
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
+import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
@@ -40,6 +41,8 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
   const bottomRowSeatIndexes = [5, 4, 3];
   const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
   const streetLabel = getStreetLabel(snapshot.boardCards);
+  const showResultOverlay =
+    (snapshot.status === "HAND_RESULT" || snapshot.status === "FINISHED") && snapshot.showdownPots.length > 0;
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[radial-gradient(circle_at_top,_#2f805b,_#123224_55%,_#091510)] p-2.5 shadow-2xl shadow-black/30 sm:rounded-[2.5rem] sm:p-6">
@@ -106,6 +109,11 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
           </div>
         </div>
       </div>
+      {showResultOverlay ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/32 p-3 backdrop-blur-[2px] sm:p-6">
+          <TournamentShowdownPanel snapshot={snapshot} variant="overlay" />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type TournamentShowdownPanelProps = {
   snapshot: TournamentSnapshot;
+  variant?: "section" | "overlay";
 };
 
 // Chooses the result-panel title from the current tournament lifecycle state.
@@ -79,7 +80,7 @@ function buildShowdownTone(index: number) {
 }
 
 // Renders the settled pot-by-pot payouts once the hand reaches the result phase.
-export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelProps) {
+export function TournamentShowdownPanel({ snapshot, variant = "section" }: TournamentShowdownPanelProps) {
   if ((snapshot.status !== "HAND_RESULT" && snapshot.status !== "FINISHED") || snapshot.showdownPots.length === 0) {
     return null;
   }
@@ -88,9 +89,16 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
   const bustedPlayers = findBustedPlayers(snapshot);
   const showdown = isShowdownResult(snapshot);
   const largestPayoutAmount = findLargestPayoutAmount(snapshot);
+  const isOverlay = variant === "overlay";
+  const containerClass = isOverlay
+    ? "w-full max-w-5xl rounded-[1.75rem] border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(120,53,15,0.68),_rgba(20,20,20,0.96))] p-4 shadow-2xl shadow-black/45 backdrop-blur-md sm:p-6"
+    : "rounded-[2rem] border border-amber-200/15 bg-[linear-gradient(135deg,_rgba(120,53,15,0.35),_rgba(20,20,20,0.9))] p-6";
+  const summaryGridClass = isOverlay ? "mt-4 grid gap-3 lg:grid-cols-3" : "mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]";
+  const handsGridClass = isOverlay ? "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
+  const potsGridClass = isOverlay ? "mt-4 grid gap-3 lg:grid-cols-2" : "mt-5 grid gap-4 lg:grid-cols-2";
 
   return (
-    <section className="rounded-[2rem] border border-amber-200/15 bg-[linear-gradient(135deg,_rgba(120,53,15,0.35),_rgba(20,20,20,0.9))] p-6">
+    <section className={containerClass}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-amber-200/70">{showdown ? "Showdown" : "Hand Result"}</p>
@@ -100,7 +108,7 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
         <p className="text-sm text-amber-50/80">{snapshot.tableMessage}</p>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
+      <div className={summaryGridClass}>
         <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Board</p>
           {snapshot.boardCards.length > 0 ? (
@@ -170,7 +178,7 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className={handsGridClass}>
             {snapshot.showdownHands.map((hand, index) => (
               <div
                 key={hand.guestId}
@@ -187,7 +195,7 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
         </article>
       ) : null}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className={potsGridClass}>
         {snapshot.showdownPots.map((pot) => (
           <article key={pot.id} className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
             <div className="flex items-center justify-between gap-3">
