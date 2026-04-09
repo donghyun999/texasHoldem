@@ -53,6 +53,7 @@ final class TournamentSnapshotFactory {
                         .map(this::toView)
                         .collect(Collectors.toList()),
                 List.copyOf(tournament.showdownPots),
+                List.copyOf(tournament.showdownHands),
                 List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
                 tournament.tableMessage,

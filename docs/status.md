@@ -27,6 +27,7 @@
 - Main pot and side pot calculation
 - Showdown settlement, bust-out handling, and tournament finish flow
 - Richer showdown/result payload detail and frontend result-panel summaries
+- Showdown hand-class labels now flow from backend settlement into result snapshots and frontend rendering
 - Hand-local elimination summary preserved in snapshots and result payloads for reconnect-safe result rendering
 - Shuffled deck-based hole-card dealing and board runout with persisted in-hand card recovery
 - Result-state auto-advance after 5 seconds
@@ -72,6 +73,7 @@
 - Reconnect now normalizes stale expired `HAND_RESULT` state before reconnect/disconnect snapshots are published, so recovery lands on the real current hand
 - Final-hand results now stay visible for the full 5-second window before `FINISHED`, and expired recovery normalizes both next-hand and final-finish branches
 - Result handling now exposes richer websocket payload summaries while keeping the snapshot-driven client contract
+- Result snapshots now include server-evaluated showdown hand labels, so the UI can name revealed hands without client-side re-evaluation
 - Result snapshots now preserve hand-local bust context, so split-pot / side-pot result screens no longer have to infer eliminations from cumulative tournament state
 - Hand setup now consumes cards from a shuffled 52-card deck while preserving board and hole-card consistency across persisted reloads
 - Local PostgreSQL development flow remains unchanged, and the changes do not add Docker-host-specific assumptions
@@ -90,12 +92,12 @@
 ### Keep in scope
 
 - Snapshot-driven result rendering for board cards, settled pot payouts, split pots, side pots, and hand-local eliminations
+- Server-evaluated showdown hand-class labels preserved in result snapshots and result payloads
 - Reconnect / reload recovery that lands on the correct live hand, `HAND_RESULT`, or `FINISHED` snapshot after stale-result normalization
 - Persistence behavior that remains compatible with local PostgreSQL development and a later Docker profile split
 
 ### Leave out of scope for this MVP
 
-- Hand-class labels such as straight, flush, or full house
 - Card-by-card showdown reveal sequencing or staged reveal animation contracts
 - Replay, hand history, or event-timeline reconstruction
 - Final standings ladder beyond the winner and the latest settled snapshot
@@ -103,7 +105,7 @@
 ## Remaining gaps
 
 - Reconnect recovery is still snapshot-level and does not attempt richer in-hand session restoration beyond seat ownership and latest snapshot
-- Hand-class labels, showdown reveal sequencing, replay metadata, and final standings history remain intentionally out of scope for this MVP
+- Showdown reveal sequencing, replay metadata, and final standings history remain intentionally out of scope for this MVP
 
 ## Notes
 

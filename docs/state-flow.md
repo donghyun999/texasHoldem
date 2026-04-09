@@ -6,6 +6,7 @@
 - `IN_HAND`: blinds are posted, a hand is active, and only the acting player can submit an action
 - `HAND_RESULT`: action is closed, showdown and settlement are already reflected, and the result screen is held for 5 seconds before auto-advance
   - settled pot-by-pot payouts are available in `snapshot.showdownPots`
+  - server-evaluated revealed hand labels are available in `snapshot.showdownHands`
   - hand-local eliminations are preserved in `snapshot.recentlyBustedGuestIds` so reconnect can render the same result context
   - the final hand also stays in `HAND_RESULT` for the same 5-second window before transitioning to `FINISHED`
 - `FINISHED`: one player remains and the tournament no longer accepts actions
@@ -28,7 +29,7 @@
 4. Run preflop, flop, turn, and river betting rounds while tracking per-round and total contributions
 5. Build the main pot and any side pots from matched contribution tiers, ignoring uncalled excess chips
 6. Resolve showdown, distribute chips, refund unmatched excess chips, and mark busted-out players
-   Result snapshots keep both aggregate pot totals and per-pot payouts for the result panel
+   Result snapshots keep both aggregate pot totals, per-pot payouts, and server-evaluated showdown hand labels for the result panel
 7. Hold `HAND_RESULT` for 5 seconds, then auto-open the next hand or transition to `FINISHED`
 
 ## Current engine notes

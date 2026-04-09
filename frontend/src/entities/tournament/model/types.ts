@@ -37,6 +37,12 @@ export type ShowdownPot = {
   payouts: ShowdownPayout[];
 };
 
+export type ShowdownHand = {
+  guestId: string;
+  nickname: string;
+  handLabel: string;
+};
+
 export type TournamentPlayer = {
   guestId: string;
   nickname: string;
@@ -65,6 +71,7 @@ export type TournamentSnapshot = {
   actingSeat: number | null;
   players: TournamentPlayer[];
   showdownPots: ShowdownPot[];
+  showdownHands: ShowdownHand[];
   recentlyBustedGuestIds: string[];
   availableActions: string[];
   tableMessage: string;

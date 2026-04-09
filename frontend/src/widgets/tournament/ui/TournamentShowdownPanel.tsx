@@ -70,6 +70,14 @@ function findLargestPayoutAmount(snapshot: TournamentSnapshot) {
   return Math.max(0, ...snapshot.showdownPots.flatMap((pot) => pot.payouts.map((payout) => payout.amount)));
 }
 
+function buildShowdownTone(index: number) {
+  if (index === 0) {
+    return "border-amber-200/25 bg-amber-100/10";
+  }
+
+  return "border-white/10 bg-white/5";
+}
+
 // Renders the settled pot-by-pot payouts once the hand reaches the result phase.
 export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelProps) {
   if ((snapshot.status !== "HAND_RESULT" && snapshot.status !== "FINISHED") || snapshot.showdownPots.length === 0) {
@@ -149,6 +157,35 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
           )}
         </article>
       </div>
+
+      {snapshot.showdownHands.length > 0 ? (
+        <article className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Showdown Hands</p>
+              <p className="mt-2 text-sm text-zinc-300">Server-evaluated hand classes for the revealed contenders.</p>
+            </div>
+            <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100">
+              {snapshot.showdownHands.length} revealed
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {snapshot.showdownHands.map((hand, index) => (
+              <div
+                key={hand.guestId}
+                className={`rounded-2xl border px-4 py-4 ${buildShowdownTone(index)}`}
+              >
+                <p className="text-sm font-medium text-white">{hand.nickname}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-400">
+                  {index === 0 ? "Best shown hand" : "Shown hand"}
+                </p>
+                <p className="mt-3 text-lg font-semibold text-amber-100">{hand.handLabel}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {snapshot.showdownPots.map((pot) => (

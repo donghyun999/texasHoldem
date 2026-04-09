@@ -102,6 +102,7 @@ export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
       },
     ],
     showdownPots: [],
+    showdownHands: [],
     recentlyBustedGuestIds: [],
     availableActions: ["FOLD", "CALL", "RAISE", "ALL_IN"],
     tableMessage: "Noah is facing action for 50 more chips. Side pot is active.",

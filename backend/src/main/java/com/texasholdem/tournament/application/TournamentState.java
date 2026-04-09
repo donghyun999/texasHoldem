@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PotView;
+import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
 import com.texasholdem.tournament.domain.TournamentStatus;
 
@@ -28,6 +29,7 @@ final class TournamentState {
     long handResultEndsAtEpochMilli = 0;
     long finishedCleanupAtEpochMilli = 0;
     List<ShowdownPotView> showdownPots = new ArrayList<>();
+    List<ShowdownHandView> showdownHands = new ArrayList<>();
     List<String> recentlyBustedGuestIds = new ArrayList<>();
     List<String> availableActions = new ArrayList<>();
     String tableMessage = "";

@@ -121,11 +121,23 @@ final class TournamentEventFactory {
                 .toList();
     }
 
+    // Builds the showdown-hand label list preserved for result UI rendering.
+    private List<Map<String, Object>> showdownHandsPayload(TournamentSnapshot snapshot) {
+        return snapshot.showdownHands().stream()
+                .map(hand -> Map.<String, Object>of(
+                        "guestId", hand.guestId(),
+                        "nickname", hand.nickname(),
+                        "handLabel", hand.handLabel()
+                ))
+                .toList();
+    }
+
     // Builds the showdown payload once the server exposes fully revealed settlement state.
     private Map<String, Object> showdownPayload(TournamentSnapshot snapshot) {
         return Map.of(
                 "boardCards", snapshot.boardCards(),
                 "showdownPotCount", snapshot.showdownPots().size(),
+                "showdownHands", showdownHandsPayload(snapshot),
                 "pots", settledPotsPayload(snapshot)
         );
     }
@@ -153,6 +165,7 @@ final class TournamentEventFactory {
                 "mainPot", snapshot.mainPot(),
                 "sidePotCount", snapshot.sidePots().size(),
                 "showdownPotCount", snapshot.showdownPots().size(),
+                "showdownHands", showdownHandsPayload(snapshot),
                 "pots", settledPotsPayload(snapshot),
                 "recentlyBustedGuestIds", snapshot.recentlyBustedGuestIds(),
                 "recentlyBustedPlayers", recentlyBustedPlayersPayload(snapshot)
@@ -190,6 +203,7 @@ final class TournamentEventFactory {
                 "winnerStack", winner.stack(),
                 "boardCards", snapshot.boardCards(),
                 "showdownPotCount", snapshot.showdownPots().size(),
+                "showdownHands", showdownHandsPayload(snapshot),
                 "pots", settledPotsPayload(snapshot),
                 "recentlyBustedGuestIds", snapshot.recentlyBustedGuestIds(),
                 "recentlyBustedPlayers", recentlyBustedPlayersPayload(snapshot)
