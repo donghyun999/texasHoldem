@@ -54,7 +54,7 @@ function getStatusLabel(player: TournamentPlayer) {
 
 function StackedHiddenCards() {
   return (
-    <div className="relative mx-auto h-13 w-14 sm:hidden">
+    <div className="relative mx-auto h-12 w-12 sm:hidden">
       <div className="absolute left-0 top-0 rotate-[-8deg]">
         <PlayingCard card="XX" variant="seat" />
       </div>
@@ -77,9 +77,11 @@ export function PlayerSeat({
 }: PlayerSeatProps) {
   if (!player) {
     return (
-      <div className="rounded-[1.75rem] border border-dashed border-white/10 bg-black/10 p-3 sm:p-4">
-        <p className="text-sm font-medium text-zinc-400">Empty Seat</p>
-        <p className="mt-2 text-xs uppercase tracking-[0.24em] text-zinc-500">Seat {seatIndex + 1}</p>
+      <div className="flex min-h-[10.5rem] flex-col justify-center rounded-[1.5rem] border border-dashed border-white/10 bg-black/10 p-2.5 text-center sm:min-h-0 sm:rounded-[1.75rem] sm:p-4">
+        <p className="text-xs font-medium text-zinc-400 sm:text-sm">Empty Seat</p>
+        <p className="mt-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-500 sm:mt-2 sm:text-xs sm:tracking-[0.24em]">
+          Seat {seatIndex + 1}
+        </p>
       </div>
     );
   }
@@ -94,32 +96,34 @@ export function PlayerSeat({
   const visibleHoleCards = isCurrentPlayer ? selfHoleCards : ["XX", "XX"];
 
   return (
-    <div className={`min-w-0 rounded-[1.75rem] border p-2 transition sm:p-4 ${getSeatTone(player)}`}>
+    <div
+      className={`min-w-0 rounded-[1.5rem] border p-2.5 backdrop-blur-[2px] transition sm:rounded-[1.75rem] sm:p-4 ${getSeatTone(player)}`}
+    >
       <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[11px] font-medium text-white sm:text-sm">{player.nickname}</p>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-400 sm:text-xs sm:tracking-[0.24em]">
+          <p className="truncate text-[10px] font-medium text-white sm:text-sm">{player.nickname}</p>
+          <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-400 sm:text-xs sm:tracking-[0.24em]">
             Seat {player.seatIndex + 1}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-[10px] text-zinc-200 sm:px-3 sm:text-sm">
+        <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-[9px] text-zinc-200 sm:px-3 sm:text-sm">
           {player.stack}
         </span>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1 sm:mt-4 sm:gap-2">
+      <div className="mt-1.5 flex flex-wrap gap-1 sm:mt-4 sm:gap-2">
         {seatBadges.map((badge) => (
           <span
             key={badge}
-            className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[9px] font-medium tracking-[0.08em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]"
+            className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[8px] font-medium tracking-[0.06em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]"
           >
             {badge}
           </span>
         ))}
-        <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[9px] font-medium tracking-[0.08em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
+        <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[8px] font-medium tracking-[0.06em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
           {getStatusLabel(player)}
         </span>
       </div>
-      <div className="mt-2 sm:mt-4">
+      <div className="mt-2 flex justify-center sm:mt-4">
         {isCurrentPlayer ? (
           <div className="grid grid-cols-2 gap-1 sm:gap-2">
             {visibleHoleCards.map((card, index) => (
