@@ -1,7 +1,6 @@
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
-import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
@@ -34,6 +33,48 @@ function getStreetLabel(boardCards: string[]) {
   }
 }
 
+function buildResultSummary(snapshot: TournamentSnapshot) {
+  if ((snapshot.status !== "HAND_RESULT" && snapshot.status !== "FINISHED") || snapshot.showdownPots.length === 0) {
+    return null;
+  }
+
+  const payoutTotals = new Map<string, { nickname: string; amount: number }>();
+  for (const pot of snapshot.showdownPots) {
+    for (const payout of pot.payouts) {
+      const current = payoutTotals.get(payout.guestId);
+      payoutTotals.set(payout.guestId, {
+        nickname: payout.nickname,
+        amount: (current?.amount ?? 0) + payout.amount,
+      });
+    }
+  }
+
+  const orderedPayouts = [...payoutTotals.entries()]
+    .map(([guestId, value]) => ({ guestId, nickname: value.nickname, amount: value.amount }))
+    .sort((left, right) => right.amount - left.amount);
+  if (orderedPayouts.length === 0) {
+    return null;
+  }
+
+  const bestAmount = orderedPayouts[0].amount;
+  const bestWinners = orderedPayouts.filter((entry) => entry.amount === bestAmount);
+  if (bestWinners.length > 1) {
+    return {
+      headline: "Split Pot",
+      detail: `${bestWinners[0].nickname} +${bestWinners.length - 1} players`,
+      amountLabel: `+${bestAmount}`,
+    };
+  }
+
+  const winner = bestWinners[0];
+  const showdownHand = snapshot.showdownHands.find((hand) => hand.guestId === winner.guestId);
+  return {
+    headline: winner.nickname,
+    detail: showdownHand?.handLabel ?? "Won the hand",
+    amountLabel: `+${winner.amount}`,
+  };
+}
+
 // Renders the table, board cards, main pot, and side-pot summary.
 export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
@@ -41,8 +82,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
   const bottomRowSeatIndexes = [5, 4, 3];
   const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
   const streetLabel = getStreetLabel(snapshot.boardCards);
-  const showResultOverlay =
-    (snapshot.status === "HAND_RESULT" || snapshot.status === "FINISHED") && snapshot.showdownPots.length > 0;
+  const resultSummary = buildResultSummary(snapshot);
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[radial-gradient(circle_at_top,_#2f805b,_#123224_55%,_#091510)] p-2.5 shadow-2xl shadow-black/30 sm:rounded-[2.5rem] sm:p-6">
@@ -109,9 +149,18 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
           </div>
         </div>
       </div>
-      {showResultOverlay ? (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/32 p-3 backdrop-blur-[2px] sm:p-6">
-          <TournamentShowdownPanel snapshot={snapshot} variant="overlay" />
+      {resultSummary ? (
+        <div className="pointer-events-none absolute left-1/2 top-4 z-20 w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 sm:top-6 sm:max-w-md">
+          <div className="rounded-[1.35rem] border border-amber-200/25 bg-[linear-gradient(135deg,_rgba(120,53,15,0.72),_rgba(20,20,20,0.92))] px-4 py-3 text-center shadow-xl shadow-black/35 backdrop-blur-md sm:px-5">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-amber-200/70">Result</p>
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <p className="text-base font-semibold text-white sm:text-lg">{resultSummary.headline}</p>
+              <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">
+                {resultSummary.amountLabel}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-amber-50/80 sm:text-sm">{resultSummary.detail}</p>
+          </div>
         </div>
       ) : null}
     </div>
