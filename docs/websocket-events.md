@@ -72,20 +72,23 @@
 ### Result-event payload detail
 
 - `showdownStarted`
-  - payload includes `boardCards`, `showdownPotCount`, and `pots`
+  - payload includes `boardCards`, `showdownPotCount`, `showdownHands`, and `pots`
+  - `showdownHands` shape: `[{ guestId, nickname, handLabel }]`
   - `pots` shape: `[{ id, type, amount, winnerGuestIds, split, payouts: [{ guestId, nickname, amount }] }]`
 - `handEnded`
-  - payload includes `status`, `showdown`, `boardCards`, `mainPot`, `sidePotCount`, `showdownPotCount`, `pots`, `recentlyBustedGuestIds`, and `recentlyBustedPlayers`
+  - payload includes `status`, `showdown`, `boardCards`, `mainPot`, `sidePotCount`, `showdownPotCount`, `showdownHands`, `pots`, `recentlyBustedGuestIds`, and `recentlyBustedPlayers`
 - `playerBusted`
   - payload keeps `guestIds` and `nicknames`
   - payload also includes `players`: `[{ guestId, nickname, seatIndex, finalStack }]`
 - `tournamentFinished`
-  - payload includes `winnerGuestId`, `winnerNickname`, `winnerStack`, `boardCards`, `showdownPotCount`, `pots`, `recentlyBustedGuestIds`, and `recentlyBustedPlayers`
+  - payload includes `winnerGuestId`, `winnerNickname`, `winnerStack`, `boardCards`, `showdownPotCount`, `showdownHands`, `pots`, `recentlyBustedGuestIds`, and `recentlyBustedPlayers`
 
 ## Snapshot additions
 
 - `showdownPots`: settled per-pot payout detail exposed in `HAND_RESULT` and preserved through `FINISHED`
   - shape: `[{ id, type, amount, payouts: [{ guestId, nickname, amount }] }]`
+- `showdownHands`: server-evaluated hand-class labels for revealed showdown participants
+  - shape: `[{ guestId, nickname, handLabel }]`
 - `recentlyBustedGuestIds`: hand-local elimination summary preserved through `HAND_RESULT` and `FINISHED`
   - shape: `["guest-1", "guest-4"]`
 - `selfHoleCards`: the current viewer's own hole cards, exposed only on personalized REST snapshot fetches

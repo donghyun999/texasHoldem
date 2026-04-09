@@ -18,6 +18,7 @@ public record TournamentSnapshot(
         Integer actingSeat,
         List<TournamentPlayerView> players,
         List<ShowdownPotView> showdownPots,
+        List<ShowdownHandView> showdownHands,
         List<String> recentlyBustedGuestIds,
         List<String> availableActions,
         String tableMessage,

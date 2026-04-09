@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PotView;
+import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPayoutView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
 import org.springframework.stereotype.Component;
@@ -40,9 +41,12 @@ final class TournamentPotResolver {
         var credits = new HashMap<String, Integer>();
         var potAwards = new LinkedHashMap<String, Integer>();
         var showdownPots = new ArrayList<ShowdownPotView>();
+        var showdownHands = new ArrayList<ShowdownHandView>();
+        var scoreCache = new HashMap<String, Long>();
         refundUnmatchedContributions(players, build.matchedContributions(), credits);
-        awardMatchedPots(build.pots(), boardCards, dealerSeat, credits, potAwards, showdownPots);
-        return new Settlement(credits, potAwards, showdownPots);
+        awardMatchedPots(build.pots(), boardCards, dealerSeat, credits, potAwards, showdownPots, scoreCache);
+        showdownHands.addAll(buildShowdownHands(players, boardCards, scoreCache));
+        return new Settlement(credits, potAwards, showdownPots, showdownHands);
     }
 
     // Builds the matched pots and remembers how much of each player's contribution was payable.
@@ -180,9 +184,9 @@ final class TournamentPotResolver {
             Integer dealerSeat,
             Map<String, Integer> credits,
             Map<String, Integer> potAwards,
-            List<ShowdownPotView> showdownPots
+            List<ShowdownPotView> showdownPots,
+            Map<String, Long> scoreCache
     ) {
-        var scoreCache = new HashMap<String, Long>();
         for (var pot : pots) {
             var winners = resolveWinners(pot, boardCards, scoreCache);
             if (winners.isEmpty()) {
@@ -202,6 +206,38 @@ final class TournamentPotResolver {
             }
             showdownPots.add(new ShowdownPotView(pot.id(), pot.type(), pot.amount(), List.copyOf(payouts)));
         }
+    }
+
+    // Builds one showdown-hand label per surviving revealed participant when a real showdown occurs.
+    private List<ShowdownHandView> buildShowdownHands(
+            List<PlayerPotState> players,
+            List<String> boardCards,
+            Map<String, Long> scoreCache
+    ) {
+        if (boardCards.size() < 5) {
+            return List.of();
+        }
+
+        var showdownPlayers = players.stream()
+                .filter(PlayerPotState::eligibleForPot)
+                .toList();
+        if (showdownPlayers.size() <= 1) {
+            return List.of();
+        }
+
+        return showdownPlayers.stream()
+                .sorted(Comparator.<PlayerPotState>comparingLong(player -> scoreCache.computeIfAbsent(
+                                player.guestId(),
+                                ignored -> handEvaluator.evaluate(boardCards, player.holeCards())
+                        ))
+                        .reversed()
+                        .thenComparingInt(PlayerPotState::seatIndex))
+                .map(player -> new ShowdownHandView(
+                        player.guestId(),
+                        player.nickname(),
+                        handEvaluator.describe(scoreCache.get(player.guestId()))
+                ))
+                .toList();
     }
 
     // Resolves the winner list for one matched pot, using showdown scores only when needed.
@@ -258,7 +294,8 @@ final class TournamentPotResolver {
     record Settlement(
             Map<String, Integer> stackCredits,
             Map<String, Integer> potAwards,
-            List<ShowdownPotView> showdownPots
+            List<ShowdownPotView> showdownPots,
+            List<ShowdownHandView> showdownHands
     ) {
     }
 

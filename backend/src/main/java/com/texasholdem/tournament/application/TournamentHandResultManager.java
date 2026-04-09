@@ -39,6 +39,7 @@ final class TournamentHandResultManager {
             player.stack += settlement.stackCredits().getOrDefault(player.guestId, 0);
         }
         tournament.showdownPots = new ArrayList<>(settlement.showdownPots());
+        tournament.showdownHands = new ArrayList<>(settlement.showdownHands());
 
         var bustedPlayers = markBustedPlayers(tournament);
         tournament.recentlyBustedGuestIds = bustedPlayers.stream()

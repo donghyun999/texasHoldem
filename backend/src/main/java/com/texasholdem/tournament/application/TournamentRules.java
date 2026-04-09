@@ -9,7 +9,7 @@ import java.util.List;
 final class TournamentRules {
 
     private static final int MAX_SEATS = 6;
-    private static final int STARTING_STACK = 1_000;
+    private static final int STARTING_STACK = 2_000;
     private static final List<BlindLevel> DEFAULT_LEVELS = List.of(
             new BlindLevel(1, 10, 20, 300),
             new BlindLevel(2, 15, 30, 300),

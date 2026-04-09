@@ -49,6 +49,21 @@ final class PokerHandEvaluator {
         return bestScore;
     }
 
+    // Maps one packed showdown score back into the user-facing hand-class label.
+    String describe(long score) {
+        return switch (category(score)) {
+            case 8 -> "Straight Flush";
+            case 7 -> "Four of a Kind";
+            case 6 -> "Full House";
+            case 5 -> "Flush";
+            case 4 -> "Straight";
+            case 3 -> "Three of a Kind";
+            case 2 -> "Two Pair";
+            case 1 -> "One Pair";
+            default -> "High Card";
+        };
+    }
+
     // Scores one exact five-card poker hand category with ordered kicker values.
     private long evaluateFiveCardScore(List<Card> cards) {
         var rankCounts = new HashMap<Integer, Integer>();
@@ -144,6 +159,11 @@ final class PokerHandEvaluator {
             }
         }
         return score;
+    }
+
+    // Extracts the hand category nibble from the packed showdown score.
+    private int category(long score) {
+        return (int) (score >> 20);
     }
 
     // Parses a compact rank-suit card string into numeric form.

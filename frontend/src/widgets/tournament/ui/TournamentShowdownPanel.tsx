@@ -3,6 +3,7 @@ import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type TournamentShowdownPanelProps = {
   snapshot: TournamentSnapshot;
+  variant?: "section" | "overlay";
 };
 
 // Chooses the result-panel title from the current tournament lifecycle state.
@@ -66,8 +67,20 @@ function buildSummaryLabel(
   return fragments.join(" ");
 }
 
+function findLargestPayoutAmount(snapshot: TournamentSnapshot) {
+  return Math.max(0, ...snapshot.showdownPots.flatMap((pot) => pot.payouts.map((payout) => payout.amount)));
+}
+
+function buildShowdownTone(index: number) {
+  if (index === 0) {
+    return "border-amber-200/25 bg-amber-100/10";
+  }
+
+  return "border-white/10 bg-white/5";
+}
+
 // Renders the settled pot-by-pot payouts once the hand reaches the result phase.
-export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelProps) {
+export function TournamentShowdownPanel({ snapshot, variant = "section" }: TournamentShowdownPanelProps) {
   if ((snapshot.status !== "HAND_RESULT" && snapshot.status !== "FINISHED") || snapshot.showdownPots.length === 0) {
     return null;
   }
@@ -75,9 +88,17 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
   const winner = findWinner(snapshot);
   const bustedPlayers = findBustedPlayers(snapshot);
   const showdown = isShowdownResult(snapshot);
+  const largestPayoutAmount = findLargestPayoutAmount(snapshot);
+  const isOverlay = variant === "overlay";
+  const containerClass = isOverlay
+    ? "w-full max-w-5xl rounded-[1.75rem] border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(120,53,15,0.68),_rgba(20,20,20,0.96))] p-4 shadow-2xl shadow-black/45 backdrop-blur-md sm:p-6"
+    : "rounded-[2rem] border border-amber-200/15 bg-[linear-gradient(135deg,_rgba(120,53,15,0.35),_rgba(20,20,20,0.9))] p-6";
+  const summaryGridClass = isOverlay ? "mt-4 grid gap-3 lg:grid-cols-3" : "mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]";
+  const handsGridClass = isOverlay ? "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" : "mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3";
+  const potsGridClass = isOverlay ? "mt-4 grid gap-3 lg:grid-cols-2" : "mt-5 grid gap-4 lg:grid-cols-2";
 
   return (
-    <section className="rounded-[2rem] border border-amber-200/15 bg-[linear-gradient(135deg,_rgba(120,53,15,0.35),_rgba(20,20,20,0.9))] p-6">
+    <section className={containerClass}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.28em] text-amber-200/70">{showdown ? "Showdown" : "Hand Result"}</p>
@@ -87,7 +108,7 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
         <p className="text-sm text-amber-50/80">{snapshot.tableMessage}</p>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
+      <div className={summaryGridClass}>
         <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Board</p>
           {snapshot.boardCards.length > 0 ? (
@@ -108,12 +129,22 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">
             {winner ? "Champion" : "Settled Pots"}
           </p>
-          <p className="mt-3 text-lg font-semibold text-white">
-            {winner ? winner.nickname : `${snapshot.showdownPots.length} pots`}
-          </p>
-          <p className="mt-2 text-sm text-zinc-300">
-            {winner ? `${winner.stack} chips` : `${snapshot.showdownPots.reduce((total, pot) => total + pot.amount, 0)} chips settled`}
-          </p>
+          {winner ? (
+            <>
+              <div className="mt-3 inline-flex rounded-full border border-amber-200/20 bg-amber-100/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-amber-100">
+                Winner
+              </div>
+              <p className="mt-3 text-lg font-semibold text-white">{winner.nickname}</p>
+              <p className="mt-2 text-sm text-zinc-300">{winner.stack} chips</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-lg font-semibold text-white">{snapshot.showdownPots.length} pots</p>
+              <p className="mt-2 text-sm text-zinc-300">
+                {snapshot.showdownPots.reduce((total, pot) => total + pot.amount, 0)} chips settled
+              </p>
+            </>
+          )}
         </article>
 
         <article className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
@@ -135,7 +166,36 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
         </article>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      {snapshot.showdownHands.length > 0 ? (
+        <article className="mt-5 rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Showdown Hands</p>
+              <p className="mt-2 text-sm text-zinc-300">Server-evaluated hand classes for the revealed contenders.</p>
+            </div>
+            <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100">
+              {snapshot.showdownHands.length} revealed
+            </span>
+          </div>
+
+          <div className={handsGridClass}>
+            {snapshot.showdownHands.map((hand, index) => (
+              <div
+                key={hand.guestId}
+                className={`rounded-2xl border px-4 py-4 ${buildShowdownTone(index)}`}
+              >
+                <p className="text-sm font-medium text-white">{hand.nickname}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-400">
+                  {index === 0 ? "Best shown hand" : "Shown hand"}
+                </p>
+                <p className="mt-3 text-lg font-semibold text-amber-100">{hand.handLabel}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      <div className={potsGridClass}>
         {snapshot.showdownPots.map((pot) => (
           <article key={pot.id} className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
             <div className="flex items-center justify-between gap-3">
@@ -152,11 +212,17 @@ export function TournamentShowdownPanel({ snapshot }: TournamentShowdownPanelPro
               {pot.payouts.map((payout) => (
                 <div
                   key={`${pot.id}-${payout.guestId}`}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${
+                    payout.amount === largestPayoutAmount && payout.amount > 0
+                      ? "border-amber-200/25 bg-amber-100/10"
+                      : "border-white/10 bg-white/5"
+                  }`}
                 >
                   <div>
                     <p className="text-sm font-medium text-white">{payout.nickname}</p>
-                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">{payout.guestId}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
+                      {payout.amount === largestPayoutAmount && payout.amount > 0 ? "Best payout" : "Payout"}
+                    </p>
                   </div>
                   <p className="text-lg font-semibold text-amber-100">+{payout.amount}</p>
                 </div>

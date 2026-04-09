@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.PotView;
+import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.stereotype.Component;
@@ -63,6 +64,7 @@ final class TournamentStatePersistenceMapper {
                 tournament.finishedCleanupAtEpochMilli,
                 tournament.players.stream().map(this::toPayload).toList(),
                 List.copyOf(tournament.showdownPots),
+                List.copyOf(tournament.showdownHands),
                 List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
                 tournament.tableMessage
@@ -113,6 +115,9 @@ final class TournamentStatePersistenceMapper {
                 ? 0
                 : payload.finishedCleanupAtEpochMilli();
         tournament.showdownPots = new ArrayList<>(payload.showdownPots());
+        tournament.showdownHands = payload.showdownHands() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(payload.showdownHands());
         tournament.recentlyBustedGuestIds = payload.recentlyBustedGuestIds() == null
                 ? new ArrayList<>()
                 : new ArrayList<>(payload.recentlyBustedGuestIds());
@@ -184,6 +189,7 @@ final class TournamentStatePersistenceMapper {
             Long finishedCleanupAtEpochMilli,
             List<PersistedTournamentPlayerState> players,
             List<ShowdownPotView> showdownPots,
+            List<ShowdownHandView> showdownHands,
             List<String> recentlyBustedGuestIds,
             List<String> availableActions,
             String tableMessage

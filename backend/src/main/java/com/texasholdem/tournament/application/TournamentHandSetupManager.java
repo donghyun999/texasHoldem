@@ -63,6 +63,7 @@ final class TournamentHandSetupManager {
         tournament.handResultEndsAtEpochMilli = 0;
         tournament.finishedCleanupAtEpochMilli = 0;
         tournament.showdownPots = new ArrayList<>();
+        tournament.showdownHands = new ArrayList<>();
         tournament.recentlyBustedGuestIds = new ArrayList<>();
         assignDealerAndBlinds(tournament);
         var orderedSeats = buildDealOrder(tournament);
