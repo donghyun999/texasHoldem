@@ -19,6 +19,24 @@ type ActionPanelProps = {
   onReconnect: () => void;
 };
 
+function getActionButtonClass(action: string) {
+  switch (action) {
+    case "FOLD":
+      return "border-rose-300/25 bg-rose-400/10 text-rose-50 hover:bg-rose-400/20";
+    case "CHECK":
+      return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50 hover:bg-emerald-400/20";
+    case "CALL":
+      return "border-sky-300/25 bg-sky-400/10 text-sky-50 hover:bg-sky-400/20";
+    case "ALL_IN":
+      return "border-amber-300/30 bg-amber-400/12 text-amber-50 hover:bg-amber-400/22";
+    case "BET":
+    case "RAISE":
+      return "border-fuchsia-300/25 bg-fuchsia-400/10 text-fuchsia-50 hover:bg-fuchsia-400/20";
+    default:
+      return "border-white/10 bg-white/5 text-white hover:bg-white/10";
+  }
+}
+
 // Renders websocket-backed tournament controls for the current browser player.
 export function ActionPanel({
   actions,
@@ -151,7 +169,7 @@ export function ActionPanel({
                 }
               }}
               disabled={!canSubmitSizedAction || !hasValidTargetAmount}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`rounded-full border px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(sizeAction)}`}
             >
               Send {toActionLabel(sizeAction)}
             </button>
@@ -165,7 +183,7 @@ export function ActionPanel({
               type="button"
               onClick={() => onAction(action)}
               disabled={!canPublish || !canAct}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(action)}`}
             >
               {toActionLabel(action)}
             </button>

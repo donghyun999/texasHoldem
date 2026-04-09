@@ -18,11 +18,28 @@ function buildSeatMap(players: TournamentPlayer[]) {
   return seats;
 }
 
+function getStreetLabel(boardCards: string[]) {
+  switch (boardCards.length) {
+    case 0:
+      return "Preflop";
+    case 3:
+      return "Flop";
+    case 4:
+      return "Turn";
+    case 5:
+      return "River";
+    default:
+      return "Table";
+  }
+}
+
 // Renders the table, board cards, main pot, and side-pot summary.
 export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
   const topRowSeatIndexes = [0, 1, 2];
   const bottomRowSeatIndexes = [5, 4, 3];
+  const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
+  const streetLabel = getStreetLabel(snapshot.boardCards);
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[radial-gradient(circle_at_top,_#2f805b,_#123224_55%,_#091510)] p-2.5 shadow-2xl shadow-black/30 sm:rounded-[2.5rem] sm:p-6">
@@ -44,7 +61,15 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
           </div>
 
           <div className="mx-auto w-full max-w-[21rem] min-w-0 rounded-[1.75rem] border border-white/10 bg-black/25 px-3 py-4 text-center sm:max-w-2xl sm:rounded-[2rem] sm:px-8 sm:py-6">
-            <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">Main Pot</p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-50 sm:text-xs">
+                {streetLabel}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-100 sm:text-xs">
+                {actingPlayer ? `${actingPlayer.nickname} acting` : snapshot.status}
+              </span>
+            </div>
+            <p className="mt-3 text-xs uppercase tracking-[0.28em] text-zinc-400">Main Pot</p>
             <p className="mt-1.5 text-2xl font-semibold text-white sm:mt-2 sm:text-4xl">{snapshot.mainPot}</p>
             <div className="mt-4 flex justify-center gap-1.5 sm:mt-6 sm:gap-3">
               {snapshot.boardCards.map((card) => (
