@@ -82,11 +82,11 @@ export function PlayerSeat({
   return (
     <div className={`rounded-[1.75rem] border p-3 transition sm:p-4 ${getSeatTone(player)}`}>
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-white sm:text-sm">{player.nickname}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium text-white sm:text-sm">{player.nickname}</p>
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Seat {player.seatIndex + 1}</p>
         </div>
-        <span className="rounded-full bg-black/25 px-2.5 py-1 text-xs text-zinc-200 sm:px-3 sm:text-sm">
+        <span className="shrink-0 rounded-full bg-black/25 px-2.5 py-1 text-xs text-zinc-200 sm:px-3 sm:text-sm">
           {player.stack}
         </span>
       </div>
