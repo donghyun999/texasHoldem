@@ -132,6 +132,7 @@ npm run build
 - `docs/railway.md`
 - `docs/state-flow.md`
 - `docs/websocket-events.md`
+- `docs/project-flowchart.md`
 - `docs/roadmap.md`
 
 ## Next work

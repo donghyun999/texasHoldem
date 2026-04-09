@@ -1,0 +1,208 @@
+{
+  "frontendUrl": "https://texasholdemfrontend-production.up.railway.app",
+  "backendUrl": "https://texasholdembackend-production.up.railway.app",
+  "code": "RS2P8CK",
+  "players": [
+    {
+      "label": "p1",
+      "nickname": "rail_1",
+      "guestId": "guest-c075671b"
+    },
+    {
+      "label": "p2",
+      "nickname": "rail_2",
+      "guestId": "guest-2cd2492a"
+    },
+    {
+      "label": "p3",
+      "nickname": "rail_3",
+      "guestId": "guest-3b020e9e"
+    },
+    {
+      "label": "p4",
+      "nickname": "rail_4",
+      "guestId": "guest-e508c1de"
+    },
+    {
+      "label": "p5",
+      "nickname": "rail_5",
+      "guestId": "guest-97c3f016"
+    },
+    {
+      "label": "p6",
+      "nickname": "rail_6",
+      "guestId": "guest-f6bea7d8"
+    }
+  ],
+  "actionCount": 36,
+  "handResultCount": 7,
+  "finalRows": [
+    {
+      "label": "p1",
+      "guestId": "guest-c075671b",
+      "seatIndex": 0,
+      "displayedSeat": 1,
+      "apiSelfHoleCards": [
+        "TC",
+        "5H"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 1,
+      "status": "ACTIVE",
+      "connected": true,
+      "stack": 2000,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    },
+    {
+      "label": "p2",
+      "guestId": "guest-2cd2492a",
+      "seatIndex": 1,
+      "displayedSeat": 2,
+      "apiSelfHoleCards": [
+        "2D",
+        "AC"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 2,
+      "status": "ACTIVE",
+      "connected": true,
+      "stack": 1990,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    },
+    {
+      "label": "p3",
+      "guestId": "guest-3b020e9e",
+      "seatIndex": 2,
+      "displayedSeat": 3,
+      "apiSelfHoleCards": [
+        "2C",
+        "JC"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 3,
+      "status": "ACTIVE",
+      "connected": true,
+      "stack": 2000,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    },
+    {
+      "label": "p4",
+      "guestId": "guest-e508c1de",
+      "seatIndex": 3,
+      "displayedSeat": 4,
+      "apiSelfHoleCards": [
+        "7D",
+        "JD"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 4,
+      "status": "ACTIVE",
+      "connected": true,
+      "stack": 1980,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    },
+    {
+      "label": "p5",
+      "guestId": "guest-97c3f016",
+      "seatIndex": 4,
+      "displayedSeat": 5,
+      "apiSelfHoleCards": [
+        "TH",
+        "8D"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 5,
+      "status": "FOLDED",
+      "connected": true,
+      "stack": 2000,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    },
+    {
+      "label": "p6",
+      "guestId": "guest-f6bea7d8",
+      "seatIndex": 5,
+      "displayedSeat": 6,
+      "apiSelfHoleCards": [
+        "2H",
+        "5D"
+      ],
+      "apiSelfHoleCount": 2,
+      "domSelfSeatFound": true,
+      "domSelfHoldCount": 0,
+      "domDisplayedSeat": 6,
+      "status": "ACTIVE",
+      "connected": true,
+      "stack": 2000,
+      "tournamentStatus": "IN_HAND",
+      "actingSeat": 5
+    }
+  ],
+  "activeSessions": [
+    {
+      "label": "p1",
+      "active": {
+        "guestId": "guest-c075671b",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    },
+    {
+      "label": "p2",
+      "active": {
+        "guestId": "guest-2cd2492a",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    },
+    {
+      "label": "p3",
+      "active": {
+        "guestId": "guest-3b020e9e",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    },
+    {
+      "label": "p4",
+      "active": {
+        "guestId": "guest-e508c1de",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    },
+    {
+      "label": "p5",
+      "active": {
+        "guestId": "guest-97c3f016",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    },
+    {
+      "label": "p6",
+      "active": {
+        "guestId": "guest-f6bea7d8",
+        "tournamentCode": "RS2P8CK",
+        "status": "IN_HAND"
+      }
+    }
+  ],
+  "issues": [],
+  "consoleMessages": [],
+  "pageErrors": []
+}

@@ -11,7 +11,7 @@
 - Tournament MVP implementation
 - Local development target uses native PostgreSQL
 - Final deployment target should remain Docker-ready
-- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified
+- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified, including a 6-player deployed frontend pass focused on seat 5 hole-card rendering
 
 ## Completed
 
@@ -48,6 +48,7 @@
 - Persisted stale tournaments now clean themselves up from `updated_at` TTL rules before active-tournament lookup and capacity-sensitive create/join flows, so abandoned waiting or in-hand rows no longer block new MVP testing sessions
 - Railway deployment profile and service manifests now separate MVP hosting concerns from the local `local` profile workflow
 - Railway public-domain smoke verification has been completed through create, join, ready, start, all-in, call, and showdown, including showdown hand-label rendering
+- Railway 6-player browser smoke verification has been completed against the deployed frontend URL; two full-table runs found no reproduction of the reported seat 5 missing-card or wrong-card issue
 
 ## In progress / focus
 
@@ -89,6 +90,7 @@
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
 - Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
 - Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
+- The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`
 
 ## MVP closeout boundary
 
