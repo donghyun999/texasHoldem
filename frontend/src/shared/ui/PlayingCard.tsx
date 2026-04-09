@@ -30,7 +30,10 @@ function parseCard(card: string) {
 export function PlayingCard({ card, variant = "board" }: PlayingCardProps) {
   const parsedCard = parseCard(card);
   const suit = SUIT_MAP[parsedCard.suit];
-  const sizeClass = variant === "seat" ? "h-18 w-14 rounded-2xl" : "h-24 w-16 rounded-[1.15rem]";
+  const sizeClass =
+    variant === "seat"
+      ? "h-18 w-14 rounded-2xl"
+      : "h-20 w-14 rounded-[1rem] sm:h-24 sm:w-16 sm:rounded-[1.15rem]";
 
   if (parsedCard.hidden) {
     return (
