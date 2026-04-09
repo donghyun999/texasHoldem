@@ -22,7 +22,7 @@
 
 ## Hand flow
 
-1. Collect ready players and assign each a starting stack of 1000 chips
+1. Collect ready players and assign each a starting stack of 2000 chips
 2. Move dealer, small blind, and big blind over surviving seated players
 3. Post blinds, including forced all-in when a stack is shorter than the blind
 4. Run preflop, flop, turn, and river betting rounds while tracking per-round and total contributions

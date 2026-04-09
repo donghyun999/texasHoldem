@@ -333,7 +333,7 @@ class TournamentServiceTest {
             assertThat(payout.guestId()).isEqualTo("guest-3");
             assertThat(payout.amount()).isEqualTo(20);
         });
-        assertThat(requireSnapshotPlayer(snapshot, "guest-3").stack()).isEqualTo(1_010);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-3").stack()).isEqualTo(2_010);
     }
 
     // Verifies that an in-hand disconnect auto-folds the player and moves owner control to the survivor.
@@ -350,7 +350,7 @@ class TournamentServiceTest {
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").status()).isEqualTo(PlayerStatus.FOLDED);
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").owner()).isFalse();
         assertThat(requireSnapshotPlayer(snapshot, "guest-2").owner()).isTrue();
-        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(1_010);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(2_010);
 
         var nextHandEvent = service.startTournament(code, "guest-2").primaryEvent();
         assertThat(nextHandEvent.snapshot().status()).isEqualTo(TournamentStatus.IN_HAND);
@@ -391,21 +391,21 @@ class TournamentServiceTest {
                 "actionApplied"
         );
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
-        assertThat(snapshot.mainPot()).isEqualTo(2_000);
+        assertThat(snapshot.mainPot()).isEqualTo(4_000);
         assertThat(snapshot.sidePots()).isEmpty();
         assertThat(snapshot.boardCards()).containsExactly("AH", "KD", "7C", "4S", "2D");
         assertThat(snapshot.actingSeat()).isNull();
         assertThat(snapshot.availableActions()).isEmpty();
         assertThat(snapshot.showdownPots()).hasSize(1);
         assertThat(snapshot.recentlyBustedGuestIds()).containsExactly("guest-1");
-        assertThat(snapshot.showdownPots().get(0).amount()).isEqualTo(2_000);
+        assertThat(snapshot.showdownPots().get(0).amount()).isEqualTo(4_000);
         assertThat(snapshot.showdownPots().get(0).payouts()).singleElement().satisfies((payout) -> {
             assertThat(payout.guestId()).isEqualTo("guest-2");
-            assertThat(payout.amount()).isEqualTo(2_000);
+            assertThat(payout.amount()).isEqualTo(4_000);
         });
-        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(2_000);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(4_000);
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").status()).isEqualTo(PlayerStatus.BUSTED_OUT);
-        assertThat(snapshot.tableMessage()).contains("Player2 won 2000.");
+        assertThat(snapshot.tableMessage()).contains("Player2 won 4000.");
         assertThat(snapshot.tableMessage()).contains("Player2 wins the tournament.");
     }
 
@@ -423,13 +423,13 @@ class TournamentServiceTest {
         assertThat(showdownStarted.payload()).containsEntry("showdownPotCount", 1);
         assertThat(showdownPotsPayload(showdownStarted)).singleElement().satisfies((pot) -> {
             assertThat(pot).containsEntry("type", "MAIN");
-            assertThat(pot).containsEntry("amount", 2_000);
+            assertThat(pot).containsEntry("amount", 4_000);
             assertThat(pot).containsEntry("split", false);
             assertThat(pot.get("winnerGuestIds")).isEqualTo(List.of("guest-2"));
             assertThat(pot.get("payouts")).isEqualTo(List.of(Map.of(
                     "guestId", "guest-2",
                     "nickname", "Player2",
-                    "amount", 2_000
+                    "amount", 4_000
             )));
         });
 
@@ -437,7 +437,7 @@ class TournamentServiceTest {
         assertThat(handEnded.payload()).containsEntry("status", "HAND_RESULT");
         assertThat(handEnded.payload()).containsEntry("showdown", true);
         assertThat(handEnded.payload()).containsEntry("boardCards", List.of("AH", "KD", "7C", "4S", "2D"));
-        assertThat(handEnded.payload()).containsEntry("mainPot", 2_000);
+        assertThat(handEnded.payload()).containsEntry("mainPot", 4_000);
         assertThat(handEnded.payload()).containsEntry("sidePotCount", 0);
         assertThat(handEnded.payload()).containsEntry("showdownPotCount", 1);
         assertThat(handEnded.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
@@ -449,7 +449,7 @@ class TournamentServiceTest {
         });
         assertThat(showdownPotsPayload(handEnded)).singleElement().satisfies((pot) -> {
             assertThat(pot).containsEntry("type", "MAIN");
-            assertThat(pot).containsEntry("amount", 2_000);
+            assertThat(pot).containsEntry("amount", 4_000);
         });
 
         var playerBusted = requireEvent(broadcast, "playerBusted");
@@ -487,7 +487,7 @@ class TournamentServiceTest {
         var tournamentFinished = requireEvent(finishedBroadcast, "tournamentFinished");
         assertThat(tournamentFinished.payload()).containsEntry("winnerGuestId", "guest-2");
         assertThat(tournamentFinished.payload()).containsEntry("winnerNickname", "Player2");
-        assertThat(tournamentFinished.payload()).containsEntry("winnerStack", 2_000);
+        assertThat(tournamentFinished.payload()).containsEntry("winnerStack", 4_000);
         assertThat(tournamentFinished.payload()).containsEntry("boardCards", List.of("AH", "KD", "7C", "4S", "2D"));
         assertThat(tournamentFinished.payload()).containsEntry("showdownPotCount", 1);
         assertThat(tournamentFinished.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
@@ -499,7 +499,7 @@ class TournamentServiceTest {
         });
         assertThat(showdownPotsPayload(tournamentFinished)).singleElement().satisfies((pot) -> {
             assertThat(pot).containsEntry("type", "MAIN");
-            assertThat(pot).containsEntry("amount", 2_000);
+            assertThat(pot).containsEntry("amount", 4_000);
             assertThat(pot.get("winnerGuestIds")).isEqualTo(List.of("guest-2"));
         });
     }
@@ -540,8 +540,8 @@ class TournamentServiceTest {
                 .extracting(payout -> payout.guestId() + ":" + payout.amount())
                 .containsExactlyInAnyOrder("guest-2:300", "guest-3:300");
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").stack()).isEqualTo(300);
-        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(1_000);
-        assertThat(requireSnapshotPlayer(snapshot, "guest-3").stack()).isEqualTo(1_000);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-2").stack()).isEqualTo(2_000);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-3").stack()).isEqualTo(2_000);
     }
 
     // Verifies that a short all-in changes the call price without reopening raises for players who already acted.
@@ -1040,7 +1040,7 @@ class TournamentServiceTest {
         assertThat(restoredSnapshot.boardCards()).isEmpty();
         assertThat(restoredSnapshot.actingSeat()).isEqualTo(1);
         assertThat(restoredSnapshot.availableActions()).containsExactly("FOLD", "CALL", "RAISE", "ALL_IN");
-        assertThat(requireSnapshotPlayer(restoredSnapshot, "guest-1").stack()).isEqualTo(980);
+        assertThat(requireSnapshotPlayer(restoredSnapshot, "guest-1").stack()).isEqualTo(1_980);
 
         var resumedActionEvent = secondService.applyAction(code, "guest-2", "CALL", null).primaryEvent();
         var resumedSnapshot = resumedActionEvent.snapshot();
@@ -1050,7 +1050,7 @@ class TournamentServiceTest {
         assertThat(resumedSnapshot.sidePots()).isEmpty();
         assertThat(resumedSnapshot.actingSeat()).isEqualTo(2);
         assertThat(resumedSnapshot.availableActions()).containsExactly("CHECK", "RAISE", "ALL_IN");
-        assertThat(requireSnapshotPlayer(resumedSnapshot, "guest-2").stack()).isEqualTo(980);
+        assertThat(requireSnapshotPlayer(resumedSnapshot, "guest-2").stack()).isEqualTo(1_980);
     }
 
     // Verifies that clearing the in-memory cache still reloads and advances the persisted tournament.
