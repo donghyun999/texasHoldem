@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { TOURNAMENT_WS_URL } from "@/shared/config/runtime";
 
@@ -60,11 +61,33 @@ function buildSeatSummary(snapshot: TournamentSnapshot) {
   };
 }
 
+function buildLiveSecondsUntilNextLevel(snapshot: TournamentSnapshot, currentEpochSecond: number) {
+  if (snapshot.levelEndsAtEpochSecond > 0) {
+    return Math.max(0, snapshot.levelEndsAtEpochSecond - currentEpochSecond);
+  }
+
+  return Math.max(0, snapshot.secondsUntilNextLevel);
+}
+
 // Renders the tournament header, blind state, and transport summary.
 export function TournamentOverview({ snapshot, syncState, currentPlayer }: TournamentOverviewProps) {
+  const [currentEpochSecond, setCurrentEpochSecond] = useState(() => Math.floor(Date.now() / 1000));
   const syncSummary = getSyncSummary(syncState);
   const seatSummary = buildSeatSummary(snapshot);
   const realtimeHost = TOURNAMENT_WS_URL.replace(/^wss?:\/\//, "");
+  const liveSecondsUntilNextLevel = buildLiveSecondsUntilNextLevel(snapshot, currentEpochSecond);
+
+  useEffect(() => {
+    setCurrentEpochSecond(Math.floor(Date.now() / 1000));
+
+    const timerId = window.setInterval(() => {
+      setCurrentEpochSecond(Math.floor(Date.now() / 1000));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [snapshot.levelEndsAtEpochSecond]);
 
   return (
     <div className="grid gap-4 rounded-[2rem] border border-white/10 bg-black/20 px-5 py-5 lg:grid-cols-[1.1fr_0.9fr] lg:px-6">
@@ -75,7 +98,9 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-100 sm:text-xs">
             {snapshot.status}
           </span>
-          <span className={`rounded-full border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] sm:text-xs ${syncSummary.tone}`}>
+          <span
+            className={`rounded-full border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] sm:text-xs ${syncSummary.tone}`}
+          >
             {syncSummary.label}
           </span>
         </div>
@@ -87,7 +112,7 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
             label="You"
             value={
               currentPlayer
-                ? `Seat ${currentPlayer.seatIndex + 1} · ${currentPlayer.stack} chips`
+                ? `Seat ${currentPlayer.seatIndex + 1} | ${currentPlayer.stack} chips`
                 : "Not seated"
             }
           />
@@ -100,7 +125,7 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
         />
         <MetricCard
           label="Next Level"
-          value={`${formatBlindLevel(snapshot.nextLevel.smallBlind, snapshot.nextLevel.bigBlind)} in ${formatCountdown(snapshot.secondsUntilNextLevel)}`}
+          value={`${formatBlindLevel(snapshot.nextLevel.smallBlind, snapshot.nextLevel.bigBlind)} in ${formatCountdown(liveSecondsUntilNextLevel)}`}
         />
         <MetricCard label="Table Sync" value={syncSummary.value} />
         <MetricCard label="Transport" value={realtimeHost} />
