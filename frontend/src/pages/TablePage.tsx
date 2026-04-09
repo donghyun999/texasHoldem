@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
 import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
+import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-tournament-realtime-snapshot";
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
@@ -15,11 +16,16 @@ import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 export function TablePage() {
   const params = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const tournamentCode = params.tournamentCode ?? params.roomCode ?? "DEMO1";
   const { guestId } = useGuestSession();
+  const snapshotQueryKey = buildTournamentSnapshotKey(tournamentCode);
+  const cachedSnapshot = queryClient.getQueryData<TournamentSnapshot>(snapshotQueryKey);
   const snapshotQuery = useQuery({
-    queryKey: buildTournamentSnapshotKey(tournamentCode),
+    queryKey: snapshotQueryKey,
     queryFn: () => getTournamentSnapshot(tournamentCode, guestId),
+    initialData: cachedSnapshot,
+    refetchOnMount: cachedSnapshot ? false : undefined,
     retry: false,
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
