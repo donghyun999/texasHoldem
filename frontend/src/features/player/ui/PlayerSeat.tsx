@@ -64,7 +64,7 @@ export function PlayerSeat({
 }: PlayerSeatProps) {
   if (!player) {
     return (
-      <div className="rounded-[1.75rem] border border-dashed border-white/10 bg-black/10 p-4">
+      <div className="rounded-[1.75rem] border border-dashed border-white/10 bg-black/10 p-3 sm:p-4">
         <p className="text-sm font-medium text-zinc-400">Empty Seat</p>
         <p className="mt-2 text-xs uppercase tracking-[0.24em] text-zinc-500">Seat {seatIndex + 1}</p>
       </div>
@@ -80,30 +80,30 @@ export function PlayerSeat({
   const visibleHoleCards = player.guestId === currentGuestId && selfHoleCards.length === 2 ? selfHoleCards : ["XX", "XX"];
 
   return (
-    <div className={`rounded-[1.75rem] border p-4 transition ${getSeatTone(player)}`}>
+    <div className={`rounded-[1.75rem] border p-3 transition sm:p-4 ${getSeatTone(player)}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-white">{player.nickname}</p>
+          <p className="text-xs font-medium text-white sm:text-sm">{player.nickname}</p>
           <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Seat {player.seatIndex + 1}</p>
         </div>
-        <span className="rounded-full bg-black/25 px-3 py-1 text-sm text-zinc-200">
+        <span className="rounded-full bg-black/25 px-2.5 py-1 text-xs text-zinc-200 sm:px-3 sm:text-sm">
           {player.stack}
         </span>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4 sm:gap-2">
         {seatBadges.map((badge) => (
           <span
             key={badge}
-            className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] font-medium tracking-[0.18em] text-zinc-200"
+            className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-medium tracking-[0.14em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]"
           >
             {badge}
           </span>
         ))}
-        <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[11px] font-medium tracking-[0.18em] text-zinc-200">
+        <span className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-medium tracking-[0.14em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
           {getStatusLabel(player)}
         </span>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2">
         {visibleHoleCards.map((card, index) => (
           <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
         ))}
