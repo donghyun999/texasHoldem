@@ -1,20 +1,26 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createGuestSession } from "@/shared/api/http";
 import { useUiStore } from "@/shared/model/ui-store";
 
+const guestSessionBootstrapQueryKey = ["guest-session-bootstrap"] as const;
+
 // Bootstraps one persisted guest session from the backend when the browser has none yet.
 export function useGuestSession() {
+  const queryClient = useQueryClient();
   const guestId = useUiStore((state) => state.guestId);
   const nickname = useUiStore((state) => state.nickname);
   const setGuestSession = useUiStore((state) => state.setGuestSession);
   const setNickname = useUiStore((state) => state.setNickname);
-  const guestSessionQuery = useQuery({
-    queryKey: ["guest-session-bootstrap"],
+  const guestSessionQueryOptions = {
+    queryKey: guestSessionBootstrapQueryKey,
     queryFn: () => createGuestSession(nickname),
-    enabled: !guestId,
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
+  } as const;
+  const guestSessionQuery = useQuery({
+    ...guestSessionQueryOptions,
+    enabled: !guestId,
   });
 
   // Stores the backend-issued guest identity once the bootstrap request completes.
@@ -31,7 +37,7 @@ export function useGuestSession() {
       return guestId.trim();
     }
 
-    const session = await createGuestSession(nickname);
+    const session = await queryClient.fetchQuery(guestSessionQueryOptions);
     setGuestSession(session.guestId, session.nickname);
     return session.guestId;
   }
