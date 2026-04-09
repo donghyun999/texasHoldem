@@ -35,12 +35,12 @@ export function HomePage() {
   const createMutation = useMutation({
     mutationFn: ({ guestId, nickname, code }: { guestId: string; nickname: string; code?: string }) =>
       createTournament(guestId, nickname, code),
-    onSuccess: (snapshot) => handleTournamentEntry(snapshot),
+    onSuccess: (snapshot, variables) => handleTournamentEntry(snapshot, variables.guestId),
   });
   const joinMutation = useMutation({
     mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
       joinTournament(code, guestId, nickname),
-    onSuccess: (snapshot) => handleTournamentEntry(snapshot),
+    onSuccess: (snapshot, variables) => handleTournamentEntry(snapshot, variables.guestId),
   });
   const activeError =
     validationError ||
@@ -60,8 +60,8 @@ export function HomePage() {
       : null;
 
   // Seeds the destination snapshot cache before navigation so the table paints immediately.
-  function handleTournamentEntry(snapshot: TournamentSnapshot) {
-    queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code), snapshot);
+  function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
+    queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
     navigate(`/tournaments/${snapshot.code}`);
   }
 

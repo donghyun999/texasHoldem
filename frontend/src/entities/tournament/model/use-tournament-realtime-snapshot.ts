@@ -100,12 +100,12 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     };
   }, [currentPlayer?.connected, guestId, normalizedCode, snapshot?.status]);
 
-  // Clears stale state only when the route switches to a different tournament code.
+  // Clears stale viewer state when either the tournament or current guest changes.
   useEffect(() => {
     setSnapshot(seedSnapshot ?? null);
     setLastEventType(null);
     manualReconnectRequiredRef.current = false;
-  }, [normalizedCode]);
+  }, [normalizedCode, guestId]);
 
   // Seeds the local snapshot once the initial REST fetch resolves for the current tournament.
   useEffect(() => {
@@ -140,7 +140,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     const mergedSnapshot = mergeViewerHoleCards(snapshot, event.snapshot);
     setSnapshot(mergedSnapshot);
     setLastEventType(event.eventType);
-    queryClient.setQueryData(buildTournamentSnapshotKey(code), mergedSnapshot);
+    queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
     syncActiveTournamentCache(mergedSnapshot);
   }
 
@@ -154,7 +154,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       .then((viewerSnapshot) => {
         const mergedSnapshot = mergeViewerHoleCards(snapshot, viewerSnapshot);
         setSnapshot(mergedSnapshot);
-        queryClient.setQueryData(buildTournamentSnapshotKey(code), mergedSnapshot);
+        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
         syncActiveTournamentCache(mergedSnapshot);
       })
       .catch(() => {
@@ -317,7 +317,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
         setSnapshot(optimisticSnapshot);
         setLastEventType("playerDisconnected");
-        queryClient.setQueryData(buildTournamentSnapshotKey(code), optimisticSnapshot);
+        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), optimisticSnapshot);
         syncActiveTournamentCache(null);
       }
 
