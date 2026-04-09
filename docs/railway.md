@@ -61,6 +61,8 @@ VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
 Notes:
 
 - `VITE_TOURNAMENT_WS_URL` is optional if you want to derive it from `VITE_API_BASE_URL`, but setting it explicitly avoids deploy-time ambiguity
+- Vite embeds `VITE_*` values at build time, so changing them in Railway requires a fresh frontend deploy to rebuild the static assets
+- If the frontend Railway public hostname contains `frontend` and the backend hostname contains `backend`, the app can infer the backend Railway hostname when `VITE_API_BASE_URL` is missing, but explicit env vars are still the preferred configuration
 - Healthcheck path is `/`
 
 ## Deploy order

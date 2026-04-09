@@ -62,7 +62,7 @@ export function ActionPanel({
   }, [sizeAction]);
 
   return (
-    <div className="grid gap-4 rounded-[2rem] border border-white/10 bg-black/20 p-6 md:grid-cols-[1fr_auto]">
+    <div className="grid gap-4 rounded-[2rem] border border-white/10 bg-black/20 p-4 sm:p-6 md:grid-cols-[1fr_auto]">
       <div>
         <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">Action Controls</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Live tournament commands</h3>
@@ -85,7 +85,7 @@ export function ActionPanel({
           </div>
         ) : null}
       </div>
-      <div className="flex min-w-[280px] flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3 md:min-w-[280px]">
         {canToggleReady ? (
           <button
             type="button"
