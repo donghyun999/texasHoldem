@@ -1,4 +1,7 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.metrics.SystemMetricsAutoConfiguration
   jpa:
     show-sql: false
 
@@ -9,9 +12,3 @@ logging:
   level:
     com.texasholdem: info
     org.springframework.web.socket: info
-
-management:
-  metrics:
-    binders:
-      processor:
-        enabled: false
