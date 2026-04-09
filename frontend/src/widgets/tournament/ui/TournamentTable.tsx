@@ -18,12 +18,6 @@ function buildSeatMap(players: TournamentPlayer[]) {
   return seats;
 }
 
-function getMobileSeatCellClass(seatOffset: number) {
-  return seatOffset === 2
-    ? "col-span-2 mx-auto w-full max-w-[11rem] sm:col-span-1 sm:max-w-none"
-    : "min-w-0";
-}
-
 // Renders the table, board cards, main pot, and side-pot summary.
 export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
@@ -32,19 +26,18 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
     <div className="relative overflow-hidden rounded-[2.5rem] border border-emerald-200/10 bg-[radial-gradient(circle_at_top,_#2f805b,_#123224_55%,_#091510)] p-3 shadow-2xl shadow-black/30 sm:p-6">
       <div className="mx-auto grid min-h-[560px] max-w-5xl place-items-center rounded-[3rem] border-[12px] border-[#5c341f] bg-[radial-gradient(circle,_#2b7c57,_#18533b_68%,_#123021)] px-3 py-6 sm:rounded-[999px] sm:border-[18px] sm:px-6 sm:py-12">
         <div className="grid w-full gap-6 sm:gap-10">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
             {seats.slice(0, 3).map((player, seatOffset) => (
-              <div key={`top-${seatOffset}`} className={getMobileSeatCellClass(seatOffset)}>
-                <PlayerSeat
-                  player={player}
-                  seatIndex={seatOffset}
-                  dealerSeat={snapshot.dealerSeat}
-                  smallBlindSeat={snapshot.smallBlindSeat}
-                  bigBlindSeat={snapshot.bigBlindSeat}
-                  currentGuestId={currentGuestId}
-                  selfHoleCards={snapshot.selfHoleCards}
-                />
-              </div>
+              <PlayerSeat
+                key={`top-${seatOffset}`}
+                player={player}
+                seatIndex={seatOffset}
+                dealerSeat={snapshot.dealerSeat}
+                smallBlindSeat={snapshot.smallBlindSeat}
+                bigBlindSeat={snapshot.bigBlindSeat}
+                currentGuestId={currentGuestId}
+                selfHoleCards={snapshot.selfHoleCards}
+              />
             ))}
           </div>
 
@@ -68,19 +61,18 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6">
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
             {seats.slice(3).map((player, seatOffset) => (
-              <div key={`bottom-${seatOffset}`} className={getMobileSeatCellClass(seatOffset)}>
-                <PlayerSeat
-                  player={player}
-                  seatIndex={seatOffset + 3}
-                  dealerSeat={snapshot.dealerSeat}
-                  smallBlindSeat={snapshot.smallBlindSeat}
-                  bigBlindSeat={snapshot.bigBlindSeat}
-                  currentGuestId={currentGuestId}
-                  selfHoleCards={snapshot.selfHoleCards}
-                />
-              </div>
+              <PlayerSeat
+                key={`bottom-${seatOffset}`}
+                player={player}
+                seatIndex={seatOffset + 3}
+                dealerSeat={snapshot.dealerSeat}
+                smallBlindSeat={snapshot.smallBlindSeat}
+                bigBlindSeat={snapshot.bigBlindSeat}
+                currentGuestId={currentGuestId}
+                selfHoleCards={snapshot.selfHoleCards}
+              />
             ))}
           </div>
         </div>

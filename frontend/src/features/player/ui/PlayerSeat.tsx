@@ -52,6 +52,19 @@ function getStatusLabel(player: TournamentPlayer) {
   }
 }
 
+function StackedHiddenCards() {
+  return (
+    <div className="relative mx-auto h-13 w-14 sm:hidden">
+      <div className="absolute left-0 top-0 rotate-[-8deg]">
+        <PlayingCard card="XX" variant="seat" />
+      </div>
+      <div className="absolute right-0 top-0 rotate-[8deg]">
+        <PlayingCard card="XX" variant="seat" />
+      </div>
+    </div>
+  );
+}
+
 // Renders either an occupied seat or an empty placeholder in the ring.
 export function PlayerSeat({
   player,
@@ -77,36 +90,52 @@ export function PlayerSeat({
     smallBlindSeat === player.seatIndex ? "SB" : null,
     bigBlindSeat === player.seatIndex ? "BB" : null,
   ].filter(Boolean);
-  const visibleHoleCards = player.guestId === currentGuestId && selfHoleCards.length === 2 ? selfHoleCards : ["XX", "XX"];
+  const isCurrentPlayer = player.guestId === currentGuestId && selfHoleCards.length === 2;
+  const visibleHoleCards = isCurrentPlayer ? selfHoleCards : ["XX", "XX"];
 
   return (
-    <div className={`rounded-[1.75rem] border p-3 transition sm:p-4 ${getSeatTone(player)}`}>
-      <div className="flex items-center justify-between gap-3">
+    <div className={`min-w-0 rounded-[1.75rem] border p-2 transition sm:p-4 ${getSeatTone(player)}`}>
+      <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-white sm:text-sm">{player.nickname}</p>
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Seat {player.seatIndex + 1}</p>
+          <p className="truncate text-[11px] font-medium text-white sm:text-sm">{player.nickname}</p>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-400 sm:text-xs sm:tracking-[0.24em]">
+            Seat {player.seatIndex + 1}
+          </p>
         </div>
-        <span className="shrink-0 rounded-full bg-black/25 px-2.5 py-1 text-xs text-zinc-200 sm:px-3 sm:text-sm">
+        <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-[10px] text-zinc-200 sm:px-3 sm:text-sm">
           {player.stack}
         </span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4 sm:gap-2">
+      <div className="mt-2 flex flex-wrap gap-1 sm:mt-4 sm:gap-2">
         {seatBadges.map((badge) => (
           <span
             key={badge}
-            className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-medium tracking-[0.14em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]"
+            className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[9px] font-medium tracking-[0.08em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]"
           >
             {badge}
           </span>
         ))}
-        <span className="rounded-full border border-white/10 bg-black/25 px-2 py-1 text-[10px] font-medium tracking-[0.14em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
+        <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[9px] font-medium tracking-[0.08em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
           {getStatusLabel(player)}
         </span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-1.5 sm:mt-4 sm:gap-2">
-        {visibleHoleCards.map((card, index) => (
-          <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
-        ))}
+      <div className="mt-2 sm:mt-4">
+        {isCurrentPlayer ? (
+          <div className="grid grid-cols-2 gap-1 sm:gap-2">
+            {visibleHoleCards.map((card, index) => (
+              <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <StackedHiddenCards />
+            <div className="hidden grid-cols-2 gap-1 sm:grid sm:gap-2">
+              {visibleHoleCards.map((card, index) => (
+                <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
