@@ -57,20 +57,36 @@ export function TablePage() {
   return (
     <section className="space-y-6">
       <TournamentOverview snapshot={snapshot} syncState={syncState} />
+      <div className="lg:hidden">
+        <ActionPanel
+          actions={snapshot.availableActions}
+          message={snapshot.tableMessage}
+          tournamentStatus={snapshot.status}
+          currentPlayer={currentPlayer}
+          canPublish={realtimeSnapshot.canPublish}
+          onAction={realtimeSnapshot.sendAction}
+          onReadyChange={realtimeSnapshot.sendReady}
+          onStart={realtimeSnapshot.sendStart}
+          onDisconnect={realtimeSnapshot.sendDisconnect}
+          onReconnect={realtimeSnapshot.sendReconnect}
+        />
+      </div>
       <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
       <TournamentShowdownPanel snapshot={snapshot} />
-      <ActionPanel
-        actions={snapshot.availableActions}
-        message={snapshot.tableMessage}
-        tournamentStatus={snapshot.status}
-        currentPlayer={currentPlayer}
-        canPublish={realtimeSnapshot.canPublish}
-        onAction={realtimeSnapshot.sendAction}
-        onReadyChange={realtimeSnapshot.sendReady}
-        onStart={realtimeSnapshot.sendStart}
-        onDisconnect={realtimeSnapshot.sendDisconnect}
-        onReconnect={realtimeSnapshot.sendReconnect}
-      />
+      <div className="hidden lg:block">
+        <ActionPanel
+          actions={snapshot.availableActions}
+          message={snapshot.tableMessage}
+          tournamentStatus={snapshot.status}
+          currentPlayer={currentPlayer}
+          canPublish={realtimeSnapshot.canPublish}
+          onAction={realtimeSnapshot.sendAction}
+          onReadyChange={realtimeSnapshot.sendReady}
+          onStart={realtimeSnapshot.sendStart}
+          onDisconnect={realtimeSnapshot.sendDisconnect}
+          onReconnect={realtimeSnapshot.sendReconnect}
+        />
+      </div>
     </section>
   );
 }
