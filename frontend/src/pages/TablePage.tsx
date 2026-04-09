@@ -56,7 +56,7 @@ export function TablePage() {
 
   return (
     <section className="space-y-6">
-      <TournamentOverview snapshot={snapshot} syncState={syncState} />
+      <TournamentOverview snapshot={snapshot} syncState={syncState} currentPlayer={currentPlayer} />
       <div className="lg:hidden">
         <ActionPanel
           actions={snapshot.availableActions}
