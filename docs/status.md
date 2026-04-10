@@ -11,13 +11,14 @@
 - Tournament MVP implementation
 - Local development target uses native PostgreSQL
 - Final deployment target should remain Docker-ready
-- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified
+- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified, including a 6-player deployed frontend pass focused on seat 5 hole-card rendering
 
 ## Completed
 
 - Guest-based tournament create, join, ready, and owner-start flow
 - Guest-level active-tournament detection and resume path on the home screen
 - Shared tournament snapshot contract across backend REST, WebSocket, and frontend UI
+- Snapshot identity now includes `handNumber`, `stateVersion`, and public/viewer audience metadata so clients can distinguish stale/public snapshots from viewer-personalized card state
 - Blind-level progression on hand boundaries
 - In-hand action flow with fold, check, call, raise, and all-in handling
 - Betting-rule alignment for minimum raise sizing and short all-in raise-reopen behavior
@@ -44,10 +45,12 @@
 - Waiting-room join now fan-outs a fresh `tournamentSnapshot`, so already seated browsers refresh the participant list immediately when a new player enters
 - Browser refresh no longer auto-sends the fallback disconnect for in-hand seats, so reloading the active actor restores the latest snapshot instead of forcing an immediate fold
 - Table REST snapshot now accepts an optional viewing `guestId` and returns `selfHoleCards`, so the current player can see their own hand without exposing opponents' cards
+- Frontend realtime snapshot merging now preserves last-known self hole cards only within the same `handNumber` and ignores older same-hand `stateVersion` updates
 - Finished tournaments now clean themselves up after the result screen window, either 20 seconds after `FINISHED` or earlier when the last connected player leaves
 - Persisted stale tournaments now clean themselves up from `updated_at` TTL rules before active-tournament lookup and capacity-sensitive create/join flows, so abandoned waiting or in-hand rows no longer block new MVP testing sessions
 - Railway deployment profile and service manifests now separate MVP hosting concerns from the local `local` profile workflow
 - Railway public-domain smoke verification has been completed through create, join, ready, start, all-in, call, and showdown, including showdown hand-label rendering
+- Railway 6-player browser smoke verification has been completed against the deployed frontend URL; two full-table runs found no reproduction of the reported seat 5 missing-card or wrong-card issue
 
 ## In progress / focus
 
@@ -55,6 +58,7 @@
 - Preserve a clean path to final Docker-based deployment
 - Harden reconnect and persistence behavior
 - Keep backend betting state, snapshot actions, and persisted hand state aligned with the tournament spec
+- Keep the snapshot identity contract aligned across backend REST, public WebSocket events, and frontend derived table state
 - Finish MVP closeout by separating true must-fix items from explicit out-of-scope items
 - Keep local and Railway behavior aligned as result UX and reconnect handling are finalized
 
@@ -65,6 +69,7 @@
 - Repeat the Railway smoke pass only after the next meaningful gameplay or UI change
 - Final MVP closeout review for features that should stay explicitly out of scope
 - Continue organizing runtime configuration so local and Docker profiles stay easy to switch
+- Add a shared cross-instance tournament command lock before scaling the backend beyond one runtime instance
 
 ## Current assessment
 
@@ -89,6 +94,8 @@
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
 - Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
 - Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
+- The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`
+- The table state contract now has explicit hand and state identifiers; this reduces reliance on frontend status/board heuristics when public WebSocket snapshots race personalized REST snapshots
 
 ## MVP closeout boundary
 
@@ -108,6 +115,7 @@
 ## Remaining gaps
 
 - Reconnect recovery is still snapshot-level and does not attempt richer in-hand session restoration beyond seat ownership and latest snapshot
+- Per-table mutation serialization is currently JVM-local; multi-instance backend deployment still requires a shared lock or command queue
 - Showdown reveal sequencing, replay metadata, and final standings history remain intentionally out of scope for this MVP
 
 ## Notes

@@ -46,12 +46,38 @@ function buildWaitingLeaveSnapshot(snapshot: TournamentSnapshot, guestId: string
   };
 }
 
-// Preserves the viewer's own hole cards across shared websocket snapshots for the same hand.
-function mergeViewerHoleCards(
+// Rejects older snapshots that arrive after a newer REST or websocket update.
+function isStaleSnapshot(currentSnapshot: TournamentSnapshot | null, nextSnapshot: TournamentSnapshot) {
+  if (!currentSnapshot || currentSnapshot.code !== nextSnapshot.code) {
+    return false;
+  }
+
+  if (nextSnapshot.handNumber < currentSnapshot.handNumber) {
+    return true;
+  }
+
+  return (
+    nextSnapshot.handNumber === currentSnapshot.handNumber &&
+    nextSnapshot.stateVersion > 0 &&
+    currentSnapshot.stateVersion > 0 &&
+    nextSnapshot.stateVersion < currentSnapshot.stateVersion
+  );
+}
+
+// Preserves the viewer's own hole cards only across shared websocket snapshots for the same hand.
+function mergeSnapshotForViewer(
   currentSnapshot: TournamentSnapshot | null,
   nextSnapshot: TournamentSnapshot,
-): TournamentSnapshot {
+): TournamentSnapshot | null {
+  if (isStaleSnapshot(currentSnapshot, nextSnapshot)) {
+    return null;
+  }
+
   if (nextSnapshot.selfHoleCards.length > 0) {
+    return nextSnapshot;
+  }
+
+  if (nextSnapshot.snapshotAudience === "VIEWER") {
     return nextSnapshot;
   }
 
@@ -66,12 +92,19 @@ function mergeViewerHoleCards(
     };
   }
 
-  if (currentSnapshot.status !== nextSnapshot.status && nextSnapshot.status === "IN_HAND") {
+  if (currentSnapshot.handNumber <= 0 || nextSnapshot.handNumber <= 0) {
+    return nextSnapshot;
+  }
+
+  if (currentSnapshot.handNumber !== nextSnapshot.handNumber) {
     return nextSnapshot;
   }
 
   return {
     ...nextSnapshot,
+    snapshotAudience: "VIEWER",
+    viewerGuestId: currentSnapshot.viewerGuestId,
+    viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
     selfHoleCards: currentSnapshot.selfHoleCards,
   };
 }
@@ -100,12 +133,12 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     };
   }, [currentPlayer?.connected, guestId, normalizedCode, snapshot?.status]);
 
-  // Clears stale state only when the route switches to a different tournament code.
+  // Clears stale viewer state when either the tournament or current guest changes.
   useEffect(() => {
     setSnapshot(seedSnapshot ?? null);
     setLastEventType(null);
     manualReconnectRequiredRef.current = false;
-  }, [normalizedCode]);
+  }, [normalizedCode, guestId]);
 
   // Seeds the local snapshot once the initial REST fetch resolves for the current tournament.
   useEffect(() => {
@@ -137,10 +170,14 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
   // Applies one tournament event from either WebSocket or REST fallback into local caches.
   function applyTournamentEvent(event: TournamentEvent) {
-    const mergedSnapshot = mergeViewerHoleCards(snapshot, event.snapshot);
+    const mergedSnapshot = mergeSnapshotForViewer(snapshot, event.snapshot);
+    if (!mergedSnapshot) {
+      return;
+    }
+
     setSnapshot(mergedSnapshot);
     setLastEventType(event.eventType);
-    queryClient.setQueryData(buildTournamentSnapshotKey(code), mergedSnapshot);
+    queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
     syncActiveTournamentCache(mergedSnapshot);
   }
 
@@ -152,9 +189,13 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
     void getTournamentSnapshot(normalizedCode, guestId)
       .then((viewerSnapshot) => {
-        const mergedSnapshot = mergeViewerHoleCards(snapshot, viewerSnapshot);
+        const mergedSnapshot = mergeSnapshotForViewer(snapshot, viewerSnapshot);
+        if (!mergedSnapshot) {
+          return;
+        }
+
         setSnapshot(mergedSnapshot);
-        queryClient.setQueryData(buildTournamentSnapshotKey(code), mergedSnapshot);
+        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
         syncActiveTournamentCache(mergedSnapshot);
       })
       .catch(() => {
@@ -317,7 +358,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
         setSnapshot(optimisticSnapshot);
         setLastEventType("playerDisconnected");
-        queryClient.setQueryData(buildTournamentSnapshotKey(code), optimisticSnapshot);
+        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), optimisticSnapshot);
         syncActiveTournamentCache(null);
       }
 

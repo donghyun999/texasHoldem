@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
@@ -174,9 +175,45 @@ class TournamentServiceTest {
         var anonymousView = service.getTournament(code);
 
         assertThat(ownerView.selfHoleCards()).hasSize(2);
+        assertThat(ownerView.snapshotAudience()).isEqualTo(SnapshotAudience.VIEWER);
+        assertThat(ownerView.viewerGuestId()).isEqualTo("guest-1");
+        assertThat(ownerView.viewerHoleCardsIncluded()).isTrue();
         assertThat(opponentView.selfHoleCards()).hasSize(2);
+        assertThat(opponentView.snapshotAudience()).isEqualTo(SnapshotAudience.VIEWER);
+        assertThat(opponentView.viewerGuestId()).isEqualTo("guest-2");
+        assertThat(opponentView.viewerHoleCardsIncluded()).isTrue();
         assertThat(ownerView.selfHoleCards()).isNotEqualTo(opponentView.selfHoleCards());
         assertThat(anonymousView.selfHoleCards()).isEmpty();
+        assertThat(anonymousView.snapshotAudience()).isEqualTo(SnapshotAudience.PUBLIC);
+        assertThat(anonymousView.viewerGuestId()).isNull();
+        assertThat(anonymousView.viewerHoleCardsIncluded()).isFalse();
+    }
+
+    // Verifies that snapshots expose stable hand identity and monotonic state identity.
+    @Test
+    void snapshotsCarryHandNumberAndStateVersion() {
+        var service = createService();
+        var createdSnapshot = service.createTournament("guest-1", "Owner", "META1");
+        var joinedSnapshot = service.joinTournament("META1", "guest-2", "Player2");
+
+        service.changeReady("META1", "guest-1", true);
+        var readySnapshot = service.changeReady("META1", "guest-2", true).primaryEvent().snapshot();
+        var startedSnapshot = service.startTournament("META1", "guest-1").primaryEvent().snapshot();
+        var handResultSnapshot = service.applyAction("META1", "guest-1", "FOLD", null).primaryEvent().snapshot();
+        var nextHandSnapshot = service.startTournament("META1", "guest-1").primaryEvent().snapshot();
+
+        assertThat(createdSnapshot.handNumber()).isZero();
+        assertThat(joinedSnapshot.handNumber()).isZero();
+        assertThat(startedSnapshot.handNumber()).isEqualTo(1);
+        assertThat(handResultSnapshot.handNumber()).isEqualTo(1);
+        assertThat(nextHandSnapshot.handNumber()).isEqualTo(2);
+
+        assertThat(createdSnapshot.stateVersion()).isPositive();
+        assertThat(joinedSnapshot.stateVersion()).isGreaterThan(createdSnapshot.stateVersion());
+        assertThat(readySnapshot.stateVersion()).isGreaterThan(joinedSnapshot.stateVersion());
+        assertThat(startedSnapshot.stateVersion()).isGreaterThan(readySnapshot.stateVersion());
+        assertThat(handResultSnapshot.stateVersion()).isGreaterThan(startedSnapshot.stateVersion());
+        assertThat(nextHandSnapshot.stateVersion()).isGreaterThan(handResultSnapshot.stateVersion());
     }
 
     // Verifies that posted blinds are visible in the snapshot pot before the first action lands.

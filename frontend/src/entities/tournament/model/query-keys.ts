@@ -1,4 +1,4 @@
-// Builds the shared React Query cache key for one tournament snapshot.
-export function buildTournamentSnapshotKey(code: string) {
-  return ["tournament-snapshot", code.trim().toUpperCase()] as const;
+// Builds the React Query cache key for one viewer's tournament snapshot.
+export function buildTournamentSnapshotKey(code: string, guestId?: string) {
+  return ["tournament-snapshot", code.trim().toUpperCase(), guestId?.trim() ?? ""] as const;
 }

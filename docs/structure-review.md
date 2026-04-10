@@ -22,6 +22,17 @@
   - no class renames
   - no import churn
 
+## Current runtime boundary
+
+- Tournament mutations are serialized per in-memory `TournamentState` with JVM-local synchronization in `TournamentService`
+- This is sufficient for the current single backend instance MVP shape
+- It is not a multi-instance lock
+- Before running multiple backend instances, add a table-level command serialization strategy:
+  - PostgreSQL row/advisory lock around a tournament command
+  - or a single-consumer command queue keyed by tournament code
+  - or another shared lock that works across instances
+- Keep the mutation order as: command validation, state change, persistence, snapshot/event creation, topic publish
+
 ## Defer until after MVP
 
 ### Backend persistence packaging
@@ -54,6 +65,21 @@
   - keep snapshot types and query keys in `entities/tournament/model`
   - extract transport/session orchestration into `features/table/model` or a dedicated realtime module
   - leave `TablePage` thin and snapshot-driven
+
+### TournamentService command-handler split
+
+- Current file:
+  - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`
+- Why this can become a problem:
+  - the service currently coordinates lobby, connection, hand engine, persistence, scheduling hints, and broadcast assembly
+  - this is still readable for MVP, but future commands can turn it into both orchestrator and rule owner
+- Why this should wait:
+  - the immediate risk is the snapshot/state contract, not package movement
+  - large service splits would add regression risk while gameplay behavior is still being verified
+- Preferred future direction:
+  - keep `TournamentService` as the public application facade
+  - move command-specific flows into focused package-private handlers when the next substantial command is added
+  - keep poker rules in engine/domain collaborators, not in the facade
 
 ### Placeholder backend packages
 

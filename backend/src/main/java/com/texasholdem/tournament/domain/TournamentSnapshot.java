@@ -4,6 +4,11 @@ import java.util.List;
 
 public record TournamentSnapshot(
         String code,
+        long handNumber,
+        long stateVersion,
+        SnapshotAudience snapshotAudience,
+        String viewerGuestId,
+        boolean viewerHoleCardsIncluded,
         TournamentStatus status,
         BlindLevel currentLevel,
         BlindLevel nextLevel,

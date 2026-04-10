@@ -52,6 +52,7 @@ final class TournamentHandSetupManager {
     // Opens a fresh preflop state, posts blinds, and returns any blind-level transition message.
     String initializeHand(TournamentState tournament) {
         var levelMessage = advanceBlindLevelIfNeeded(tournament);
+        tournament.handNumber++;
         tournament.status = TournamentStatus.IN_HAND;
         tournament.round = BettingRound.PRE_FLOP;
         tournament.currentBet = 0;

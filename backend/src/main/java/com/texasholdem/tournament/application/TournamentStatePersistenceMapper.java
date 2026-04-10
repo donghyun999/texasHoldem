@@ -46,6 +46,8 @@ final class TournamentStatePersistenceMapper {
     private PersistedTournamentState toPayload(TournamentState tournament) {
         return new PersistedTournamentState(
                 tournament.code,
+                tournament.handNumber,
+                tournament.stateVersion,
                 tournament.status,
                 tournament.levelIndex,
                 tournament.levelActivatedAtEpochSecond,
@@ -94,6 +96,8 @@ final class TournamentStatePersistenceMapper {
     // Rehydrates the mutable tournament aggregate from the persistence DTO tree.
     private TournamentState fromPayload(PersistedTournamentState payload) {
         var tournament = new TournamentState(payload.code());
+        tournament.handNumber = payload.handNumber();
+        tournament.stateVersion = payload.stateVersion();
         tournament.status = payload.status();
         tournament.levelIndex = payload.levelIndex();
         tournament.levelActivatedAtEpochSecond = payload.levelActivatedAtEpochSecond();
@@ -171,6 +175,8 @@ final class TournamentStatePersistenceMapper {
 
     private record PersistedTournamentState(
             String code,
+            long handNumber,
+            long stateVersion,
             TournamentStatus status,
             int levelIndex,
             long levelActivatedAtEpochSecond,

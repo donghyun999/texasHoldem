@@ -85,6 +85,13 @@
 
 ## Snapshot additions
 
+- `handNumber`: monotonically increases when a fresh tournament hand is opened
+  - clients use this as the boundary for discarding hand-local viewer state such as cached self hole cards
+- `stateVersion`: monotonically increases for each persisted tournament mutation
+  - clients can ignore older REST or WebSocket snapshots that arrive after a newer version for the same hand
+- `snapshotAudience`: `PUBLIC` for shared topic snapshots, `VIEWER` for snapshots personalized by a `guestId`
+- `viewerGuestId`: the viewer identity used for a personalized snapshot, or `null` for public snapshots
+- `viewerHoleCardsIncluded`: `true` only when the snapshot includes non-empty viewer hole cards
 - `showdownPots`: settled per-pot payout detail exposed in `HAND_RESULT` and preserved through `FINISHED`
   - shape: `[{ id, type, amount, payouts: [{ guestId, nickname, amount }] }]`
 - `showdownHands`: server-evaluated hand-class labels for revealed showdown participants
@@ -93,4 +100,5 @@
   - shape: `["guest-1", "guest-4"]`
 - `selfHoleCards`: the current viewer's own hole cards, exposed only on personalized REST snapshot fetches
   - shape: `["AS", "KH"]`
+  - public WebSocket snapshots intentionally send an empty list; clients should use `snapshotAudience` and `handNumber` rather than treating every empty list as an authoritative card clear
   - existing `mainPot` and `sidePots` remain unchanged for in-hand rendering

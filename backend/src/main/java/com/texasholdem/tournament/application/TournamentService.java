@@ -107,7 +107,7 @@ public class TournamentService {
         var tournament = lobbyManager.createTournament(code, guestId, nickname);
         tournaments.put(code, tournament);
         saveTournamentState(tournament);
-        return snapshotFactory.toSnapshot(tournament);
+        return snapshotFactory.toSnapshot(tournament, guestId);
     }
 
     // Returns the latest server-side snapshot for a tournament code.
@@ -134,7 +134,7 @@ public class TournamentService {
         synchronized (tournament) {
             lobbyManager.joinTournament(tournament, guestId, nickname);
             saveTournamentState(tournament);
-            return snapshotFactory.toSnapshot(tournament);
+            return snapshotFactory.toSnapshot(tournament, guestId);
         }
     }
 
@@ -358,6 +358,7 @@ public class TournamentService {
 
     // Persists one tournament mutation and emits the scheduling hint used by auto-advance listeners.
     private void saveTournamentState(TournamentState tournament) {
+        tournament.stateVersion++;
         stateStore.save(tournament);
         publishStateChange(tournament);
     }

@@ -1,5 +1,6 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentPlayerView;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,8 @@ final class TournamentSnapshotFactory {
 
     // Converts mutable in-memory state into the API snapshot contract for one viewing guest.
     TournamentSnapshot toSnapshot(TournamentState tournament, String viewerGuestId) {
+        var normalizedViewerGuestId = normalizeViewerGuestId(viewerGuestId);
+        var viewerHoleCards = viewerHoleCards(tournament, normalizedViewerGuestId);
         var currentLevel = rules.currentLevel(tournament.levelIndex);
         var nextLevel = rules.nextLevel(tournament.levelIndex);
         var now = Instant.now().getEpochSecond();
@@ -36,6 +39,11 @@ final class TournamentSnapshotFactory {
 
         return new TournamentSnapshot(
                 tournament.code,
+                tournament.handNumber,
+                tournament.stateVersion,
+                normalizedViewerGuestId == null ? SnapshotAudience.PUBLIC : SnapshotAudience.VIEWER,
+                normalizedViewerGuestId,
+                !viewerHoleCards.isEmpty(),
                 tournament.status,
                 currentLevel,
                 nextLevel,
@@ -57,7 +65,7 @@ final class TournamentSnapshotFactory {
                 List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
                 tournament.tableMessage,
-                viewerHoleCards(tournament, viewerGuestId)
+                viewerHoleCards
         );
     }
 
@@ -78,7 +86,7 @@ final class TournamentSnapshotFactory {
 
     // Exposes only the viewing player's own hole cards, never opponents' hidden cards.
     private List<String> viewerHoleCards(TournamentState tournament, String viewerGuestId) {
-        if (viewerGuestId == null || viewerGuestId.isBlank()) {
+        if (viewerGuestId == null) {
             return List.of();
         }
 
@@ -87,5 +95,12 @@ final class TournamentSnapshotFactory {
                 .findFirst()
                 .map(player -> List.copyOf(player.holeCards))
                 .orElseGet(List::of);
+    }
+
+    private String normalizeViewerGuestId(String viewerGuestId) {
+        if (viewerGuestId == null || viewerGuestId.isBlank()) {
+            return null;
+        }
+        return viewerGuestId.trim();
     }
 }

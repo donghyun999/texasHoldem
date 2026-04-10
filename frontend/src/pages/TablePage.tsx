@@ -19,13 +19,13 @@ export function TablePage() {
   const queryClient = useQueryClient();
   const tournamentCode = params.tournamentCode ?? params.roomCode ?? "DEMO1";
   const { guestId } = useGuestSession();
-  const snapshotQueryKey = buildTournamentSnapshotKey(tournamentCode);
+  const snapshotQueryKey = buildTournamentSnapshotKey(tournamentCode, guestId);
   const cachedSnapshot = queryClient.getQueryData<TournamentSnapshot>(snapshotQueryKey);
   const snapshotQuery = useQuery({
     queryKey: snapshotQueryKey,
     queryFn: () => getTournamentSnapshot(tournamentCode, guestId),
     initialData: cachedSnapshot,
-    refetchOnMount: cachedSnapshot ? false : undefined,
+    refetchOnMount: "always",
     retry: false,
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
