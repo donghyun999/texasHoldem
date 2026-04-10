@@ -12,6 +12,8 @@ final class TournamentState {
 
     final String code;
     final List<TournamentPlayerState> players = new ArrayList<>();
+    long handNumber = 0;
+    long stateVersion = 0;
     TournamentStatus status = TournamentStatus.WAITING;
     int levelIndex = 0;
     long levelActivatedAtEpochSecond = 0;

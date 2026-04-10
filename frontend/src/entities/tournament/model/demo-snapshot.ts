@@ -4,6 +4,11 @@ import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
   return {
     code: code.toUpperCase(),
+    handNumber: 1,
+    stateVersion: 1,
+    snapshotAudience: "VIEWER",
+    viewerGuestId: "guest-player",
+    viewerHoleCardsIncluded: true,
     status: "IN_HAND",
     currentLevel: {
       level: 3,

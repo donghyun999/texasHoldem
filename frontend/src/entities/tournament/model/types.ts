@@ -1,5 +1,7 @@
 export type TournamentStatus = "WAITING" | "IN_HAND" | "HAND_RESULT" | "FINISHED";
 
+export type SnapshotAudience = "PUBLIC" | "VIEWER";
+
 export type PlayerStatus =
   | "LOBBY"
   | "SEATED"
@@ -57,6 +59,11 @@ export type TournamentPlayer = {
 
 export type TournamentSnapshot = {
   code: string;
+  handNumber: number;
+  stateVersion: number;
+  snapshotAudience: SnapshotAudience;
+  viewerGuestId: string | null;
+  viewerHoleCardsIncluded: boolean;
   status: TournamentStatus;
   currentLevel: BlindLevel;
   nextLevel: BlindLevel;
