@@ -71,6 +71,22 @@ function findLargestPayoutAmount(snapshot: TournamentSnapshot) {
   return Math.max(0, ...snapshot.showdownPots.flatMap((pot) => pot.payouts.map((payout) => payout.amount)));
 }
 
+function buildResultStats(snapshot: TournamentSnapshot, bustedPlayers: TournamentPlayer[]) {
+  const totalChips = snapshot.showdownPots.reduce((total, pot) => total + pot.amount, 0);
+  const payoutCount = snapshot.showdownPots.reduce((total, pot) => total + pot.payouts.length, 0);
+  const sidePotCount = snapshot.showdownPots.filter((pot) => pot.type === "SIDE").length;
+  const splitPotCount = snapshot.showdownPots.filter((pot) => pot.payouts.length > 1).length;
+
+  return [
+    { label: "Paid", value: `${totalChips} chips` },
+    { label: "Pots", value: `${snapshot.showdownPots.length}` },
+    { label: "Payouts", value: `${payoutCount}` },
+    { label: "Side Pots", value: `${sidePotCount}` },
+    { label: "Splits", value: `${splitPotCount}` },
+    { label: "Eliminated", value: `${bustedPlayers.length}` },
+  ];
+}
+
 function buildShowdownTone(index: number) {
   if (index === 0) {
     return "border-amber-200/25 bg-amber-100/10";
@@ -89,6 +105,7 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
   const bustedPlayers = findBustedPlayers(snapshot);
   const showdown = isShowdownResult(snapshot);
   const largestPayoutAmount = findLargestPayoutAmount(snapshot);
+  const resultStats = buildResultStats(snapshot, bustedPlayers);
   const isOverlay = variant === "overlay";
   const containerClass = isOverlay
     ? "w-full max-w-5xl rounded-[1.75rem] border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(120,53,15,0.68),_rgba(20,20,20,0.96))] p-4 shadow-2xl shadow-black/45 backdrop-blur-md sm:p-6"
@@ -106,6 +123,15 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
           <p className="mt-2 text-sm text-amber-50/75">{buildSummaryLabel(snapshot, winner, bustedPlayers)}</p>
         </div>
         <p className="text-sm text-amber-50/80">{snapshot.tableMessage}</p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {resultStats.map((stat) => (
+          <div key={stat.label} className="rounded-lg border border-white/10 bg-black/25 px-3 py-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-400">{stat.label}</p>
+            <p className="mt-1 text-sm font-semibold text-white">{stat.value}</p>
+          </div>
+        ))}
       </div>
 
       <div className={summaryGridClass}>
@@ -196,14 +222,20 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
       ) : null}
 
       <div className={potsGridClass}>
-        {snapshot.showdownPots.map((pot) => (
+        {snapshot.showdownPots.map((pot, index) => {
+          const payoutTotal = pot.payouts.reduce((total, payout) => total + payout.amount, 0);
+
+          return (
           <article key={pot.id} className="rounded-[1.5rem] border border-white/10 bg-black/25 p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">{pot.type} Pot</p>
+                <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">
+                  {pot.type} Pot {index + 1}
+                </p>
                 <p className="mt-2 text-3xl font-semibold text-white">{pot.amount}</p>
+                <p className="mt-1 text-xs text-zinc-400">{payoutTotal} chips paid to {pot.payouts.length}</p>
               </div>
-              <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100">
+              <span className="rounded-lg border border-amber-200/20 bg-amber-100/10 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100">
                 {pot.payouts.length > 1 ? "Split" : "Winner"}
               </span>
             </div>
@@ -221,7 +253,11 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
                   <div>
                     <p className="text-sm font-medium text-white">{payout.nickname}</p>
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-400">
-                      {payout.amount === largestPayoutAmount && payout.amount > 0 ? "Best payout" : "Payout"}
+                      {pot.payouts.length > 1
+                        ? "Split payout"
+                        : payout.amount === largestPayoutAmount && payout.amount > 0
+                          ? "Best payout"
+                          : "Payout"}
                     </p>
                   </div>
                   <p className="text-lg font-semibold text-amber-100">+{payout.amount}</p>
@@ -229,7 +265,8 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
               ))}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

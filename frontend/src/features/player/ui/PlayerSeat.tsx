@@ -10,50 +10,51 @@ type PlayerSeatProps = {
   bigBlindSeat: number | null;
   currentGuestId?: string;
   selfHoleCards?: string[];
-};
-
-const DEALER_BUTTON_POSITION: Record<number, string> = {
-  0: "-bottom-3 left-1/2 -translate-x-1/2",
-  1: "-bottom-3 right-4",
-  2: "-bottom-3 left-4",
-  3: "-top-3 left-4",
-  4: "-top-3 right-4",
-  5: "-top-3 left-1/2 -translate-x-1/2",
+  className?: string;
 };
 
 function isSeatBadge(value: string | null): value is string {
   return value !== null;
 }
 
-// Maps player state into a small seat-specific tone for the table grid.
-function getSeatTone(player: TournamentPlayer) {
-  if (!player.connected) {
-    return "border-sky-300/40 bg-sky-300/10";
+function getSeatMetaTone(player: TournamentPlayer) {
+  if (player.guestId && player.connected && player.status === "ACTIVE" && player.acting) {
+    return "text-amber-50";
   }
 
-  if (player.acting) {
-    return "border-amber-300/80 bg-amber-300/10 shadow-lg shadow-amber-950/40";
+  if (!player.connected) {
+    return "text-cyan-100";
   }
 
   if (player.status === "ALL_IN") {
-    return "border-rose-300/70 bg-rose-300/10";
+    return "text-rose-100";
   }
 
   if (player.status === "BUSTED_OUT") {
-    return "border-white/5 bg-black/35";
+    return "text-zinc-400";
   }
 
-  return player.status === "ACTIVE"
-    ? "border-emerald-300/70 bg-emerald-400/10 shadow-lg shadow-emerald-950/40"
-    : "border-white/10 bg-black/20";
+  return "text-white";
+}
+
+function getSeatPresenceTone(player: TournamentPlayer) {
+  if (!player.connected) {
+    return "opacity-80";
+  }
+
+  if (player.status === "BUSTED_OUT") {
+    return "opacity-45 grayscale";
+  }
+
+  return "";
 }
 
 function getSeatBadgeTone(badge: string) {
   switch (badge) {
     case "YOU":
-      return "border-sky-300/30 bg-sky-300/15 text-sky-50";
+      return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
     case "OWNER":
-      return "border-violet-300/25 bg-violet-300/12 text-violet-50";
+      return "border-white/15 bg-white/10 text-white";
     case "SB":
       return "border-cyan-300/25 bg-cyan-300/12 text-cyan-50";
     case "BB":
@@ -63,46 +64,62 @@ function getSeatBadgeTone(badge: string) {
   }
 }
 
-// Converts raw player status into a short seat label.
-function getStatusLabel(player: TournamentPlayer) {
+function getStatusBadge(player: TournamentPlayer) {
   if (!player.connected) {
-    return "OFFLINE";
+    return "OFF";
   }
 
   switch (player.status) {
     case "ALL_IN":
-      return "ALL-IN";
+      return "AI";
     case "BUSTED_OUT":
       return "OUT";
-    case "DISCONNECTED":
-      return "OFFLINE";
     default:
-      return player.status;
+      return null;
   }
 }
 
-function StackedHiddenCards() {
+function DealerButton() {
   return (
-    <div className="relative mx-auto h-12 w-12 sm:hidden">
-      <div className="absolute left-0 top-0 rotate-[-8deg]">
+    <div
+      className="absolute -right-1 -top-1 z-10 grid h-5 w-5 place-items-center rounded-full border border-black/20 bg-white text-[9px] font-black text-black shadow-lg shadow-black/30 sm:h-6 sm:w-6 sm:text-[10px]"
+      aria-label="Dealer button"
+      title="Dealer"
+    >
+      D
+    </div>
+  );
+}
+
+function HiddenSeatCards({ hero, muted }: { hero: boolean; muted?: boolean }) {
+  const sizeClass = hero ? "h-14 w-16 sm:h-20 sm:w-24" : "h-11 w-12 sm:h-14 sm:w-16";
+
+  return (
+    <div className={`relative ${sizeClass} ${muted ? "opacity-55" : ""}`}>
+      <div className="absolute left-0 top-1 rotate-[-10deg]">
         <PlayingCard card="XX" variant="seat" />
       </div>
-      <div className="absolute right-0 top-0 rotate-[8deg]">
+      <div className="absolute right-0 top-1 rotate-[10deg]">
         <PlayingCard card="XX" variant="seat" />
       </div>
     </div>
   );
 }
 
-function DealerButton({ seatIndex }: { seatIndex: number }) {
+function SeatTag({ label }: { label: string }) {
   return (
-    <div
-      className={`absolute z-10 grid h-7 w-7 place-items-center rounded-full border border-black/20 bg-white text-[11px] font-black text-black shadow-lg shadow-black/30 sm:h-8 sm:w-8 sm:text-xs ${DEALER_BUTTON_POSITION[seatIndex]}`}
-      aria-label="Dealer button"
-      title="Dealer"
-    >
-      D
-    </div>
+    <span className="rounded-md border border-white/10 bg-black/45 px-1.5 py-0.5 text-[8px] font-semibold text-zinc-100 sm:text-[9px]">
+      {label}
+    </span>
+  );
+}
+
+function ActingDot() {
+  return (
+    <span className="relative flex h-2.5 w-2.5">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300/75" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-200" />
+    </span>
   );
 }
 
@@ -116,14 +133,16 @@ export function PlayerSeat({
   bigBlindSeat,
   currentGuestId,
   selfHoleCards = [],
+  className = "",
 }: PlayerSeatProps) {
+  const isHeroSeat = tablePositionIndex === 4;
+
   if (!player) {
     return (
-      <div className="flex min-h-[10.5rem] flex-col justify-center rounded-[1.5rem] border border-dashed border-white/10 bg-black/10 p-2.5 text-center sm:min-h-0 sm:rounded-[1.75rem] sm:p-4">
-        <p className="text-xs font-medium text-zinc-400 sm:text-sm">Empty Seat</p>
-        <p className="mt-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-500 sm:mt-2 sm:text-xs sm:tracking-[0.24em]">
-          Seat {seatIndex + 1}
-        </p>
+      <div
+        className={`grid h-12 w-16 place-items-center rounded-full border border-dashed border-white/10 bg-black/15 text-center text-zinc-500 sm:h-14 sm:w-20 ${className}`}
+      >
+        <p className="text-[9px] sm:text-[10px]">Seat {seatIndex + 1}</p>
       </div>
     );
   }
@@ -138,47 +157,73 @@ export function PlayerSeat({
   const isCurrentPlayer = player.guestId === currentGuestId && selfHoleCards.length === 2;
   const visibleHoleCards = isCurrentPlayer ? selfHoleCards : ["XX", "XX"];
   const isDealerSeat = dealerSeat === player.seatIndex;
-  const actingLabel = player.acting ? (isSelfSeat ? "YOUR TURN" : "ACTING") : null;
+  const actingLabel = player.acting && isHeroSeat ? "TURN" : null;
+  const statusBadge = getStatusBadge(player);
+  const metaTone = getSeatMetaTone(player);
+  const presenceTone = getSeatPresenceTone(player);
+  const compactBadges = seatBadges.filter((badge) => badge !== "OWNER");
+  const metaLabel = isHeroSeat ? `${player.stack} chips` : `${player.stack}`;
+
+  if (!isHeroSeat) {
+    return (
+      <div
+        className={`relative flex w-20 min-w-0 flex-col items-center text-center sm:w-24 ${presenceTone} ${className}`}
+      >
+        {isDealerSeat ? <DealerButton /> : null}
+        <div className="mb-1.5 flex min-h-4 flex-wrap items-center justify-center gap-1">
+          {compactBadges.map((badge) => (
+            <span
+              key={badge}
+              className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold ${getSeatBadgeTone(badge)}`}
+            >
+              {badge}
+            </span>
+          ))}
+          {statusBadge ? <SeatTag label={statusBadge} /> : null}
+        </div>
+        <div
+          className={`relative grid min-h-12 place-items-center rounded-2xl border border-white/10 bg-black/15 px-2 py-1.5 shadow-lg shadow-black/25 backdrop-blur-sm sm:min-h-14 ${player.acting ? "border-amber-200/35 shadow-amber-950/30" : ""}`}
+        >
+          {player.acting ? (
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/20 bg-black/60 px-1.5 py-1">
+              <ActingDot />
+            </div>
+          ) : null}
+          <HiddenSeatCards hero={false} muted={!player.connected || player.status === "BUSTED_OUT"} />
+        </div>
+        <div className={`mt-1.5 min-w-0 ${metaTone}`}>
+          <p className="truncate text-[10px] font-semibold leading-none sm:text-[11px]">{player.nickname}</p>
+          <p className="mt-1 text-[9px] leading-none text-zinc-300/85 sm:text-[10px]">{metaLabel}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`relative min-w-0 rounded-[1.5rem] border p-2.5 backdrop-blur-[2px] transition sm:rounded-[1.75rem] sm:p-4 ${getSeatTone(player)} ${isSelfSeat ? "ring-1 ring-sky-300/45 sm:ring-2" : ""}`}
+      className={`relative flex w-28 min-w-0 flex-col items-center text-center sm:w-36 ${presenceTone} ${className}`}
     >
-      {isDealerSeat ? <DealerButton seatIndex={tablePositionIndex} /> : null}
-      <div className="flex items-start justify-between gap-2 sm:items-center sm:gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[10px] font-medium text-white sm:text-sm">{player.nickname}</p>
-          <p className="text-[9px] uppercase tracking-[0.14em] text-zinc-400 sm:text-xs sm:tracking-[0.24em]">
-            Seat {player.seatIndex + 1}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-black/25 px-2 py-1 text-[9px] text-zinc-200 sm:px-3 sm:text-sm">
-          {player.stack}
-        </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-1 sm:mt-4 sm:gap-2">
-        {seatBadges.map((badge) => (
+      {isDealerSeat ? <DealerButton /> : null}
+      <div className="mb-2 flex min-h-5 flex-wrap items-center justify-center gap-1">
+        {compactBadges.map((badge) => (
           <span
             key={badge}
-            className={`rounded-full border px-1.5 py-1 text-[8px] font-medium tracking-[0.06em] sm:px-3 sm:text-[11px] sm:tracking-[0.18em] ${getSeatBadgeTone(badge)}`}
+            className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold sm:px-2 sm:text-[9px] ${getSeatBadgeTone(badge)}`}
           >
             {badge}
           </span>
         ))}
-        <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-1 text-[8px] font-medium tracking-[0.06em] text-zinc-200 sm:px-3 sm:text-[11px] sm:tracking-[0.18em]">
-          {getStatusLabel(player)}
-        </span>
+        {actingLabel ? <SeatTag label={actingLabel} /> : null}
+        {statusBadge ? <SeatTag label={statusBadge} /> : null}
       </div>
-      {actingLabel ? (
-        <div className="mt-2 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-amber-100 sm:text-[11px] sm:tracking-[0.18em]">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300/75" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-200" />
-          </span>
-          <span>{actingLabel}</span>
-        </div>
-      ) : null}
-      <div className="mt-2 flex justify-center sm:mt-4">
+      <div
+        className={`relative rounded-[1.4rem] border border-white/10 px-2 py-2 shadow-xl shadow-black/30 backdrop-blur-sm ${isSelfSeat ? "border-cyan-200/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_rgba(0,0,0,0.18)_52%)] ring-2 ring-cyan-200/50 shadow-cyan-950/35" : "bg-black/15"} ${player.acting ? "shadow-amber-950/35" : ""}`}
+      >
+        {player.acting ? (
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/20 bg-black/60 px-1.5 py-1">
+            <ActingDot />
+          </div>
+        ) : null}
         {isCurrentPlayer ? (
           <div className="grid grid-cols-2 gap-1 sm:gap-2">
             {visibleHoleCards.map((card, index) => (
@@ -186,15 +231,14 @@ export function PlayerSeat({
             ))}
           </div>
         ) : (
-          <>
-            <StackedHiddenCards />
-            <div className="hidden grid-cols-2 gap-1 sm:grid sm:gap-2">
-              {visibleHoleCards.map((card, index) => (
-                <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
-              ))}
-            </div>
-          </>
+          <HiddenSeatCards hero muted={!player.connected || player.status === "BUSTED_OUT"} />
         )}
+      </div>
+      <div className={`mt-2 min-w-0 ${metaTone}`}>
+        <p className={`truncate text-[11px] font-semibold leading-none sm:text-xs ${isSelfSeat ? "text-cyan-50" : ""}`}>
+          {player.nickname}
+        </p>
+        <p className="mt-1 text-[10px] leading-none text-zinc-300/90 sm:text-[11px]">{metaLabel}</p>
       </div>
     </div>
   );

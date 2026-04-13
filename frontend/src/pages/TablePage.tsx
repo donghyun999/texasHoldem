@@ -57,36 +57,24 @@ export function TablePage() {
   return (
     <section className="space-y-6">
       <TournamentOverview snapshot={snapshot} syncState={syncState} currentPlayer={currentPlayer} />
-      <div className="lg:hidden">
-        <ActionPanel
-          actions={snapshot.availableActions}
-          message={snapshot.tableMessage}
-          tournamentStatus={snapshot.status}
-          currentPlayer={currentPlayer}
-          canPublish={realtimeSnapshot.canPublish}
-          onAction={realtimeSnapshot.sendAction}
-          onReadyChange={realtimeSnapshot.sendReady}
-          onStart={realtimeSnapshot.sendStart}
-          onDisconnect={realtimeSnapshot.sendDisconnect}
-          onReconnect={realtimeSnapshot.sendReconnect}
-        />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+        <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
+        <div className="xl:sticky xl:top-6">
+          <ActionPanel
+            actions={snapshot.availableActions}
+            message={snapshot.tableMessage}
+            tournamentStatus={snapshot.status}
+            currentPlayer={currentPlayer}
+            canPublish={realtimeSnapshot.canPublish}
+            onAction={realtimeSnapshot.sendAction}
+            onReadyChange={realtimeSnapshot.sendReady}
+            onStart={realtimeSnapshot.sendStart}
+            onDisconnect={realtimeSnapshot.sendDisconnect}
+            onReconnect={realtimeSnapshot.sendReconnect}
+          />
+        </div>
       </div>
-      <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
       <TournamentShowdownPanel snapshot={snapshot} />
-      <div className="hidden lg:block">
-        <ActionPanel
-          actions={snapshot.availableActions}
-          message={snapshot.tableMessage}
-          tournamentStatus={snapshot.status}
-          currentPlayer={currentPlayer}
-          canPublish={realtimeSnapshot.canPublish}
-          onAction={realtimeSnapshot.sendAction}
-          onReadyChange={realtimeSnapshot.sendReady}
-          onStart={realtimeSnapshot.sendStart}
-          onDisconnect={realtimeSnapshot.sendDisconnect}
-          onReconnect={realtimeSnapshot.sendReconnect}
-        />
-      </div>
     </section>
   );
 }
