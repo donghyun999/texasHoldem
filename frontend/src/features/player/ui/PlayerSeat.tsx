@@ -23,7 +23,7 @@ function isSeatBadge(value: string | null): value is string {
 
 function getSeatMetaTone(player: TournamentPlayer) {
   if (player.guestId && player.connected && player.status === "ACTIVE" && player.acting) {
-    return "text-amber-50";
+    return "text-amber-100";
   }
 
   if (!player.connected) {
@@ -35,7 +35,7 @@ function getSeatMetaTone(player: TournamentPlayer) {
   }
 
   if (player.status === "BUSTED_OUT") {
-    return "text-zinc-400";
+    return "text-zinc-500";
   }
 
   return "text-white";
@@ -47,7 +47,7 @@ function getSeatPresenceTone(player: TournamentPlayer) {
   }
 
   if (player.status === "BUSTED_OUT") {
-    return "opacity-45 grayscale";
+    return "opacity-40 grayscale";
   }
 
   return "";
@@ -60,11 +60,11 @@ function getSeatBadgeTone(badge: string) {
     case "OWNER":
       return "border-white/15 bg-white/10 text-white";
     case "SB":
-      return "border-cyan-300/25 bg-cyan-300/12 text-cyan-50";
+      return "border-sky-300/25 bg-sky-300/15 text-sky-50";
     case "BB":
-      return "border-amber-300/25 bg-amber-300/12 text-amber-50";
+      return "border-amber-300/25 bg-amber-300/15 text-amber-50";
     default:
-      return "border-white/10 bg-black/25 text-zinc-200";
+      return "border-white/10 bg-black/35 text-zinc-200";
   }
 }
 
@@ -83,10 +83,12 @@ function getStatusBadge(player: TournamentPlayer) {
   }
 }
 
-function DealerButton() {
+function DealerButton({ hero = false }: { hero?: boolean }) {
   return (
     <div
-      className="absolute -right-1 -top-1 z-10 grid h-5 w-5 place-items-center rounded-full border border-black/20 bg-white text-[9px] font-black text-black shadow-lg shadow-black/30 sm:h-6 sm:w-6 sm:text-[10px]"
+      className={`absolute right-0 top-0 z-20 grid place-items-center rounded-full border border-black/20 bg-white font-black text-black shadow-lg shadow-black/30 ${
+        hero ? "h-5 w-5 text-[9px] sm:h-6 sm:w-6 sm:text-[10px]" : "h-4.5 w-4.5 text-[8px] sm:h-5 sm:w-5 sm:text-[9px]"
+      }`}
       aria-label="Dealer button"
       title="Dealer"
     >
@@ -95,35 +97,86 @@ function DealerButton() {
   );
 }
 
-function HiddenSeatCards({ hero, muted }: { hero: boolean; muted?: boolean }) {
-  const sizeClass = hero ? "h-14 w-16 sm:h-20 sm:w-24" : "h-13 w-12 sm:h-15 sm:w-16";
-
+function SeatTag({ label, tone }: { label: string; tone?: string }) {
   return (
-    <div className={`relative ${sizeClass} ${muted ? "opacity-55" : ""}`}>
-      <div className="absolute left-0 top-1 rotate-[-10deg]">
-        <PlayingCard card="XX" variant="seat" />
-      </div>
-      <div className="absolute right-0 top-1 rotate-[10deg]">
-        <PlayingCard card="XX" variant="seat" />
-      </div>
-    </div>
-  );
-}
-
-function SeatTag({ label }: { label: string }) {
-  return (
-    <span className="rounded-md border border-white/10 bg-black/45 px-1.5 py-0.5 text-[8px] font-semibold text-zinc-100 sm:text-[9px]">
+    <span
+      className={`rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.12em] sm:text-[8px] ${
+        tone ?? "border-white/10 bg-black/35 text-zinc-100"
+      }`}
+    >
       {label}
     </span>
   );
 }
 
-function ActingDot() {
+function ActingDot({ hero = false }: { hero?: boolean }) {
   return (
-    <span className="relative flex h-2.5 w-2.5">
+    <span className={`relative flex ${hero ? "h-3 w-3" : "h-2.5 w-2.5"}`}>
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300/75" />
-      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-200" />
+      <span className={`relative inline-flex rounded-full bg-amber-200 ${hero ? "h-3 w-3" : "h-2.5 w-2.5"}`} />
     </span>
+  );
+}
+
+function SeatCardFan({
+  cards,
+  hero,
+  muted = false,
+}: {
+  cards: string[];
+  hero: boolean;
+  muted?: boolean;
+}) {
+  const normalizedCards = cards.length === 2 ? cards : ["XX", "XX"];
+  const frameClass = hero ? "h-16 w-[4.5rem] sm:h-22 sm:w-24" : "h-11 w-12 sm:h-15 sm:w-16";
+  const leftClass = hero
+    ? "absolute left-0 top-1 rotate-[-9deg] sm:left-1 sm:top-1"
+    : "absolute left-0 top-0.5 rotate-[-11deg]";
+  const rightClass = hero
+    ? "absolute right-0 top-1 rotate-[9deg] sm:right-1 sm:top-1"
+    : "absolute right-0 top-0.5 rotate-[11deg]";
+
+  return (
+    <div className={`relative ${frameClass} ${muted ? "opacity-55" : ""}`}>
+      <div className={leftClass}>
+        <PlayingCard card={normalizedCards[0]} variant="seat" />
+      </div>
+      <div className={rightClass}>
+        <PlayingCard card={normalizedCards[1]} variant="seat" />
+      </div>
+    </div>
+  );
+}
+
+function CompactMeta({
+  nickname,
+  metaLabel,
+  metaTone,
+  hero = false,
+  highlight = false,
+}: {
+  nickname: string;
+  metaLabel: string;
+  metaTone: string;
+  hero?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`min-w-0 rounded-full border px-2 py-1 backdrop-blur-sm ${
+        hero
+          ? "border-white/10 bg-black/60 shadow-lg shadow-black/30 sm:px-3"
+          : "border-transparent bg-black/45 shadow-md shadow-black/20"
+      } ${highlight ? "ring-1 ring-cyan-200/40" : ""}`}
+      style={{ textShadow: "0 1px 6px rgba(0, 0, 0, 0.95)" }}
+    >
+      <p className={`truncate font-semibold leading-none ${hero ? "text-[10px] sm:text-[11px]" : "text-[9px] sm:text-[10px]"} ${metaTone}`}>
+        {nickname}
+      </p>
+      <p className={`mt-0.5 leading-none text-zinc-100/90 ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}>
+        {metaLabel}
+      </p>
+    </div>
   );
 }
 
@@ -147,9 +200,11 @@ export function PlayerSeat({
   if (!player) {
     return (
       <div
-        className={`grid h-12 w-16 place-items-center rounded-full border border-dashed border-white/10 bg-black/15 text-center text-zinc-500 sm:h-14 sm:w-20 ${className}`}
+        className={`grid place-items-center rounded-full border border-dashed border-white/10 bg-black/15 text-center text-zinc-500 ${
+          isHeroSeat ? "h-10 w-24 sm:h-12 sm:w-28" : "h-8 w-14 sm:h-10 sm:w-16"
+        } ${className}`}
       >
-        <p className="text-[9px] sm:text-[10px]">Seat {seatIndex + 1}</p>
+        <p className={`${isHeroSeat ? "text-[9px] sm:text-[10px]" : "text-[8px] sm:text-[9px]"}`}>Seat {seatIndex + 1}</p>
       </div>
     );
   }
@@ -165,7 +220,6 @@ export function PlayerSeat({
   const visibleHoleCards = isCurrentPlayer ? selfHoleCards : revealedHoleCards;
   const showVisibleHoleCards = visibleHoleCards.length === 2;
   const isDealerSeat = dealerSeat === player.seatIndex;
-  const actingLabel = player.acting && isHeroSeat ? "TURN" : null;
   const statusBadge = getStatusBadge(player);
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
@@ -176,93 +230,69 @@ export function PlayerSeat({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb" || isHeroSeat,
   });
+  const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
+  const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
+  const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";
 
   if (!isHeroSeat) {
     return (
-      <div
-        className={`relative flex w-20 min-w-0 flex-col items-center text-center sm:w-24 ${presenceTone} ${className}`}
-      >
-        {isDealerSeat ? <DealerButton /> : null}
-        <div className="mb-1.5 flex min-h-4 flex-wrap items-center justify-center gap-1">
-          {compactBadges.map((badge) => (
-            <span
-              key={badge}
-              className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold ${getSeatBadgeTone(badge)}`}
-            >
-              {badge}
-            </span>
-          ))}
-          {statusBadge ? <SeatTag label={statusBadge} /> : null}
-        </div>
-        <div
-          className={`relative grid min-h-12 place-items-center rounded-2xl border border-white/10 bg-black/15 px-2 py-1.5 shadow-lg shadow-black/25 backdrop-blur-sm sm:min-h-14 ${player.acting ? "border-amber-200/35 shadow-amber-950/30" : ""}`}
-        >
+      <div className={`relative flex w-18 min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}>
+        <div className="relative">
+          {isDealerSeat ? <DealerButton /> : null}
           {player.acting ? (
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/20 bg-black/60 px-1.5 py-1">
+            <div className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-2">
               <ActingDot />
             </div>
           ) : null}
-          {showVisibleHoleCards ? (
-            <div className="grid grid-cols-2 gap-1">
-              {visibleHoleCards.map((card, index) => (
-                <PlayingCard key={`${player.guestId}-revealed-${index}`} card={card} variant="seat" />
-              ))}
-            </div>
-          ) : (
-            <HiddenSeatCards hero={false} muted={!player.connected || player.status === "BUSTED_OUT"} />
-          )}
+          <div className={`rounded-[1.3rem] bg-black/20 px-1.5 py-1 ${actingTone}`}>
+            <SeatCardFan cards={cards} hero={false} muted={shouldMuteCards} />
+          </div>
         </div>
-        <div className={`relative z-10 -mt-1 min-w-0 ${metaTone}`}>
-          <p className="truncate text-[10px] font-semibold leading-none sm:text-[11px]">{player.nickname}</p>
-          <p className="mt-1 text-[9px] leading-none text-zinc-300/85 sm:text-[10px]">{metaLabel}</p>
+        <div className="mt-1 flex min-h-4 flex-wrap items-center justify-center gap-1">
+          {compactBadges.map((badge) => (
+            <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
+          ))}
+          {statusBadge ? <SeatTag label={statusBadge} /> : null}
+        </div>
+        <div className="mt-1 w-full">
+          <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} />
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`relative flex w-28 min-w-0 flex-col items-center text-center sm:w-36 ${presenceTone} ${className}`}
-    >
-      {isDealerSeat ? <DealerButton /> : null}
-      <div className="mb-2 flex min-h-5 flex-wrap items-center justify-center gap-1">
+    <div className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}>
+      <div className="mb-1.5 flex min-h-4 flex-wrap items-center justify-center gap-1">
         {compactBadges.map((badge) => (
-          <span
-            key={badge}
-            className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold sm:px-2 sm:text-[9px] ${getSeatBadgeTone(badge)}`}
-          >
-            {badge}
-          </span>
+          <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
         ))}
-        {actingLabel ? <SeatTag label={actingLabel} /> : null}
         {statusBadge ? <SeatTag label={statusBadge} /> : null}
+        {player.acting ? <SeatTag label="TURN" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
       </div>
-      <div
-        className={`relative rounded-[1.4rem] border border-white/10 px-2 py-2 shadow-xl shadow-black/30 backdrop-blur-sm ${isSelfSeat ? "border-cyan-200/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_rgba(0,0,0,0.18)_52%)] ring-2 ring-cyan-200/50 shadow-cyan-950/35" : "bg-black/15"} ${player.acting ? "shadow-amber-950/35" : ""}`}
-      >
+      <div className="relative">
+        {isDealerSeat ? <DealerButton hero /> : null}
         {player.acting ? (
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-amber-200/20 bg-black/60 px-1.5 py-1">
-            <ActingDot />
+          <div className="absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-2">
+            <ActingDot hero />
           </div>
         ) : null}
-        {showVisibleHoleCards ? (
-          <div className="grid grid-cols-2 gap-1 sm:gap-2">
-            {visibleHoleCards.map((card, index) => (
-              <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
-            ))}
-          </div>
-        ) : (
-          <HiddenSeatCards hero muted={!player.connected || player.status === "BUSTED_OUT"} />
-        )}
+        <div
+          className={`rounded-[1.8rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_rgba(0,0,0,0.14)_52%)] px-2 py-2 shadow-xl shadow-black/30 ${
+            isSelfSeat ? "ring-2 ring-cyan-200/45 shadow-cyan-950/35" : ""
+          } ${actingTone}`}
+        >
+          <SeatCardFan cards={cards} hero muted={shouldMuteCards} />
+        </div>
       </div>
-      <div
-        className={`relative z-10 -mt-4 min-w-0 sm:-mt-5 ${metaTone}`}
-        style={{ textShadow: "0 1px 8px rgba(0, 0, 0, 0.95)" }}
-      >
-        <p className={`truncate text-[11px] font-semibold leading-none sm:text-xs ${isSelfSeat ? "text-cyan-50" : ""}`}>
-          {player.nickname}
-        </p>
-        <p className="mt-1 text-[10px] leading-none text-zinc-100 sm:text-[11px]">{metaLabel}</p>
+      <div className="mt-1.5 w-full max-w-[9.5rem] sm:max-w-[11rem]">
+        <CompactMeta
+          nickname={player.nickname}
+          metaLabel={metaLabel}
+          metaTone={isSelfSeat ? "text-cyan-50" : metaTone}
+          hero
+          highlight={isSelfSeat}
+        />
       </div>
     </div>
   );
