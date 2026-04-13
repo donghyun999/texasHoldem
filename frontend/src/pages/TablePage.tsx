@@ -8,6 +8,7 @@ import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-t
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
+import { useUiStore } from "@/shared/model/ui-store";
 import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 
@@ -29,6 +30,8 @@ export function TablePage() {
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
   const snapshot = realtimeSnapshot.snapshot ?? snapshotQuery.data ?? createDemoTournamentSnapshot(tournamentCode);
+  const stackDisplayMode = useUiStore((state) => state.stackDisplayMode);
+  const setStackDisplayMode = useUiStore((state) => state.setStackDisplayMode);
   const currentPlayer =
     realtimeSnapshot.currentPlayer ?? snapshot.players.find((player) => player.guestId === guestId) ?? null;
   const wasSeatedRef = useRef(false);
@@ -52,15 +55,19 @@ export function TablePage() {
       <TournamentTable
         snapshot={snapshot}
         currentGuestId={guestId}
+        stackDisplayMode={stackDisplayMode}
+        onStackDisplayModeChange={setStackDisplayMode}
         actionBar={
           <ActionPanel
             actions={snapshot.availableActions}
             chipsToCall={snapshot.chipsToCall}
             minimumRaiseTo={snapshot.minimumRaiseTo}
             potSize={totalPot}
+            bigBlind={snapshot.currentLevel.bigBlind}
             message={snapshot.tableMessage}
             tournamentStatus={snapshot.status}
             currentPlayer={currentPlayer}
+            stackDisplayMode={stackDisplayMode}
             canPublish={realtimeSnapshot.canPublish}
             onAction={realtimeSnapshot.sendAction}
             onReadyChange={realtimeSnapshot.sendReady}

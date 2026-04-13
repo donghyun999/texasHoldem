@@ -1,4 +1,5 @@
 import type { TournamentPlayer } from "@/entities/tournament/model/types";
+import { formatStackDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type PlayerSeatProps = {
@@ -8,6 +9,8 @@ type PlayerSeatProps = {
   dealerSeat: number | null;
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
+  currentBigBlind: number;
+  stackDisplayMode: StackDisplayMode;
   currentGuestId?: string;
   selfHoleCards?: string[];
   revealedHoleCards?: string[];
@@ -132,6 +135,8 @@ export function PlayerSeat({
   dealerSeat,
   smallBlindSeat,
   bigBlindSeat,
+  currentBigBlind,
+  stackDisplayMode,
   currentGuestId,
   selfHoleCards = [],
   revealedHoleCards = [],
@@ -165,7 +170,12 @@ export function PlayerSeat({
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
   const compactBadges = seatBadges.filter((badge) => badge !== "OWNER");
-  const metaLabel = isHeroSeat ? `${player.stack} chips` : `${player.stack}`;
+  const metaLabel = formatStackDisplay({
+    stack: player.stack,
+    bigBlind: currentBigBlind,
+    mode: stackDisplayMode,
+    includeUnit: stackDisplayMode === "bb" || isHeroSeat,
+  });
 
   if (!isHeroSeat) {
     return (
@@ -245,11 +255,14 @@ export function PlayerSeat({
           <HiddenSeatCards hero muted={!player.connected || player.status === "BUSTED_OUT"} />
         )}
       </div>
-      <div className={`mt-3 min-w-0 ${metaTone}`}>
+      <div
+        className={`relative z-10 -mt-4 min-w-0 sm:-mt-5 ${metaTone}`}
+        style={{ textShadow: "0 1px 8px rgba(0, 0, 0, 0.95)" }}
+      >
         <p className={`truncate text-[11px] font-semibold leading-none sm:text-xs ${isSelfSeat ? "text-cyan-50" : ""}`}>
           {player.nickname}
         </p>
-        <p className="mt-1 text-[10px] leading-none text-zinc-300/90 sm:text-[11px]">{metaLabel}</p>
+        <p className="mt-1 text-[10px] leading-none text-zinc-100 sm:text-[11px]">{metaLabel}</p>
       </div>
     </div>
   );

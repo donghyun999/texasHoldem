@@ -1,15 +1,24 @@
 import { useEffect, useState } from "react";
 import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
-import { buildActionPanelViewModel, parseTargetAmount } from "@/features/table/model/action-panel";
+import { buildActionPanelViewModel } from "@/features/table/model/action-panel";
+import {
+  formatAmountDisplay,
+  formatAmountInputValue,
+  formatStackDisplay,
+  parseAmountInputValue,
+  type StackDisplayMode,
+} from "@/features/table/model/stack-display";
 
 type ActionPanelProps = {
   actions: string[];
   chipsToCall: number;
   minimumRaiseTo: number;
   potSize: number;
+  bigBlind: number;
   message: string;
   tournamentStatus: TournamentStatus;
   currentPlayer: TournamentPlayer | null;
+  stackDisplayMode: StackDisplayMode;
   canPublish: boolean;
   onAction: (action: string, amount?: number) => void;
   onReadyChange: (ready: boolean) => void;
@@ -18,18 +27,30 @@ type ActionPanelProps = {
   onReconnect: () => void;
 };
 
-const KEYPAD_ROWS = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"],
-  ["C", "0", "<-"],
-];
-
 type SizingPreset = {
   label: string;
   value: number;
   enabled: boolean;
 };
+
+function getKeypadRows(stackDisplayMode: StackDisplayMode) {
+  if (stackDisplayMode === "bb") {
+    return [
+      ["1", "2", "3"],
+      ["4", "5", "6"],
+      ["7", "8", "9"],
+      ["C", "0", "."],
+      ["<-"],
+    ];
+  }
+
+  return [
+    ["1", "2", "3"],
+    ["4", "5", "6"],
+    ["7", "8", "9"],
+    ["C", "0", "<-"],
+  ];
+}
 
 function getPrimaryAction(actions: string[]) {
   if (actions.includes("CHECK")) {
@@ -67,36 +88,51 @@ function buildSuggestedCommitment({
   currentPlayer: TournamentPlayer | null;
   minimumRaiseTo: number;
 }) {
-  return clampCommitment(Math.max(1, minimumRaiseTo), currentPlayer);
+  const committed = currentPlayer?.roundContribution ?? 0;
+  return clampCommitment(Math.max(committed + 1, minimumRaiseTo), currentPlayer);
 }
 
 function buildPresetTargets({
   currentPlayer,
   minimumRaiseTo,
   potSize,
+  bigBlind,
 }: {
   currentPlayer: TournamentPlayer | null;
   minimumRaiseTo: number;
   potSize: number;
+  bigBlind: number;
 }): SizingPreset[] {
   const committed = currentPlayer?.roundContribution ?? 0;
   const maxCommitment = getMaxCommitment(currentPlayer);
-  const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
+  const twoBigBlindTarget = Math.max(1, bigBlind * 2);
+  const threeBigBlindTarget = Math.max(1, bigBlind * 3);
   const halfPotTarget = Math.max(1, Math.ceil(Math.max(0, potSize) / 2));
+  const twoThirdPotTarget = Math.max(1, Math.ceil((Math.max(0, potSize) * 2) / 3));
   const potTarget = Math.max(1, potSize);
   const isExactTargetPlayable = (target: number) =>
     target > committed && target >= minimumRaiseTo && target <= maxCommitment;
 
   return [
     {
-      label: "Min",
-      value: minimumTarget,
-      enabled: isExactTargetPlayable(minimumTarget),
+      label: "2 BB",
+      value: twoBigBlindTarget,
+      enabled: isExactTargetPlayable(twoBigBlindTarget),
+    },
+    {
+      label: "3 BB",
+      value: threeBigBlindTarget,
+      enabled: isExactTargetPlayable(threeBigBlindTarget),
     },
     {
       label: "1/2 Pot",
       value: halfPotTarget,
       enabled: isExactTargetPlayable(halfPotTarget),
+    },
+    {
+      label: "2/3 Pot",
+      value: twoThirdPotTarget,
+      enabled: isExactTargetPlayable(twoThirdPotTarget),
     },
     {
       label: "Pot",
@@ -168,13 +204,25 @@ function getStatusTone(label: string) {
   }
 }
 
-function getPrimaryActionLabel(action: string | null, chipsToCall: number) {
+function getPrimaryActionLabel({
+  action,
+  chipsToCall,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  action: string | null;
+  chipsToCall: number;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
   if (action === "CHECK") {
     return "Check";
   }
 
   if (action === "CALL") {
-    return chipsToCall > 0 ? `Call ${chipsToCall}` : "Call";
+    return chipsToCall > 0
+      ? `Call ${formatAmountDisplay({ amount: chipsToCall, bigBlind, mode: stackDisplayMode })}`
+      : "Call";
   }
 
   return "Wait";
@@ -190,6 +238,165 @@ function getSizedActionLabel(action: string | null) {
   }
 
   return "Size";
+}
+
+function buildSizeButtonCaption({
+  sizeAction,
+  minimumRaiseTo,
+  currentPlayer,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  sizeAction: string | null;
+  minimumRaiseTo: number;
+  currentPlayer: TournamentPlayer | null;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
+  if (!sizeAction || !currentPlayer) {
+    return null;
+  }
+
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  if (sizeAction === "BET" || sizeAction === "RAISE") {
+    return `Min ${formatAmountDisplay({
+      amount: Math.max(currentPlayer.roundContribution + 1, minimumRaiseTo),
+      bigBlind,
+      mode: stackDisplayMode,
+    })}`;
+  }
+
+  return maxCommitment > 0
+    ? `Max ${formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}`
+    : null;
+}
+
+function buildSizedSubmitLabel({
+  action,
+  amount,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  action: string | null;
+  amount: number | null;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
+  if (!action) {
+    return "Confirm";
+  }
+
+  if (amount === null) {
+    return `Set ${getSizedActionLabel(action)}`;
+  }
+
+  return `${getSizedActionLabel(action)} to ${formatAmountDisplay({
+    amount,
+    bigBlind,
+    mode: stackDisplayMode,
+  })}`;
+}
+
+function buildTargetHelperMessage({
+  action,
+  amount,
+  rawAmount,
+  currentPlayer,
+  minimumRaiseTo,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  action: string | null;
+  amount: number | null;
+  rawAmount: string;
+  currentPlayer: TournamentPlayer | null;
+  minimumRaiseTo: number;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
+  if (!action || !currentPlayer) {
+    return { text: "Tap a preset or enter a total amount.", tone: "text-zinc-400" };
+  }
+
+  const committed = currentPlayer.roundContribution;
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  if (!rawAmount) {
+    return {
+      text: `Enter ${formatAmountDisplay({
+        amount: minimumRaiseTo,
+        bigBlind,
+        mode: stackDisplayMode,
+      })}-${formatAmountDisplay({
+        amount: maxCommitment,
+        bigBlind,
+        mode: stackDisplayMode,
+      })}.`,
+      tone: "text-zinc-400",
+    };
+  }
+
+  if (amount === null) {
+    return {
+      text: stackDisplayMode === "bb" ? "Use numbers with up to 1 decimal place." : "Digits only.",
+      tone: "text-rose-200",
+    };
+  }
+
+  if (amount <= committed) {
+    return {
+      text: `Must be above ${formatAmountDisplay({ amount: committed, bigBlind, mode: stackDisplayMode })}.`,
+      tone: "text-rose-200",
+    };
+  }
+
+  if (amount < minimumRaiseTo) {
+    return {
+      text: `Minimum is ${formatAmountDisplay({ amount: minimumRaiseTo, bigBlind, mode: stackDisplayMode })}.`,
+      tone: "text-rose-200",
+    };
+  }
+
+  if (amount > maxCommitment) {
+    return {
+      text: `Maximum is ${formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}.`,
+      tone: "text-rose-200",
+    };
+  }
+
+  return {
+    text: `${getSizedActionLabel(action)} to ${formatAmountDisplay({
+      amount,
+      bigBlind,
+      mode: stackDisplayMode,
+    })}`,
+    tone: "text-emerald-200/80",
+  };
+}
+
+function buildSizingDisplayAmount({
+  rawAmount,
+  parsedTargetAmount,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  rawAmount: string;
+  parsedTargetAmount: number | null;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
+  if (!rawAmount) {
+    return stackDisplayMode === "bb" ? "0 BB" : "0";
+  }
+
+  if (parsedTargetAmount === null) {
+    return stackDisplayMode === "bb" ? `${rawAmount} BB` : rawAmount;
+  }
+
+  return formatAmountDisplay({
+    amount: parsedTargetAmount,
+    bigBlind,
+    mode: stackDisplayMode,
+  });
 }
 
 function getButtonClass(kind: "fold" | "primary" | "size" | "utility") {
@@ -240,9 +447,11 @@ export function ActionPanel({
   chipsToCall,
   minimumRaiseTo,
   potSize,
+  bigBlind,
   message,
   tournamentStatus,
   currentPlayer,
+  stackDisplayMode,
   canPublish,
   onAction,
   onReadyChange,
@@ -252,6 +461,7 @@ export function ActionPanel({
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
   const [isSizingOpen, setIsSizingOpen] = useState(false);
+  const keypadRows = getKeypadRows(stackDisplayMode);
   const {
     sizeAction,
     directActions,
@@ -273,14 +483,42 @@ export function ActionPanel({
   const allInAction = directActions.includes("ALL_IN") ? "ALL_IN" : null;
   const compactStatusLabel = buildCompactStatusLabel({ currentPlayer, tournamentStatus, canPublish });
   const committed = currentPlayer?.roundContribution ?? 0;
-  const presetTargets = buildPresetTargets({ currentPlayer, minimumRaiseTo, potSize });
-  const parsedTargetAmount = parseTargetAmount(targetAmount);
+  const presetTargets = buildPresetTargets({ currentPlayer, minimumRaiseTo, potSize, bigBlind });
+  const parsedTargetAmount = parseAmountInputValue({
+    value: targetAmount,
+    bigBlind,
+    mode: stackDisplayMode,
+  });
   const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
   const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
   const shouldShowInHandControls = tournamentStatus === "IN_HAND" && (canAct || !!allInAction || !!sizeAction || !!primaryAction);
   const shouldShowUtilityControls =
     tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect);
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, canPublish, message });
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
+  const sizeButtonCaption = buildSizeButtonCaption({
+    sizeAction,
+    minimumRaiseTo,
+    currentPlayer,
+    bigBlind,
+    stackDisplayMode,
+  });
+  const targetHelper = buildTargetHelperMessage({
+    action: sizeAction,
+    amount: parsedTargetAmount,
+    rawAmount: targetAmount,
+    currentPlayer,
+    minimumRaiseTo,
+    bigBlind,
+    stackDisplayMode,
+  });
+  const sizingDisplayAmount = buildSizingDisplayAmount({
+    rawAmount: targetAmount,
+    parsedTargetAmount,
+    bigBlind,
+    stackDisplayMode,
+  });
 
   useEffect(() => {
     if (!sizeAction) {
@@ -289,13 +527,23 @@ export function ActionPanel({
     }
   }, [sizeAction]);
 
+  useEffect(() => {
+    setIsSizingOpen(false);
+    setTargetAmount("");
+  }, [stackDisplayMode]);
+
   const openSizer = () => {
     if (!sizeAction) {
       return;
     }
 
     setTargetAmount((current) =>
-      current || String(buildSuggestedCommitment({ currentPlayer, minimumRaiseTo })),
+      current ||
+      formatAmountInputValue({
+        amount: buildSuggestedCommitment({ currentPlayer, minimumRaiseTo }),
+        bigBlind,
+        mode: stackDisplayMode,
+      }),
     );
     setIsSizingOpen(true);
   };
@@ -311,10 +559,36 @@ export function ActionPanel({
       return;
     }
 
+    if (key === "." && stackDisplayMode === "bb") {
+      setTargetAmount((current) => {
+        if (current.includes(".")) {
+          return current;
+        }
+
+        return current ? `${current}.` : "0.";
+      });
+      return;
+    }
+
     setTargetAmount((current) => {
-      const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
-      return next;
+      const next = `${current}${key}`;
+      if (stackDisplayMode === "bb") {
+        const normalizedNext = next.replace(/^0+(?=\d)/, "");
+        return /^\d+(\.\d?)?$/.test(normalizedNext) || normalizedNext === "" ? normalizedNext : current;
+      }
+
+      return next.replace(/^0+(?=\d)/, "");
     });
+  };
+
+  const handlePresetSelect = (value: number) => {
+    setTargetAmount(
+      formatAmountInputValue({
+        amount: value,
+        bigBlind,
+        mode: stackDisplayMode,
+      }),
+    );
   };
 
   const submitSizedAction = () => {
@@ -338,17 +612,17 @@ export function ActionPanel({
             </span>
             {currentPlayer ? (
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-100">
-                {currentPlayer.stack} behind
+                {formatStackDisplay({
+                  stack: currentPlayer.stack,
+                  bigBlind,
+                  mode: stackDisplayMode,
+                })}{" "}
+                behind
               </span>
             ) : null}
             {shouldShowCallAmount ? (
               <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-medium text-sky-50">
-                To call {chipsToCall}
-              </span>
-            ) : null}
-            {shouldShowInHandControls && potSize > 0 ? (
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-200">
-                Pot {potSize}
+                To call {formatAmountDisplay({ amount: chipsToCall, bigBlind, mode: stackDisplayMode })}
               </span>
             ) : null}
           </div>
@@ -371,9 +645,9 @@ export function ActionPanel({
               type="button"
               onClick={() => onAction("FOLD")}
               disabled={!canPublish || !canAct || !canFold}
-              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
+              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
             >
-              Fold
+              <span>Fold</span>
             </button>
             <button
               type="button"
@@ -383,9 +657,9 @@ export function ActionPanel({
                 }
               }}
               disabled={!canPublish || !canAct || !primaryAction}
-              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
+              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
             >
-              {getPrimaryActionLabel(primaryAction, chipsToCall)}
+              <span>{getPrimaryActionLabel({ action: primaryAction, chipsToCall, bigBlind, stackDisplayMode })}</span>
             </button>
             <button
               type="button"
@@ -404,65 +678,97 @@ export function ActionPanel({
                     : undefined
               }
               disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
-              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
             >
-              {sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}
+              <span>{sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}</span>
+              {sizeAction && sizeButtonCaption ? (
+                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">{sizeButtonCaption}</span>
+              ) : allInAction && currentPlayer ? (
+                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">
+                  To {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
+                </span>
+              ) : null}
             </button>
 
             {isSizingOpen && sizeAction ? (
-              <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-50 w-[31.5%] min-w-[118px] max-w-[150px] overflow-hidden rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45">
-                <div className="flex items-center justify-between border-b border-white/10 px-2.5 py-2">
+              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-50 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45 sm:left-auto sm:right-0 sm:w-[16.5rem]">
+                <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
-                      {getSizedActionLabel(sizeAction)}
+                    <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                      {getSizedActionLabel(sizeAction)} amount
                     </p>
-                    <p className="mt-1 truncate text-base font-black text-white">{targetAmount || "0"}</p>
+                    <p className="mt-1 truncate text-[1.4rem] font-black leading-none text-white sm:text-2xl">
+                      {sizingDisplayAmount}
+                    </p>
+                    <p className={`mt-1 text-[10px] leading-tight ${targetHelper.tone}`}>{targetHelper.text}</p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">
+                      {stackDisplayMode === "bb" ? "Enter BB total" : "Enter chip total"}
+                    </p>
+                    {stackDisplayMode === "bb" && parsedTargetAmount !== null ? (
+                      <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">{parsedTargetAmount} chips total</p>
+                    ) : null}
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsSizingOpen(false)}
-                    className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium text-zinc-200 transition hover:bg-white/10"
+                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-200 transition hover:bg-white/10"
                   >
-                    X
+                    Close
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-1 border-b border-white/10 px-2 py-2">
-                  {presetTargets.slice(0, 4).map((preset) => (
+                <div className="flex flex-wrap gap-1 border-b border-white/10 px-3 py-1.5 text-[10px] text-zinc-200 sm:px-2.5 sm:py-1.5">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                    Pot {formatAmountDisplay({ amount: potSize, bigBlind, mode: stackDisplayMode })}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                    Min {formatAmountDisplay({ amount: minimumTarget, bigBlind, mode: stackDisplayMode })}
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                    Max {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 px-3 py-2 sm:px-2.5 sm:py-2">
+                  {presetTargets.map((preset) => (
                     <button
                       key={preset.label}
                       type="button"
-                      onClick={() => setTargetAmount(String(preset.value))}
+                      onClick={() => handlePresetSelect(preset.value)}
                       disabled={!preset.enabled}
-                      className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1.5 text-center text-[9px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+                      className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-1 py-1.5 text-center text-[10px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 sm:min-h-9"
                     >
                       <span className="block truncate">{preset.label}</span>
-                      <span className="mt-0.5 block text-[10px] font-semibold text-white">{preset.value}</span>
+                      <span className="mt-0.5 block text-[11px] font-semibold leading-none text-white sm:text-[13px]">
+                        {formatAmountDisplay({ amount: preset.value, bigBlind, mode: stackDisplayMode })}
+                      </span>
                     </button>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-1 p-2">
-                  {KEYPAD_ROWS.flat().map((key) => (
+                <div className="grid grid-cols-3 gap-1.5 p-2.5 sm:p-2">
+                  {keypadRows.flat().map((key) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => handleCalculatorKey(key)}
-                      className="min-h-8 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                      className={`min-h-10 rounded-xl border border-white/10 bg-black/30 px-2 py-2 text-base font-semibold text-white transition hover:bg-white/10 sm:min-h-9 sm:text-sm ${
+                        stackDisplayMode === "bb" && key === "<-" ? "col-span-3" : ""
+                      }`}
                     >
                       {key}
                     </button>
                   ))}
                 </div>
 
-                <div className="border-t border-white/10 px-2 py-2">
+                <div className="border-t border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
                   <button
                     type="button"
                     onClick={submitSizedAction}
                     disabled={!canSubmitSizedAction || !hasValidTargetAmount}
-                    className={`min-h-9 w-full rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
+                    className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
                   >
-                    Send {parsedTargetAmount ?? ""}
+                    {buildSizedSubmitLabel({ action: sizeAction, amount: parsedTargetAmount, bigBlind, stackDisplayMode })}
                   </button>
                 </div>
               </div>

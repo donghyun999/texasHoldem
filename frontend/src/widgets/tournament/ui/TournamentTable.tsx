@@ -1,11 +1,14 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
+import type { StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
 
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
   currentGuestId?: string;
+  stackDisplayMode: StackDisplayMode;
+  onStackDisplayModeChange: (mode: StackDisplayMode) => void;
   actionBar?: ReactNode;
 };
 
@@ -15,17 +18,17 @@ const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
   0: { left: "18%", top: "24%" },
   1: { left: "50%", top: "4%" },
   2: { left: "82%", top: "24%" },
-  3: { left: "82%", top: "61%" },
-  4: { left: "50%", top: "63%" },
-  5: { left: "18%", top: "61%" },
+  3: { left: "82%", top: "58%" },
+  4: { left: "50%", top: "57%" },
+  5: { left: "18%", top: "58%" },
 };
 const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
   0: { left: "24%", top: "33%" },
   1: { left: "50%", top: "19%" },
   2: { left: "76%", top: "33%" },
-  3: { left: "74%", top: "55%" },
-  4: { left: "50%", top: "58%" },
-  5: { left: "26%", top: "55%" },
+  3: { left: "74%", top: "51%" },
+  4: { left: "50%", top: "50.6%" },
+  5: { left: "26%", top: "51%" },
 };
 
 // Spreads players into a fixed six-seat array for the ring layout.
@@ -116,6 +119,49 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
   };
 }
 
+function buildSidePotSummary(snapshot: TournamentSnapshot) {
+  return snapshot.sidePots.map((pot, index) => ({
+    id: pot.id,
+    label: `Side ${index + 1}`,
+    amount: pot.amount,
+  }));
+}
+
+function formatLevelCountdown(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getLevelProgressPercent(secondsRemaining: number, durationSeconds: number) {
+  if (durationSeconds <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, (secondsRemaining / durationSeconds) * 100));
+}
+
+function getLevelTimerState(secondsRemaining: number, durationSeconds: number) {
+  if (secondsRemaining <= 15) {
+    return {
+      timerClass: "text-rose-100",
+      barClass: "bg-[linear-gradient(90deg,_rgba(251,113,133,0.98),_rgba(239,68,68,0.72))]",
+    };
+  }
+
+  if (secondsRemaining <= 60) {
+    return {
+      timerClass: "text-amber-100",
+      barClass: "bg-[linear-gradient(90deg,_rgba(250,204,21,0.95),_rgba(249,115,22,0.7))]",
+    };
+  }
+
+  return {
+    timerClass: "text-zinc-300",
+    barClass: "bg-[linear-gradient(90deg,_rgba(45,212,191,0.92),_rgba(56,189,248,0.7))]",
+  };
+}
+
 function buildBetMarkers(snapshot: TournamentSnapshot, displayedSeatIndexes: number[]) {
   return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
     const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
@@ -182,7 +228,14 @@ function BetMarker({
 }
 
 // Renders the table, board cards, main pot, and side-pot summary.
-export function TournamentTable({ snapshot, currentGuestId, actionBar }: TournamentTableProps) {
+export function TournamentTable({
+  snapshot,
+  currentGuestId,
+  stackDisplayMode,
+  onStackDisplayModeChange,
+  actionBar,
+}: TournamentTableProps) {
+  const [secondsRemaining, setSecondsRemaining] = useState(snapshot.secondsUntilNextLevel);
   const seats = buildSeatMap(snapshot.players);
   const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
   const showdownHoleCardsByGuestId = new Map(
@@ -195,11 +248,25 @@ export function TournamentTable({ snapshot, currentGuestId, actionBar }: Tournam
   const boardSlots = Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null);
   const showBoardSlots = snapshot.status !== "WAITING" || snapshot.boardCards.length > 0;
   const betMarkers = buildBetMarkers(snapshot, displayedSeatIndexes);
+  const sidePotSummary = buildSidePotSummary(snapshot);
+  const levelProgressPercent = getLevelProgressPercent(secondsRemaining, snapshot.currentLevel.durationSeconds);
+  const levelTimerState = getLevelTimerState(secondsRemaining, snapshot.currentLevel.durationSeconds);
   const centerStatusLabel = resultSummary
     ? "Hand settled"
     : actingPlayer
       ? `${actingPlayer.nickname} acting`
       : snapshot.status.replaceAll("_", " ");
+
+  useEffect(() => {
+    const updateRemaining = () => {
+      const now = Math.floor(Date.now() / 1000);
+      setSecondsRemaining(Math.max(0, snapshot.levelEndsAtEpochSecond - now));
+    };
+
+    updateRemaining();
+    const intervalId = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [snapshot.levelEndsAtEpochSecond, snapshot.stateVersion]);
 
   return (
     <div className="relative mx-auto h-[650px] w-full max-w-[430px] overflow-hidden rounded-2xl border border-emerald-200/10 bg-[#07100d] shadow-2xl shadow-black/35 sm:h-[720px] sm:max-w-4xl">
@@ -207,37 +274,35 @@ export function TournamentTable({ snapshot, currentGuestId, actionBar }: Tournam
       <div className="absolute left-1/2 top-1/2 h-[360px] w-[72%] min-w-[300px] max-w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-[48%] border-[10px] border-[#3f2d25] bg-[radial-gradient(circle,_#276b4a,_#12452f_64%,_#082116)] shadow-[inset_0_0_55px_rgba(0,0,0,0.55)] sm:h-[420px] sm:border-[18px]" />
       <div className="absolute bottom-[10%] left-1/2 h-28 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(34,211,238,0.18),_transparent_72%)] blur-2xl sm:h-36 sm:w-72" />
       <div
-        className="absolute left-1/2 z-10 w-[min(82%,24rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[32rem]"
-        style={{ top: showBoardSlots ? "36.5%" : "39%" }}
+        className="absolute left-1/2 z-10 w-[min(82%,23rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[29rem]"
+        style={{ top: showBoardSlots ? "35.5%" : "38.5%" }}
       >
-        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:text-xs">
+        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/35 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:gap-2 sm:px-3 sm:py-2 sm:text-xs">
           <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-100">
             {streetLabel}
           </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{centerStatusLabel}</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">Hand {snapshot.handNumber}</span>
         </div>
         {resultSummary ? (
-          <div className="mx-auto mt-3 max-w-sm rounded-xl border border-amber-200/25 bg-[linear-gradient(135deg,_rgba(146,64,14,0.7),_rgba(12,12,12,0.9))] px-4 py-3 shadow-xl shadow-black/30">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/75">Result</p>
-            <div className="mt-2 flex items-center justify-center gap-2">
-              <p className="text-sm font-semibold text-white sm:text-base">{resultSummary.headline}</p>
+          <div className="mx-auto mt-2.5 max-w-xs rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.58),_rgba(12,12,12,0.86))] px-3 py-2.5 shadow-xl shadow-black/30">
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-sm font-semibold text-white">{resultSummary.headline}</p>
               <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-2 py-1 text-[10px] font-semibold text-amber-100">
                 {resultSummary.amountLabel}
               </span>
             </div>
-            <p className="mt-1 text-xs text-amber-50/80">{resultSummary.detail}</p>
+            <p className="mt-1 text-[11px] text-amber-50/80 sm:text-xs">{resultSummary.detail}</p>
           </div>
         ) : null}
-        <p className="mt-3 text-[10px] uppercase tracking-[0.26em] text-zinc-300">Pot</p>
-        <p className="mt-1 text-3xl font-black text-amber-100 sm:text-5xl">{totalPot}</p>
-        <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px] text-zinc-200 sm:text-xs">
+        <p className="mt-3 text-[10px] uppercase tracking-[0.24em] text-zinc-300">Pot</p>
+        <p className="mt-1 text-[2rem] font-black leading-none text-amber-100 sm:text-[3.5rem]">{totalPot}</p>
+        <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[10px] text-zinc-200 sm:text-xs">
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">Main {snapshot.mainPot}</span>
-          {snapshot.sidePots.length > 0 ? (
-            <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
-              {snapshot.sidePots.length} side pot{snapshot.sidePots.length > 1 ? "s" : ""}
+          {sidePotSummary.map((pot) => (
+            <span key={pot.id} className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">
+              {pot.label} {pot.amount}
             </span>
-          ) : null}
+          ))}
         </div>
         {showBoardSlots ? (
           <div className="mt-3 flex justify-center gap-1.5 sm:mt-4 sm:gap-3">
@@ -259,21 +324,6 @@ export function TournamentTable({ snapshot, currentGuestId, actionBar }: Tournam
             Waiting for ready players.
           </p>
         )}
-        {snapshot.sidePots.length > 0 ? (
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {snapshot.sidePots.map((pot) => (
-              <div
-                key={pot.id}
-                className="rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-left text-[10px] text-zinc-100 sm:text-xs"
-              >
-                <span className="block font-semibold">
-                  {pot.type} {pot.amount}
-                </span>
-                <span className="mt-1 block text-[10px] text-zinc-400">{pot.eligibleGuestIds.length} eligible</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       {Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
@@ -297,6 +347,8 @@ export function TournamentTable({ snapshot, currentGuestId, actionBar }: Tournam
               dealerSeat={snapshot.dealerSeat}
               smallBlindSeat={snapshot.smallBlindSeat}
               bigBlindSeat={snapshot.bigBlindSeat}
+              currentBigBlind={snapshot.currentLevel.bigBlind}
+              stackDisplayMode={stackDisplayMode}
               currentGuestId={currentGuestId}
               selfHoleCards={snapshot.selfHoleCards}
               revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? [] : []}
@@ -323,13 +375,45 @@ export function TournamentTable({ snapshot, currentGuestId, actionBar }: Tournam
         </div>
       ))}
 
-      <div className="absolute left-4 top-4 z-20 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-xs text-zinc-100 backdrop-blur-sm">
+      <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 px-2 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:left-4 sm:top-4 sm:text-xs">
         <p className="font-semibold">{snapshot.code}</p>
-        <p className="mt-1 text-zinc-400">{snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}</p>
+        <div className="flex rounded-full border border-white/10 bg-black/30 p-0.5">
+          {(["chips", "bb"] as const).map((mode) => {
+            const selected = stackDisplayMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onStackDisplayModeChange(mode)}
+                className={`rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
+                  selected ? "bg-white/14 text-white" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {mode === "chips" ? "Chips" : "BB"}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="absolute right-4 top-4 z-20 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-right text-xs text-zinc-100 backdrop-blur-sm">
-        <p className="font-semibold">{snapshot.status.replaceAll("_", " ")}</p>
-        <p className="mt-1 text-zinc-400">Hand {snapshot.handNumber}</p>
+      <div
+        className="absolute right-3 top-3 z-20 w-[8.9rem] rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-right text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:right-4 sm:top-4 sm:w-[10rem] sm:text-xs"
+      >
+        <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-500 sm:text-[10px]">Blinds</p>
+        <p className="mt-1 font-semibold">
+          {snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}
+        </p>
+        <p className="mt-1 text-[10px] text-zinc-400">
+          Next {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
+        </p>
+        <p className={`mt-1 text-[10px] ${levelTimerState.timerClass}`}>
+          {formatLevelCountdown(secondsRemaining)}
+        </p>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full rounded-full transition-[width] duration-1000 ${levelTimerState.barClass}`}
+            style={{ width: `${levelProgressPercent}%` }}
+          />
+        </div>
       </div>
 
       {actionBar ? <div className="absolute inset-x-3 bottom-3 z-40 sm:inset-x-4 sm:bottom-4">{actionBar}</div> : null}
