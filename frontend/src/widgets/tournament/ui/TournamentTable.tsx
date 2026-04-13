@@ -17,6 +17,14 @@ const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
   4: { left: "50%", top: "66%" },
   5: { left: "18%", top: "64%" },
 };
+const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
+  0: { left: "24%", top: "33%" },
+  1: { left: "50%", top: "19%" },
+  2: { left: "76%", top: "33%" },
+  3: { left: "74%", top: "59%" },
+  4: { left: "50%", top: "63%" },
+  5: { left: "26%", top: "59%" },
+};
 
 // Spreads players into a fixed six-seat array for the ring layout.
 function buildSeatMap(players: TournamentPlayer[]) {
@@ -106,16 +114,85 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
   };
 }
 
+function buildBetMarkers(snapshot: TournamentSnapshot, displayedSeatIndexes: number[]) {
+  return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
+    const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
+    const player = snapshot.players.find((candidate) => candidate.seatIndex === actualSeatIndex);
+    if (!player || player.roundContribution <= 0 || snapshot.status !== "IN_HAND") {
+      return null;
+    }
+
+    return {
+      player,
+      tablePositionIndex,
+      amount: player.roundContribution,
+    };
+  }).filter((entry): entry is { player: TournamentPlayer; tablePositionIndex: number; amount: number } => entry !== null);
+}
+
+function BetMarker({
+  amount,
+  acting,
+  tablePositionIndex,
+}: {
+  amount: number;
+  acting: boolean;
+  tablePositionIndex: number;
+}) {
+  const isHeroMarker = tablePositionIndex === HERO_TABLE_POSITION_INDEX;
+  const chipBaseClass = isHeroMarker ? "h-3 w-4.5 sm:h-3.5 sm:w-5" : "h-2.5 w-4 sm:h-3 sm:w-4.5";
+  const stackFrameClass = isHeroMarker ? "h-5.5 w-5 sm:h-6.5 sm:w-6" : "h-4.5 w-4.5 sm:h-5.5 sm:w-5";
+
+  return (
+    <div className="pointer-events-none flex flex-col items-center gap-0.5">
+      <span
+        className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white shadow-md shadow-black/30 sm:text-[10px] ${
+          acting ? "border-amber-200/35 bg-black/55 text-amber-50" : "border-white/10 bg-black/45"
+        }`}
+      >
+        {amount}
+      </span>
+      <div className={`relative ${stackFrameClass}`}>
+        <span
+          className={`absolute left-1/2 bottom-0 -translate-x-1/2 rounded-full border border-black/85 bg-[radial-gradient(circle_at_50%_40%,_#ffffff,_#f3f3f3_55%,_#d6d6d6)] shadow-sm shadow-black/25 ${chipBaseClass}`}
+        />
+        <span
+          className={`absolute left-1/2 bottom-1 -translate-x-1/2 rounded-full border border-black/85 bg-[radial-gradient(circle_at_50%_40%,_#ffffff,_#f3f3f3_55%,_#d6d6d6)] shadow-sm shadow-black/25 ${chipBaseClass}`}
+        />
+        <span
+          className={`absolute left-1/2 bottom-1 -translate-x-1/2 rounded-full border border-black bg-[radial-gradient(circle_at_50%_40%,_#ffffff,_#f7f7f7_48%,_#d2d2d2)] shadow-md shadow-black/30 ${chipBaseClass} ${
+            acting ? "ring-1 ring-amber-200/45" : ""
+          }`}
+        />
+        <span
+          className={`absolute left-1/2 bottom-1 -translate-x-1/2 rounded-full border border-black/90 ${chipBaseClass}`}
+          style={{
+            clipPath: "inset(0 round 999px)",
+            background:
+              "linear-gradient(90deg, #111 0 10%, #fff 10% 22%, #111 22% 32%, #fff 32% 44%, #111 44% 56%, #fff 56% 68%, #111 68% 78%, #fff 78% 90%, #111 90% 100%)",
+            opacity: 0.95,
+            maskImage: "radial-gradient(circle at center, transparent 0 34%, black 35%)",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Renders the table, board cards, main pot, and side-pot summary.
 export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
   const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
+  const showdownHoleCardsByGuestId = new Map(
+    snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const),
+  );
   const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
   const streetLabel = getStreetLabel(snapshot.boardCards);
   const resultSummary = buildResultSummary(snapshot);
   const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
   const boardSlots = Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null);
   const showBoardSlots = snapshot.status !== "WAITING" || snapshot.boardCards.length > 0;
+  const betMarkers = buildBetMarkers(snapshot, displayedSeatIndexes);
   const centerStatusLabel = resultSummary
     ? "Hand settled"
     : actingPlayer
@@ -129,7 +206,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
       <div className="absolute bottom-[10%] left-1/2 h-28 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(34,211,238,0.18),_transparent_72%)] blur-2xl sm:h-36 sm:w-72" />
       <div
         className="absolute left-1/2 z-10 w-[min(82%,24rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[32rem]"
-        style={{ top: showBoardSlots ? "39%" : "41%" }}
+        style={{ top: showBoardSlots ? "36.5%" : "39%" }}
       >
         <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:text-xs">
           <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-100">
@@ -150,7 +227,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
             <p className="mt-1 text-xs text-amber-50/80">{resultSummary.detail}</p>
           </div>
         ) : null}
-        <p className="mt-4 text-[10px] uppercase tracking-[0.26em] text-zinc-300">Pot</p>
+        <p className="mt-3 text-[10px] uppercase tracking-[0.26em] text-zinc-300">Pot</p>
         <p className="mt-1 text-3xl font-black text-amber-100 sm:text-5xl">{totalPot}</p>
         <div className="mt-2 flex flex-wrap justify-center gap-2 text-[10px] text-zinc-200 sm:text-xs">
           <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1">Main {snapshot.mainPot}</span>
@@ -161,7 +238,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
           ) : null}
         </div>
         {showBoardSlots ? (
-          <div className="mt-4 flex justify-center gap-1.5 sm:gap-3">
+          <div className="mt-3 flex justify-center gap-1.5 sm:mt-4 sm:gap-3">
             {boardSlots.map((card, index) =>
               card ? (
                 <PlayingCard key={card} card={card} />
@@ -220,10 +297,29 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
               bigBlindSeat={snapshot.bigBlindSeat}
               currentGuestId={currentGuestId}
               selfHoleCards={snapshot.selfHoleCards}
+              revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? [] : []}
             />
           </div>
         );
       })}
+
+      {betMarkers.map((marker) => (
+        <div
+          key={`bet-marker-${marker.player.guestId}`}
+          className={`absolute z-20 ${marker.tablePositionIndex === HERO_TABLE_POSITION_INDEX ? "z-30" : ""}`}
+          style={{
+            left: BET_MARKER_POSITIONS[marker.tablePositionIndex].left,
+            top: BET_MARKER_POSITIONS[marker.tablePositionIndex].top,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <BetMarker
+            amount={marker.amount}
+            acting={marker.player.acting}
+            tablePositionIndex={marker.tablePositionIndex}
+          />
+        </div>
+      ))}
 
       <div className="absolute left-4 top-4 z-20 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-xs text-zinc-100 backdrop-blur-sm">
         <p className="font-semibold">{snapshot.code}</p>

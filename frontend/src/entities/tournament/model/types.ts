@@ -43,6 +43,7 @@ export type ShowdownHand = {
   guestId: string;
   nickname: string;
   handLabel: string;
+  holeCards: string[];
 };
 
 export type TournamentPlayer = {
@@ -51,6 +52,7 @@ export type TournamentPlayer = {
   seatIndex: number;
   status: PlayerStatus;
   stack: number;
+  roundContribution: number;
   owner: boolean;
   connected: boolean;
   participating: boolean;
@@ -81,6 +83,7 @@ export type TournamentSnapshot = {
   showdownHands: ShowdownHand[];
   recentlyBustedGuestIds: string[];
   availableActions: string[];
+  chipsToCall: number;
   tableMessage: string;
   selfHoleCards: string[];
 };

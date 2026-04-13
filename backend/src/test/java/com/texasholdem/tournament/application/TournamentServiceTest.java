@@ -189,6 +189,21 @@ class TournamentServiceTest {
         assertThat(anonymousView.viewerHoleCardsIncluded()).isFalse();
     }
 
+    // Verifies that viewer snapshots expose the exact additional chips needed to call the current bet.
+    @Test
+    void getTournamentIncludesViewerChipsToCall() {
+        var service = createService();
+        var code = prepareTournament(service, 3);
+
+        var actingView = service.getTournament(code, "guest-2");
+        var bigBlindView = service.getTournament(code, "guest-1");
+        var anonymousView = service.getTournament(code);
+
+        assertThat(actingView.chipsToCall()).isEqualTo(10);
+        assertThat(bigBlindView.chipsToCall()).isEqualTo(20);
+        assertThat(anonymousView.chipsToCall()).isZero();
+    }
+
     // Verifies that snapshots expose stable hand identity and monotonic state identity.
     @Test
     void snapshotsCarryHandNumberAndStateVersion() {
@@ -227,6 +242,9 @@ class TournamentServiceTest {
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
         assertThat(snapshot.mainPot()).isEqualTo(30);
         assertThat(snapshot.sidePots()).isEmpty();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-1").roundContribution()).isZero();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-2").roundContribution()).isEqualTo(10);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-3").roundContribution()).isEqualTo(20);
     }
 
     // Verifies that manually reserved codes cannot be claimed twice.
@@ -463,10 +481,12 @@ class TournamentServiceTest {
         assertThat(showdownStarted.payload()).containsEntry("boardCards", List.of("AH", "KD", "7C", "4S", "2D"));
         assertThat(showdownStarted.payload()).containsEntry("showdownPotCount", 1);
         assertThat(showdownHandsPayload(showdownStarted))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(showdownStarted))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(showdownPotsPayload(showdownStarted)).singleElement().satisfies((pot) -> {
             assertThat(pot).containsEntry("type", "MAIN");
             assertThat(pot).containsEntry("amount", 4_000);
@@ -488,10 +508,12 @@ class TournamentServiceTest {
         assertThat(handEnded.payload()).containsEntry("showdownPotCount", 1);
         assertThat(handEnded.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
         assertThat(showdownHandsPayload(handEnded))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(handEnded))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(recentlyBustedPlayersPayload(handEnded)).singleElement().satisfies((player) -> {
             assertThat(player).containsEntry("guestId", "guest-1");
             assertThat(player).containsEntry("nickname", "Owner");
@@ -546,10 +568,12 @@ class TournamentServiceTest {
         assertThat(tournamentFinished.payload()).containsEntry("showdownPotCount", 1);
         assertThat(tournamentFinished.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
         assertThat(showdownHandsPayload(tournamentFinished))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(tournamentFinished))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(recentlyBustedPlayersPayload(tournamentFinished)).singleElement().satisfies((player) -> {
             assertThat(player).containsEntry("guestId", "guest-1");
             assertThat(player).containsEntry("nickname", "Owner");

@@ -29,6 +29,7 @@ final class TournamentSnapshotFactory {
     TournamentSnapshot toSnapshot(TournamentState tournament, String viewerGuestId) {
         var normalizedViewerGuestId = normalizeViewerGuestId(viewerGuestId);
         var viewerHoleCards = viewerHoleCards(tournament, normalizedViewerGuestId);
+        var viewerChipsToCall = viewerChipsToCall(tournament, normalizedViewerGuestId);
         var currentLevel = rules.currentLevel(tournament.levelIndex);
         var nextLevel = rules.nextLevel(tournament.levelIndex);
         var now = Instant.now().getEpochSecond();
@@ -64,6 +65,7 @@ final class TournamentSnapshotFactory {
                 List.copyOf(tournament.showdownHands),
                 List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
+                viewerChipsToCall,
                 tournament.tableMessage,
                 viewerHoleCards
         );
@@ -77,6 +79,7 @@ final class TournamentSnapshotFactory {
                 player.seatIndex,
                 player.status,
                 player.stack,
+                player.roundContribution,
                 player.owner,
                 player.connected,
                 player.participating,
@@ -95,6 +98,18 @@ final class TournamentSnapshotFactory {
                 .findFirst()
                 .map(player -> List.copyOf(player.holeCards))
                 .orElseGet(List::of);
+    }
+
+    private int viewerChipsToCall(TournamentState tournament, String viewerGuestId) {
+        if (viewerGuestId == null) {
+            return 0;
+        }
+
+        return tournament.players.stream()
+                .filter(player -> player.guestId.equals(viewerGuestId))
+                .findFirst()
+                .map(player -> TournamentBetSizing.chipsToCall(tournament, player))
+                .orElse(0);
     }
 
     private String normalizeViewerGuestId(String viewerGuestId) {

@@ -26,6 +26,7 @@ public record TournamentSnapshot(
         List<ShowdownHandView> showdownHands,
         List<String> recentlyBustedGuestIds,
         List<String> availableActions,
+        int chipsToCall,
         String tableMessage,
         List<String> selfHoleCards
 ) {

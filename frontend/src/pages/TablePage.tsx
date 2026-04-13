@@ -62,6 +62,7 @@ export function TablePage() {
         <div className="xl:sticky xl:top-6">
           <ActionPanel
             actions={snapshot.availableActions}
+            chipsToCall={snapshot.chipsToCall}
             message={snapshot.tableMessage}
             tournamentStatus={snapshot.status}
             currentPlayer={currentPlayer}

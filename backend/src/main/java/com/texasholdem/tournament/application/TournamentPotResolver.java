@@ -235,7 +235,8 @@ final class TournamentPotResolver {
                 .map(player -> new ShowdownHandView(
                         player.guestId(),
                         player.nickname(),
-                        handEvaluator.describe(scoreCache.get(player.guestId()))
+                        handEvaluator.describe(scoreCache.get(player.guestId())),
+                        List.copyOf(player.holeCards())
                 ))
                 .toList();
     }

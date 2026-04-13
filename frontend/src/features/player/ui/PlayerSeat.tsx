@@ -10,6 +10,7 @@ type PlayerSeatProps = {
   bigBlindSeat: number | null;
   currentGuestId?: string;
   selfHoleCards?: string[];
+  revealedHoleCards?: string[];
   className?: string;
 };
 
@@ -92,7 +93,7 @@ function DealerButton() {
 }
 
 function HiddenSeatCards({ hero, muted }: { hero: boolean; muted?: boolean }) {
-  const sizeClass = hero ? "h-14 w-16 sm:h-20 sm:w-24" : "h-11 w-12 sm:h-14 sm:w-16";
+  const sizeClass = hero ? "h-14 w-16 sm:h-20 sm:w-24" : "h-13 w-12 sm:h-15 sm:w-16";
 
   return (
     <div className={`relative ${sizeClass} ${muted ? "opacity-55" : ""}`}>
@@ -133,6 +134,7 @@ export function PlayerSeat({
   bigBlindSeat,
   currentGuestId,
   selfHoleCards = [],
+  revealedHoleCards = [],
   className = "",
 }: PlayerSeatProps) {
   const isHeroSeat = tablePositionIndex === 4;
@@ -155,7 +157,8 @@ export function PlayerSeat({
   ].filter(isSeatBadge);
   const isSelfSeat = player.guestId === currentGuestId;
   const isCurrentPlayer = player.guestId === currentGuestId && selfHoleCards.length === 2;
-  const visibleHoleCards = isCurrentPlayer ? selfHoleCards : ["XX", "XX"];
+  const visibleHoleCards = isCurrentPlayer ? selfHoleCards : revealedHoleCards;
+  const showVisibleHoleCards = visibleHoleCards.length === 2;
   const isDealerSeat = dealerSeat === player.seatIndex;
   const actingLabel = player.acting && isHeroSeat ? "TURN" : null;
   const statusBadge = getStatusBadge(player);
@@ -189,9 +192,17 @@ export function PlayerSeat({
               <ActingDot />
             </div>
           ) : null}
-          <HiddenSeatCards hero={false} muted={!player.connected || player.status === "BUSTED_OUT"} />
+          {showVisibleHoleCards ? (
+            <div className="grid grid-cols-2 gap-1">
+              {visibleHoleCards.map((card, index) => (
+                <PlayingCard key={`${player.guestId}-revealed-${index}`} card={card} variant="seat" />
+              ))}
+            </div>
+          ) : (
+            <HiddenSeatCards hero={false} muted={!player.connected || player.status === "BUSTED_OUT"} />
+          )}
         </div>
-        <div className={`mt-1.5 min-w-0 ${metaTone}`}>
+        <div className={`relative z-10 -mt-1 min-w-0 ${metaTone}`}>
           <p className="truncate text-[10px] font-semibold leading-none sm:text-[11px]">{player.nickname}</p>
           <p className="mt-1 text-[9px] leading-none text-zinc-300/85 sm:text-[10px]">{metaLabel}</p>
         </div>
@@ -224,7 +235,7 @@ export function PlayerSeat({
             <ActingDot />
           </div>
         ) : null}
-        {isCurrentPlayer ? (
+        {showVisibleHoleCards ? (
           <div className="grid grid-cols-2 gap-1 sm:gap-2">
             {visibleHoleCards.map((card, index) => (
               <PlayingCard key={`${player.guestId}-card-${index}`} card={card} variant="seat" />
@@ -234,7 +245,7 @@ export function PlayerSeat({
           <HiddenSeatCards hero muted={!player.connected || player.status === "BUSTED_OUT"} />
         )}
       </div>
-      <div className={`mt-2 min-w-0 ${metaTone}`}>
+      <div className={`mt-3 min-w-0 ${metaTone}`}>
         <p className={`truncate text-[11px] font-semibold leading-none sm:text-xs ${isSelfSeat ? "text-cyan-50" : ""}`}>
           {player.nickname}
         </p>

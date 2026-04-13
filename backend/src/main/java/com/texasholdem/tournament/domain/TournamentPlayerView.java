@@ -6,6 +6,7 @@ public record TournamentPlayerView(
         int seatIndex,
         PlayerStatus status,
         int stack,
+        int roundContribution,
         boolean owner,
         boolean connected,
         boolean participating,

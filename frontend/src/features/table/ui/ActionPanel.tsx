@@ -8,6 +8,7 @@ import {
 
 type ActionPanelProps = {
   actions: string[];
+  chipsToCall: number;
   message: string;
   tournamentStatus: TournamentStatus;
   currentPlayer: TournamentPlayer | null;
@@ -56,9 +57,13 @@ function getActionHelp(action: string) {
   }
 }
 
-function getActionButtonLabel(action: string) {
+function getActionButtonLabel(action: string, chipsToCall = 0) {
   if (action === "ALL_IN") {
     return "All in";
+  }
+
+  if (action === "CALL" && chipsToCall > 0) {
+    return `Call ${chipsToCall}`;
   }
 
   return toActionLabel(action).toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
@@ -173,6 +178,7 @@ function getPlayerConnectionLabel(currentPlayer: TournamentPlayer | null, canPub
 // Renders websocket-backed tournament controls for the current browser player.
 export function ActionPanel({
   actions,
+  chipsToCall,
   message,
   tournamentStatus,
   currentPlayer,
@@ -215,6 +221,7 @@ export function ActionPanel({
       ]
     : ["Not seated"];
   const connectionLabel = getPlayerConnectionLabel(currentPlayer, canPublish);
+  const shouldShowCallAmount = currentPlayer?.acting && actions.includes("CALL") && chipsToCall > 0;
 
   // Clears stale bet sizing whenever the server rotates the action set.
   useEffect(() => {
@@ -265,6 +272,11 @@ export function ActionPanel({
               {chip}
             </span>
           ))}
+          {shouldShowCallAmount ? (
+            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-50">
+              To call {chipsToCall}
+            </span>
+          ) : null}
           <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-zinc-300">
             {connectionLabel}
           </span>
@@ -338,7 +350,7 @@ export function ActionPanel({
         {sizeAction ? (
           <div className="grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
             <label htmlFor="action-amount" className="text-[10px] uppercase tracking-[0.22em] text-zinc-400">
-              {getActionButtonLabel(sizeAction)} total
+              {getActionButtonLabel(sizeAction, chipsToCall)} total
             </label>
             <input
               id="action-amount"
@@ -364,7 +376,7 @@ export function ActionPanel({
               disabled={!canSubmitSizedAction || !hasValidTargetAmount}
               className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(sizeAction)}`}
             >
-              Send {getActionButtonLabel(sizeAction)}
+              Send {getActionButtonLabel(sizeAction, chipsToCall)}
             </button>
           </div>
         ) : null}
@@ -379,7 +391,7 @@ export function ActionPanel({
                 disabled={!canPublish || !canAct}
                 className={`min-h-14 rounded-lg border px-3 py-2.5 text-left transition sm:min-h-18 disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(action)}`}
               >
-                <span className="block text-sm font-semibold">{getActionButtonLabel(action)}</span>
+                <span className="block text-sm font-semibold">{getActionButtonLabel(action, chipsToCall)}</span>
                 <span className="mt-1 hidden text-xs opacity-75 sm:block">{getActionHelp(action)}</span>
               </button>
             ))}

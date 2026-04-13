@@ -214,6 +214,13 @@ export function TournamentShowdownPanel({ snapshot, variant = "section" }: Tourn
                 <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-400">
                   {index === 0 ? "Best shown hand" : "Shown hand"}
                 </p>
+                {hand.holeCards.length > 0 ? (
+                  <div className="mt-3 flex gap-2">
+                    {hand.holeCards.map((card) => (
+                      <PlayingCard key={`${hand.guestId}-${card}`} card={card} variant="seat" />
+                    ))}
+                  </div>
+                ) : null}
                 <p className="mt-3 text-lg font-semibold text-amber-100">{hand.handLabel}</p>
               </div>
             ))}
