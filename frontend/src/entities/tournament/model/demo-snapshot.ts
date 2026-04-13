@@ -93,7 +93,7 @@ export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
         seatIndex: 4,
         status: "ACTIVE",
         stack: 510,
-        roundContribution: 50,
+        roundContribution: 0,
         owner: false,
         connected: true,
         participating: true,
@@ -117,6 +117,7 @@ export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
     recentlyBustedGuestIds: [],
     availableActions: ["FOLD", "CALL", "RAISE", "ALL_IN"],
     chipsToCall: 50,
+    minimumRaiseTo: 100,
     tableMessage: "Noah is facing action for 50 more chips. Side pot is active.",
     selfHoleCards: ["QS", "QH"],
   };

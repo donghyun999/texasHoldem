@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
@@ -5,6 +6,7 @@ import { PlayingCard } from "@/shared/ui/PlayingCard";
 type TournamentTableProps = {
   snapshot: TournamentSnapshot;
   currentGuestId?: string;
+  actionBar?: ReactNode;
 };
 
 const TOTAL_SEATS = 6;
@@ -13,17 +15,17 @@ const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
   0: { left: "18%", top: "24%" },
   1: { left: "50%", top: "4%" },
   2: { left: "82%", top: "24%" },
-  3: { left: "82%", top: "64%" },
-  4: { left: "50%", top: "66%" },
-  5: { left: "18%", top: "64%" },
+  3: { left: "82%", top: "61%" },
+  4: { left: "50%", top: "63%" },
+  5: { left: "18%", top: "61%" },
 };
 const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
   0: { left: "24%", top: "33%" },
   1: { left: "50%", top: "19%" },
   2: { left: "76%", top: "33%" },
-  3: { left: "74%", top: "59%" },
-  4: { left: "50%", top: "63%" },
-  5: { left: "26%", top: "59%" },
+  3: { left: "74%", top: "55%" },
+  4: { left: "50%", top: "58%" },
+  5: { left: "26%", top: "55%" },
 };
 
 // Spreads players into a fixed six-seat array for the ring layout.
@@ -180,7 +182,7 @@ function BetMarker({
 }
 
 // Renders the table, board cards, main pot, and side-pot summary.
-export function TournamentTable({ snapshot, currentGuestId }: TournamentTableProps) {
+export function TournamentTable({ snapshot, currentGuestId, actionBar }: TournamentTableProps) {
   const seats = buildSeatMap(snapshot.players);
   const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
   const showdownHoleCardsByGuestId = new Map(
@@ -200,7 +202,7 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
       : snapshot.status.replaceAll("_", " ");
 
   return (
-    <div className="relative mx-auto h-[620px] w-full max-w-[430px] overflow-hidden rounded-2xl border border-emerald-200/10 bg-[#07100d] shadow-2xl shadow-black/35 sm:h-[680px] sm:max-w-4xl">
+    <div className="relative mx-auto h-[650px] w-full max-w-[430px] overflow-hidden rounded-2xl border border-emerald-200/10 bg-[#07100d] shadow-2xl shadow-black/35 sm:h-[720px] sm:max-w-4xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(44,126,87,0.34),_transparent_38%),linear-gradient(180deg,_rgba(255,255,255,0.05),_transparent_20%,_rgba(0,0,0,0.35))]" />
       <div className="absolute left-1/2 top-1/2 h-[360px] w-[72%] min-w-[300px] max-w-[640px] -translate-x-1/2 -translate-y-1/2 rounded-[48%] border-[10px] border-[#3f2d25] bg-[radial-gradient(circle,_#276b4a,_#12452f_64%,_#082116)] shadow-[inset_0_0_55px_rgba(0,0,0,0.55)] sm:h-[420px] sm:border-[18px]" />
       <div className="absolute bottom-[10%] left-1/2 h-28 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(34,211,238,0.18),_transparent_72%)] blur-2xl sm:h-36 sm:w-72" />
@@ -329,6 +331,8 @@ export function TournamentTable({ snapshot, currentGuestId }: TournamentTablePro
         <p className="font-semibold">{snapshot.status.replaceAll("_", " ")}</p>
         <p className="mt-1 text-zinc-400">Hand {snapshot.handNumber}</p>
       </div>
+
+      {actionBar ? <div className="absolute inset-x-3 bottom-3 z-40 sm:inset-x-4 sm:bottom-4">{actionBar}</div> : null}
     </div>
   );
 }

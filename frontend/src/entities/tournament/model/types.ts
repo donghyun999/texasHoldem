@@ -84,6 +84,7 @@ export type TournamentSnapshot = {
   recentlyBustedGuestIds: string[];
   availableActions: string[];
   chipsToCall: number;
+  minimumRaiseTo: number;
   tableMessage: string;
   selfHoleCards: string[];
 };

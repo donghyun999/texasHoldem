@@ -30,6 +30,7 @@ final class TournamentSnapshotFactory {
         var normalizedViewerGuestId = normalizeViewerGuestId(viewerGuestId);
         var viewerHoleCards = viewerHoleCards(tournament, normalizedViewerGuestId);
         var viewerChipsToCall = viewerChipsToCall(tournament, normalizedViewerGuestId);
+        var viewerMinimumRaiseTo = viewerMinimumRaiseTo(tournament, normalizedViewerGuestId);
         var currentLevel = rules.currentLevel(tournament.levelIndex);
         var nextLevel = rules.nextLevel(tournament.levelIndex);
         var now = Instant.now().getEpochSecond();
@@ -66,6 +67,7 @@ final class TournamentSnapshotFactory {
                 List.copyOf(tournament.recentlyBustedGuestIds),
                 List.copyOf(tournament.availableActions),
                 viewerChipsToCall,
+                viewerMinimumRaiseTo,
                 tournament.tableMessage,
                 viewerHoleCards
         );
@@ -109,6 +111,18 @@ final class TournamentSnapshotFactory {
                 .filter(player -> player.guestId.equals(viewerGuestId))
                 .findFirst()
                 .map(player -> TournamentBetSizing.chipsToCall(tournament, player))
+                .orElse(0);
+    }
+
+    private int viewerMinimumRaiseTo(TournamentState tournament, String viewerGuestId) {
+        if (viewerGuestId == null) {
+            return 0;
+        }
+
+        return tournament.players.stream()
+                .filter(player -> player.guestId.equals(viewerGuestId))
+                .findFirst()
+                .map(player -> TournamentBetSizing.minimumTotalContributionForFullRaise(rules, tournament))
                 .orElse(0);
     }
 

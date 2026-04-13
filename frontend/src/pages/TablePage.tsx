@@ -8,7 +8,6 @@ import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-t
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
-import { TournamentOverview } from "@/widgets/tournament/ui/TournamentOverview";
 import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 
@@ -30,16 +29,10 @@ export function TablePage() {
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
   const snapshot = realtimeSnapshot.snapshot ?? snapshotQuery.data ?? createDemoTournamentSnapshot(tournamentCode);
-  const syncState = realtimeSnapshot.snapshot
-    ? realtimeSnapshot.syncState
-    : snapshotQuery.data
-      ? "LIVE SNAPSHOT"
-      : snapshotQuery.isError
-        ? "DEMO FALLBACK"
-        : "SYNCING";
   const currentPlayer =
     realtimeSnapshot.currentPlayer ?? snapshot.players.find((player) => player.guestId === guestId) ?? null;
   const wasSeatedRef = useRef(false);
+  const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
 
   // Returns the user to the lobby after an explicit waiting-room leave removes the seat.
   useEffect(() => {
@@ -56,13 +49,15 @@ export function TablePage() {
 
   return (
     <section className="space-y-6">
-      <TournamentOverview snapshot={snapshot} syncState={syncState} currentPlayer={currentPlayer} />
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
-        <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
-        <div className="xl:sticky xl:top-6">
+      <TournamentTable
+        snapshot={snapshot}
+        currentGuestId={guestId}
+        actionBar={
           <ActionPanel
             actions={snapshot.availableActions}
             chipsToCall={snapshot.chipsToCall}
+            minimumRaiseTo={snapshot.minimumRaiseTo}
+            potSize={totalPot}
             message={snapshot.tableMessage}
             tournamentStatus={snapshot.status}
             currentPlayer={currentPlayer}
@@ -73,8 +68,8 @@ export function TablePage() {
             onDisconnect={realtimeSnapshot.sendDisconnect}
             onReconnect={realtimeSnapshot.sendReconnect}
           />
-        </div>
-      </div>
+        }
+      />
       <TournamentShowdownPanel snapshot={snapshot} />
     </section>
   );

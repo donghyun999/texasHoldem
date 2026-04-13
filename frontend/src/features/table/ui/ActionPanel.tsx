@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
-import {
-  buildActionPanelViewModel,
-  parseTargetAmount,
-  toActionLabel,
-} from "@/features/table/model/action-panel";
+import { buildActionPanelViewModel, parseTargetAmount } from "@/features/table/model/action-panel";
 
 type ActionPanelProps = {
   actions: string[];
   chipsToCall: number;
+  minimumRaiseTo: number;
+  potSize: number;
   message: string;
   tournamentStatus: TournamentStatus;
   currentPlayer: TournamentPlayer | null;
@@ -20,165 +18,228 @@ type ActionPanelProps = {
   onReconnect: () => void;
 };
 
-function getActionButtonClass(action: string) {
-  switch (action) {
-    case "FOLD":
+const KEYPAD_ROWS = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  ["C", "0", "<-"],
+];
+
+type SizingPreset = {
+  label: string;
+  value: number;
+  enabled: boolean;
+};
+
+function getPrimaryAction(actions: string[]) {
+  if (actions.includes("CHECK")) {
+    return "CHECK";
+  }
+
+  if (actions.includes("CALL")) {
+    return "CALL";
+  }
+
+  return null;
+}
+
+function getMaxCommitment(currentPlayer: TournamentPlayer | null) {
+  if (!currentPlayer) {
+    return 0;
+  }
+
+  return currentPlayer.roundContribution + currentPlayer.stack;
+}
+
+function clampCommitment(amount: number, currentPlayer: TournamentPlayer | null) {
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  if (maxCommitment <= 0) {
+    return Math.max(1, amount);
+  }
+
+  return Math.min(Math.max(1, amount), maxCommitment);
+}
+
+function buildSuggestedCommitment({
+  currentPlayer,
+  minimumRaiseTo,
+}: {
+  currentPlayer: TournamentPlayer | null;
+  minimumRaiseTo: number;
+}) {
+  return clampCommitment(Math.max(1, minimumRaiseTo), currentPlayer);
+}
+
+function buildPresetTargets({
+  currentPlayer,
+  minimumRaiseTo,
+  potSize,
+}: {
+  currentPlayer: TournamentPlayer | null;
+  minimumRaiseTo: number;
+  potSize: number;
+}): SizingPreset[] {
+  const committed = currentPlayer?.roundContribution ?? 0;
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
+  const halfPotTarget = Math.max(1, Math.ceil(Math.max(0, potSize) / 2));
+  const potTarget = Math.max(1, potSize);
+  const isExactTargetPlayable = (target: number) =>
+    target > committed && target >= minimumRaiseTo && target <= maxCommitment;
+
+  return [
+    {
+      label: "Min",
+      value: minimumTarget,
+      enabled: isExactTargetPlayable(minimumTarget),
+    },
+    {
+      label: "1/2 Pot",
+      value: halfPotTarget,
+      enabled: isExactTargetPlayable(halfPotTarget),
+    },
+    {
+      label: "Pot",
+      value: potTarget,
+      enabled: isExactTargetPlayable(potTarget),
+    },
+    {
+      label: "All in",
+      value: maxCommitment,
+      enabled: maxCommitment > committed,
+    },
+  ];
+}
+
+function isValidTargetCommitment(amount: number | null, currentPlayer: TournamentPlayer | null, minimumRaiseTo: number) {
+  if (amount === null) {
+    return false;
+  }
+
+  const committed = currentPlayer?.roundContribution ?? 0;
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  return amount > committed && amount >= minimumRaiseTo && amount <= maxCommitment;
+}
+
+function buildCompactStatusLabel({
+  currentPlayer,
+  tournamentStatus,
+  canPublish,
+}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "canPublish">) {
+  if (!currentPlayer) {
+    return "Observer";
+  }
+
+  if (!currentPlayer.connected) {
+    return "Reconnect";
+  }
+
+  if (!canPublish) {
+    return "Syncing";
+  }
+
+  if (currentPlayer.acting) {
+    return "Your turn";
+  }
+
+  if (tournamentStatus === "WAITING") {
+    return currentPlayer.status === "READY" ? "Ready" : "Waiting";
+  }
+
+  if (tournamentStatus === "HAND_RESULT") {
+    return "Result";
+  }
+
+  return "Waiting";
+}
+
+function getStatusTone(label: string) {
+  switch (label) {
+    case "Your turn":
+      return "border-amber-300/30 bg-amber-400/12 text-amber-50";
+    case "Reconnect":
+      return "border-sky-300/25 bg-sky-400/10 text-sky-50";
+    case "Ready":
+      return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50";
+    case "Result":
+      return "border-violet-300/25 bg-violet-400/10 text-violet-50";
+    default:
+      return "border-white/10 bg-white/5 text-zinc-100";
+  }
+}
+
+function getPrimaryActionLabel(action: string | null, chipsToCall: number) {
+  if (action === "CHECK") {
+    return "Check";
+  }
+
+  if (action === "CALL") {
+    return chipsToCall > 0 ? `Call ${chipsToCall}` : "Call";
+  }
+
+  return "Wait";
+}
+
+function getSizedActionLabel(action: string | null) {
+  if (action === "BET") {
+    return "Bet";
+  }
+
+  if (action === "RAISE") {
+    return "Raise";
+  }
+
+  return "Size";
+}
+
+function getButtonClass(kind: "fold" | "primary" | "size" | "utility") {
+  switch (kind) {
+    case "fold":
       return "border-rose-300/25 bg-rose-400/10 text-rose-50 hover:bg-rose-400/20";
-    case "CHECK":
-      return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50 hover:bg-emerald-400/20";
-    case "CALL":
+    case "primary":
       return "border-sky-300/25 bg-sky-400/10 text-sky-50 hover:bg-sky-400/20";
-    case "ALL_IN":
-      return "border-amber-300/30 bg-amber-400/12 text-amber-50 hover:bg-amber-400/22";
-    case "BET":
-    case "RAISE":
+    case "size":
       return "border-fuchsia-300/25 bg-fuchsia-400/10 text-fuchsia-50 hover:bg-fuchsia-400/20";
     default:
       return "border-white/10 bg-white/5 text-white hover:bg-white/10";
   }
 }
 
-function getActionHelp(action: string) {
-  switch (action) {
-    case "FOLD":
-      return "Give up this hand";
-    case "CHECK":
-      return "Pass with no bet";
-    case "CALL":
-      return "Match the current bet";
-    case "ALL_IN":
-      return "Commit every chip";
-    case "BET":
-      return "Open the betting";
-    case "RAISE":
-      return "Increase the total bet";
-    default:
-      return "Send action";
-  }
-}
-
-function getActionButtonLabel(action: string, chipsToCall = 0) {
-  if (action === "ALL_IN") {
-    return "All in";
-  }
-
-  if (action === "CALL" && chipsToCall > 0) {
-    return `Call ${chipsToCall}`;
-  }
-
-  return toActionLabel(action).toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
-}
-
-function getPanelPriorityState({
+function buildIdleMessage({
+  currentPlayer,
   tournamentStatus,
-  currentPlayer,
   canPublish,
-}: Pick<ActionPanelProps, "tournamentStatus" | "currentPlayer" | "canPublish">) {
+  message,
+}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "canPublish" | "message">) {
   if (!currentPlayer) {
-    return {
-      label: "Observer",
-      description: "Join with this guest to control a seat.",
-      tone: "border-white/10 bg-white/5 text-zinc-100",
-    };
+    return "Join a seat to play from this browser.";
   }
 
   if (!currentPlayer.connected) {
-    return {
-      label: "Reconnect",
-      description: "Recover this seat before taking more actions.",
-      tone: "border-sky-300/25 bg-sky-400/10 text-sky-50",
-    };
-  }
-
-  if (!canPublish) {
-    return {
-      label: "Syncing",
-      description: "Waiting for the live connection.",
-      tone: "border-white/10 bg-white/5 text-zinc-100",
-    };
-  }
-
-  if (currentPlayer.acting) {
-    return {
-      label: "Your turn",
-      description: "Choose one move for this hand.",
-      tone: "border-amber-300/30 bg-amber-400/12 text-amber-50",
-    };
-  }
-
-  if (tournamentStatus === "WAITING" && currentPlayer.owner) {
-    return {
-      label: "Owner",
-      description: "Start once enough players are ready.",
-      tone: "border-violet-300/25 bg-violet-400/10 text-violet-50",
-    };
-  }
-
-  if (tournamentStatus === "HAND_RESULT") {
-    return {
-      label: "Result",
-      description: "The next hand starts automatically.",
-      tone: "border-emerald-300/25 bg-emerald-400/10 text-emerald-50",
-    };
-  }
-
-  return {
-    label: "Waiting",
-    description: "Waiting for the next table state.",
-    tone: "border-white/10 bg-white/5 text-zinc-100",
-  };
-}
-
-function buildNoActionReason({
-  currentPlayer,
-  canPublish,
-  canAct,
-}: {
-  currentPlayer: TournamentPlayer | null;
-  canPublish: boolean;
-  canAct: boolean;
-}) {
-  if (!currentPlayer) {
-    return "This guest is not seated.";
-  }
-
-  if (!currentPlayer.connected) {
-    return "Reconnect this seat first.";
+    return "Reconnect this seat to resume play.";
   }
 
   if (!canPublish) {
     return "Waiting for the live connection.";
   }
 
-  if (!canAct) {
-    return "Another player is acting.";
+  if (tournamentStatus === "WAITING") {
+    return currentPlayer.owner ? "Mark players ready, then start the tournament." : "Use ready when you want in.";
   }
 
-  return "No legal moves are available yet.";
-}
-
-function getPlayerRole(currentPlayer: TournamentPlayer | null) {
-  if (!currentPlayer) {
-    return "Observer";
+  if (tournamentStatus === "HAND_RESULT") {
+    return message;
   }
 
-  return currentPlayer.owner ? "Owner" : "Player";
+  return "Waiting for the next action.";
 }
 
-function getPlayerConnectionLabel(currentPlayer: TournamentPlayer | null, canPublish: boolean) {
-  if (!currentPlayer) {
-    return "Not seated";
-  }
-
-  const seatState = currentPlayer.connected ? "Online" : "Offline";
-  const transportState = canPublish ? "Live" : "Waiting";
-  return `${seatState} | ${transportState}`;
-}
-
-// Renders websocket-backed tournament controls for the current browser player.
+// Renders a compact table-bottom action bar with an overlay sizer for bet and raise actions.
 export function ActionPanel({
   actions,
   chipsToCall,
+  minimumRaiseTo,
+  potSize,
   message,
   tournamentStatus,
   currentPlayer,
@@ -190,6 +251,7 @@ export function ActionPanel({
   onReconnect,
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
+  const [isSizingOpen, setIsSizingOpen] = useState(false);
   const {
     sizeAction,
     directActions,
@@ -200,208 +262,259 @@ export function ActionPanel({
     showDisconnect,
     showReconnect,
     canSubmitSizedAction,
-    controlHint,
   } = buildActionPanelViewModel({
     actions,
     currentPlayer,
     tournamentStatus,
     canPublish,
   });
+  const primaryAction = getPrimaryAction(directActions);
+  const canFold = directActions.includes("FOLD");
+  const allInAction = directActions.includes("ALL_IN") ? "ALL_IN" : null;
+  const compactStatusLabel = buildCompactStatusLabel({ currentPlayer, tournamentStatus, canPublish });
+  const committed = currentPlayer?.roundContribution ?? 0;
+  const presetTargets = buildPresetTargets({ currentPlayer, minimumRaiseTo, potSize });
   const parsedTargetAmount = parseTargetAmount(targetAmount);
-  const hasValidTargetAmount = parsedTargetAmount !== null;
-  const disconnectLabel = tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect";
-  const priorityState = getPanelPriorityState({ tournamentStatus, currentPlayer, canPublish });
-  const noActionReason = buildNoActionReason({ currentPlayer, canPublish, canAct });
-  const summaryChips = currentPlayer
-    ? [
-        `Seat ${currentPlayer.seatIndex + 1}`,
-        `${currentPlayer.stack} chips`,
-        currentPlayer.status.replaceAll("_", " "),
-        getPlayerRole(currentPlayer),
-      ]
-    : ["Not seated"];
-  const connectionLabel = getPlayerConnectionLabel(currentPlayer, canPublish);
-  const shouldShowCallAmount = currentPlayer?.acting && actions.includes("CALL") && chipsToCall > 0;
+  const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
+  const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
+  const shouldShowInHandControls = tournamentStatus === "IN_HAND" && (canAct || !!allInAction || !!sizeAction || !!primaryAction);
+  const shouldShowUtilityControls =
+    tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect);
+  const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, canPublish, message });
 
-  // Clears stale bet sizing whenever the server rotates the action set.
   useEffect(() => {
     if (!sizeAction) {
+      setIsSizingOpen(false);
       setTargetAmount("");
     }
   }, [sizeAction]);
 
+  const openSizer = () => {
+    if (!sizeAction) {
+      return;
+    }
+
+    setTargetAmount((current) =>
+      current || String(buildSuggestedCommitment({ currentPlayer, minimumRaiseTo })),
+    );
+    setIsSizingOpen(true);
+  };
+
+  const handleCalculatorKey = (key: string) => {
+    if (key === "C") {
+      setTargetAmount("");
+      return;
+    }
+
+    if (key === "<-") {
+      setTargetAmount((current) => current.slice(0, -1));
+      return;
+    }
+
+    setTargetAmount((current) => {
+      const next = `${current}${key}`.replace(/^0+(?=\d)/, "");
+      return next;
+    });
+  };
+
+  const submitSizedAction = () => {
+    if (!sizeAction || parsedTargetAmount === null || !hasValidTargetAmount) {
+      return;
+    }
+
+    onAction(sizeAction, parsedTargetAmount);
+    setIsSizingOpen(false);
+  };
+
   return (
-    <div className="grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-6">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            className={`inline-flex rounded-lg border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] sm:text-xs ${priorityState.tone}`}
-          >
-            {priorityState.label}
-          </div>
-          {currentPlayer?.acting ? (
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200/20 bg-amber-100/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100 sm:text-xs">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300/75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-200" />
-              </span>
-              Act now
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-3 text-[10px] uppercase tracking-[0.28em] text-zinc-500">Action Controls</p>
-        <div className="mt-2 flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-semibold text-white sm:text-2xl">Table action</h3>
-            <p className="mt-2 text-sm text-zinc-300">{priorityState.description}</p>
-          </div>
-          {currentPlayer ? (
-            <div className="hidden rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-right text-[11px] text-zinc-300 sm:block">
-              <p className="font-semibold text-white">{currentPlayer.nickname}</p>
-              <p className="mt-1">{connectionLabel}</p>
-            </div>
-          ) : null}
-        </div>
-        <p className="mt-2 text-xs text-zinc-400">{controlHint}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {summaryChips.map((chip) => (
+    <>
+      <div className="relative rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] p-3 shadow-2xl shadow-black/35 backdrop-blur-md sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span
-              key={chip}
-              className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-100"
+              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getStatusTone(compactStatusLabel)}`}
             >
-              {chip}
+              {compactStatusLabel}
             </span>
-          ))}
-          {shouldShowCallAmount ? (
-            <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-semibold text-sky-50">
-              To call {chipsToCall}
-            </span>
-          ) : null}
-          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] text-zinc-300">
-            {connectionLabel}
-          </span>
-        </div>
-        <p className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-200">{message}</p>
-        {currentPlayer ? (
-          <div className="mt-4 grid gap-2 text-xs text-zinc-300 sm:grid-cols-3">
-            <span className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-zinc-500">You</span>
-              <span className="mt-1 block font-medium text-white">{currentPlayer.nickname}</span>
-            </span>
-            <span className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-zinc-500">Seat</span>
-              <span className="mt-1 block font-medium text-white">Seat {currentPlayer.seatIndex + 1}</span>
-            </span>
-            <span className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-zinc-500">Connection</span>
-              <span className="mt-1 block font-medium text-white">{connectionLabel}</span>
-            </span>
+            {currentPlayer ? (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-100">
+                {currentPlayer.stack} behind
+              </span>
+            ) : null}
+            {shouldShowCallAmount ? (
+              <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-medium text-sky-50">
+                To call {chipsToCall}
+              </span>
+            ) : null}
+            {shouldShowInHandControls && potSize > 0 ? (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-200">
+                Pot {potSize}
+              </span>
+            ) : null}
           </div>
-        ) : null}
-      </div>
-      <div className="flex min-w-0 flex-col gap-3">
-        {(canToggleReady || canStart || showDisconnect || showReconnect) ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+
+          {shouldShowInHandControls && allInAction ? (
+            <button
+              type="button"
+              onClick={() => onAction(allInAction)}
+              disabled={!canPublish || !canAct}
+              className="rounded-full border border-amber-300/30 bg-amber-400/12 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-50 transition hover:bg-amber-400/22 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              All in
+            </button>
+          ) : null}
+        </div>
+
+        {shouldShowInHandControls ? (
+          <div className="relative mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => onAction("FOLD")}
+              disabled={!canPublish || !canAct || !canFold}
+              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
+            >
+              Fold
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (primaryAction) {
+                  onAction(primaryAction);
+                }
+              }}
+              disabled={!canPublish || !canAct || !primaryAction}
+              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
+            >
+              {getPrimaryActionLabel(primaryAction, chipsToCall)}
+            </button>
+            <button
+              type="button"
+              onClick={
+                sizeAction
+                  ? () => {
+                      if (isSizingOpen) {
+                        setIsSizingOpen(false);
+                        return;
+                      }
+
+                      openSizer();
+                    }
+                  : allInAction
+                    ? () => onAction(allInAction)
+                    : undefined
+              }
+              disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
+              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+            >
+              {sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}
+            </button>
+
+            {isSizingOpen && sizeAction ? (
+              <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-50 w-[31.5%] min-w-[118px] max-w-[150px] overflow-hidden rounded-[1.2rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45">
+                <div className="flex items-center justify-between border-b border-white/10 px-2.5 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                      {getSizedActionLabel(sizeAction)}
+                    </p>
+                    <p className="mt-1 truncate text-base font-black text-white">{targetAmount || "0"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSizingOpen(false)}
+                    className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-medium text-zinc-200 transition hover:bg-white/10"
+                  >
+                    X
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1 border-b border-white/10 px-2 py-2">
+                  {presetTargets.slice(0, 4).map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setTargetAmount(String(preset.value))}
+                      disabled={!preset.enabled}
+                      className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1.5 text-center text-[9px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      <span className="block truncate">{preset.label}</span>
+                      <span className="mt-0.5 block text-[10px] font-semibold text-white">{preset.value}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-3 gap-1 p-2">
+                  {KEYPAD_ROWS.flat().map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleCalculatorKey(key)}
+                      className="min-h-8 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      {key}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="border-t border-white/10 px-2 py-2">
+                  <button
+                    type="button"
+                    onClick={submitSizedAction}
+                    disabled={!canSubmitSizedAction || !hasValidTargetAmount}
+                    className={`min-h-9 w-full rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
+                  >
+                    Send {parsedTargetAmount ?? ""}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : shouldShowUtilityControls ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {canToggleReady ? (
               <button
                 type="button"
                 onClick={() => onReadyChange(!isReady)}
                 disabled={!canPublish}
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
                 {isReady ? "Cancel Ready" : "Mark Ready"}
               </button>
             ) : null}
-
             {canStart ? (
               <button
                 type="button"
                 onClick={onStart}
                 disabled={!canPublish}
-                className="rounded-lg border border-emerald-300/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Start Tournament
               </button>
             ) : null}
-
             {showDisconnect ? (
               <button
                 type="button"
                 onClick={onDisconnect}
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
-                {disconnectLabel}
+                {tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect"}
               </button>
             ) : null}
-
             {showReconnect ? (
               <button
                 type="button"
                 onClick={onReconnect}
                 disabled={!canPublish}
-                className="rounded-lg border border-sky-300/30 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reconnect
               </button>
             ) : null}
           </div>
-        ) : null}
-
-        {sizeAction ? (
-          <div className="grid gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
-            <label htmlFor="action-amount" className="text-[10px] uppercase tracking-[0.22em] text-zinc-400">
-              {getActionButtonLabel(sizeAction, chipsToCall)} total
-            </label>
-            <input
-              id="action-amount"
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={targetAmount}
-              onChange={(event) => setTargetAmount(event.target.value)}
-              className="rounded-lg border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-white outline-none transition focus:border-emerald-300/40"
-              placeholder="Total chips after action"
-            />
-            <p className="text-[11px] leading-5 text-zinc-400">
-              {getActionHelp(sizeAction)}. Enter the final committed total.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (sizeAction && hasValidTargetAmount) {
-                  onAction(sizeAction, parsedTargetAmount);
-                }
-              }}
-              disabled={!canSubmitSizedAction || !hasValidTargetAmount}
-              className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(sizeAction)}`}
-            >
-              Send {getActionButtonLabel(sizeAction, chipsToCall)}
-            </button>
-          </div>
-        ) : null}
-
-        {directActions.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {directActions.map((action) => (
-              <button
-                key={action}
-                type="button"
-                onClick={() => onAction(action)}
-                disabled={!canPublish || !canAct}
-                className={`min-h-14 rounded-lg border px-3 py-2.5 text-left transition sm:min-h-18 disabled:cursor-not-allowed disabled:opacity-50 ${getActionButtonClass(action)}`}
-              >
-                <span className="block text-sm font-semibold">{getActionButtonLabel(action, chipsToCall)}</span>
-                <span className="mt-1 hidden text-xs opacity-75 sm:block">{getActionHelp(action)}</span>
-              </button>
-            ))}
-          </div>
         ) : (
-          <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
-            {noActionReason}
-          </div>
+          <p className="mt-3 px-1 text-xs text-zinc-300">{idleMessage}</p>
         )}
       </div>
-    </div>
+
+    </>
   );
 }
