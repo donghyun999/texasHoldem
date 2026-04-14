@@ -208,15 +208,6 @@ final class TournamentHandProgressManager {
             return;
         }
 
-        var actingPlayer = stateAccess.requireSeatPlayer(tournament, tournament.actingSeat);
-        if (!stateAccess.canManuallyAct(actingPlayer)) {
-            tournament.tableMessage = stateAccess.combineMessages(
-                    player.nickname + " returned to play.",
-                    actingPlayer.nickname + " must return to play before the hand can resume."
-            );
-            return;
-        }
-
         activateSeat(tournament, tournament.actingSeat, player.nickname + " returned to play. Action resumed.");
     }
 
