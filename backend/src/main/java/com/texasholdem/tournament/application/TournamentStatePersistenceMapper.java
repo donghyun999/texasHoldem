@@ -48,6 +48,8 @@ final class TournamentStatePersistenceMapper {
     private PersistedTournamentState toPayload(TournamentState tournament) {
         return new PersistedTournamentState(
                 tournament.code,
+                tournament.roomName,
+                tournament.roomPassword,
                 tournament.visibility,
                 tournament.handNumber,
                 tournament.stateVersion,
@@ -104,6 +106,10 @@ final class TournamentStatePersistenceMapper {
     // Rehydrates the mutable tournament aggregate from the persistence DTO tree.
     private TournamentState fromPayload(PersistedTournamentState payload) {
         var tournament = new TournamentState(payload.code());
+        tournament.roomName = payload.roomName() == null || payload.roomName().isBlank()
+                ? payload.code()
+                : payload.roomName();
+        tournament.roomPassword = payload.roomPassword() == null ? "" : payload.roomPassword();
         tournament.visibility = payload.visibility() == null ? TournamentVisibility.PRIVATE : payload.visibility();
         tournament.handNumber = payload.handNumber();
         tournament.stateVersion = payload.stateVersion();
@@ -193,6 +199,8 @@ final class TournamentStatePersistenceMapper {
 
     private record PersistedTournamentState(
             String code,
+            String roomName,
+            String roomPassword,
             TournamentVisibility visibility,
             long handNumber,
             long stateVersion,

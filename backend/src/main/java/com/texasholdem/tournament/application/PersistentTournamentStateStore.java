@@ -67,6 +67,19 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .orElse(null);
     }
 
+    // Scans persisted tournament payloads for one unfinished room-title match.
+    @Override
+    public String findActiveTournamentCodeByRoomName(String roomName) {
+        return repository.findAll().stream()
+                .map(TournamentStateEntity::getPayload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
+                .filter(tournament -> resolveRoomName(tournament).equalsIgnoreCase(roomName))
+                .map(tournament -> tournament.code)
+                .findFirst()
+                .orElse(null);
+    }
+
     // Counts every guest seat that still belongs to a non-finished tournament.
     @Override
     public int countActiveGuests() {
@@ -93,6 +106,7 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
+                        resolveRoomName(tournament),
                         tournament.visibility,
                         tournament.status,
                         tournament.players.size(),
@@ -189,5 +203,9 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .map(player -> player.nickname)
                 .findFirst()
                 .orElse("");
+    }
+
+    private String resolveRoomName(TournamentState tournament) {
+        return tournament.roomName == null || tournament.roomName.isBlank() ? tournament.code : tournament.roomName;
     }
 }

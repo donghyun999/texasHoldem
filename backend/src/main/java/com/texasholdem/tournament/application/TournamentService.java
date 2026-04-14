@@ -94,7 +94,7 @@ public class TournamentService {
 
         var tournament = requireTournament(activeTournamentCode);
         synchronized (tournament) {
-            return new ActiveTournamentSession(guestId, tournament.code, tournament.status);
+            return new ActiveTournamentSession(guestId, tournament.code, tournament.roomName, tournament.status);
         }
     }
 
@@ -106,12 +106,12 @@ public class TournamentService {
 
     // Creates a waiting tournament and seats the owner immediately.
     public TournamentSnapshot createTournament(String guestId, String nickname) {
-        return createTournament(guestId, nickname, null, TournamentVisibility.PRIVATE);
+        return createTournamentInternal(guestId, nickname, null, null, null, TournamentVisibility.PRIVATE);
     }
 
     // Creates a waiting tournament and optionally reserves the caller-supplied code.
     public TournamentSnapshot createTournament(String guestId, String nickname, String requestedCode) {
-        return createTournament(guestId, nickname, requestedCode, TournamentVisibility.PRIVATE);
+        return createTournamentInternal(guestId, nickname, requestedCode, requestedCode, null, TournamentVisibility.PRIVATE);
     }
 
     // Creates a waiting tournament with one public or private lobby policy.
@@ -121,14 +121,40 @@ public class TournamentService {
             String requestedCode,
             TournamentVisibility visibility
     ) {
+        return createTournamentInternal(guestId, nickname, requestedCode, requestedCode, null, visibility);
+    }
+
+    // Creates a waiting tournament using one player-facing room title and optional private-room password.
+    public TournamentSnapshot createTournament(
+            String guestId,
+            String nickname,
+            String roomName,
+            String roomPassword,
+            TournamentVisibility visibility
+    ) {
+        return createTournamentInternal(guestId, nickname, null, roomName, roomPassword, visibility);
+    }
+
+    private TournamentSnapshot createTournamentInternal(
+            String guestId,
+            String nickname,
+            String requestedCode,
+            String requestedRoomName,
+            String requestedRoomPassword,
+            TournamentVisibility visibility
+    ) {
         cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, null);
         ensureCapacityForNewGuest();
         var code = identityFactory.resolveTournamentCode(requestedCode, currentCode ->
                 isTournamentCodeReserved(currentCode)
         );
+        var roomName = resolveRoomName(requestedRoomName, code);
+        ensureRoomNameNotInAnotherTournament(roomName, null);
         var tournament = lobbyManager.createTournament(
                 code,
+                roomName,
+                identityFactory.normalizeRoomPassword(requestedRoomPassword),
                 guestId,
                 nickname,
                 visibility == null ? TournamentVisibility.PRIVATE : visibility
@@ -160,6 +186,39 @@ public class TournamentService {
         ensureCapacityForNewGuest();
         var tournament = requireTournament(code);
         synchronized (tournament) {
+            lobbyManager.joinTournament(tournament, guestId, nickname);
+            saveTournamentState(tournament);
+            return snapshotFactory.toSnapshot(tournament, guestId);
+        }
+    }
+
+    // Seats a guest into one private waiting room located by title and guarded by its password.
+    public TournamentSnapshot joinPrivateTournament(String roomName, String roomPassword, String guestId, String nickname) {
+        cleanupStaleTournaments();
+        var normalizedRoomName = identityFactory.normalizeRoomName(roomName);
+        if (normalizedRoomName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room name is required");
+        }
+
+        var tournamentCode = stateStore.findActiveTournamentCodeByRoomName(normalizedRoomName);
+        if (tournamentCode == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+        }
+
+        ensureGuestNotInAnotherTournament(guestId, tournamentCode);
+        ensureCapacityForNewGuest();
+        var tournament = requireTournament(tournamentCode);
+        synchronized (tournament) {
+            if (tournament.visibility != TournamentVisibility.PRIVATE || tournament.status != TournamentStatus.WAITING) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+            }
+            if (!resolveRoomName(tournament.roomName, tournament.code).equalsIgnoreCase(normalizedRoomName)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+            }
+            if (!passwordMatches(tournament, roomPassword)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password does not match");
+            }
+
             lobbyManager.joinTournament(tournament, guestId, nickname);
             saveTournamentState(tournament);
             return snapshotFactory.toSnapshot(tournament, guestId);
@@ -436,6 +495,18 @@ public class TournamentService {
         throw new ResponseStatusException(HttpStatus.CONFLICT, "Guest is already participating in another tournament");
     }
 
+    // Rejects room-title collisions while another non-finished tournament is already using the same name.
+    private void ensureRoomNameNotInAnotherTournament(String roomName, String allowedCode) {
+        var activeTournamentCode = stateStore.findActiveTournamentCodeByRoomName(roomName);
+        if (activeTournamentCode == null) {
+            return;
+        }
+        if (allowedCode != null && activeTournamentCode.equalsIgnoreCase(allowedCode.trim())) {
+            return;
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Room name is already in use");
+    }
+
     // Rejects new tournament entries once the configured active-player cap is reached.
     private void ensureCapacityForNewGuest() {
         if (maxActivePlayers <= 0) {
@@ -459,6 +530,16 @@ public class TournamentService {
 
         var persistedTournament = stateStore.load(code);
         return persistedTournament != null && persistedTournament.status != TournamentStatus.FINISHED;
+    }
+
+    private String resolveRoomName(String requestedRoomName, String fallbackCode) {
+        var normalizedRoomName = identityFactory.normalizeRoomName(requestedRoomName);
+        return normalizedRoomName.isBlank() ? fallbackCode : normalizedRoomName;
+    }
+
+    private boolean passwordMatches(TournamentState tournament, String roomPassword) {
+        return identityFactory.normalizeRoomPassword(tournament.roomPassword)
+                .equals(identityFactory.normalizeRoomPassword(roomPassword));
     }
 
     // Persists one tournament mutation and emits the scheduling hint used by auto-advance listeners.

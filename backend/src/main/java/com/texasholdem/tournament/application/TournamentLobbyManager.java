@@ -30,13 +30,22 @@ final class TournamentLobbyManager {
     }
 
     // Creates a waiting tournament state and seats the owner immediately.
-    TournamentState createTournament(String code, String guestId, String nickname, TournamentVisibility visibility) {
+    TournamentState createTournament(
+            String code,
+            String roomName,
+            String roomPassword,
+            String guestId,
+            String nickname,
+            TournamentVisibility visibility
+    ) {
         var tournament = new TournamentState(code);
+        tournament.roomName = roomName;
+        tournament.roomPassword = roomPassword == null ? "" : roomPassword;
         tournament.visibility = visibility;
         tournament.players.add(TournamentPlayerState.owner(guestId, identityFactory.normalizeNickname(nickname), 0));
         tournament.tableMessage = visibility == TournamentVisibility.PUBLIC
-                ? "Public tournament created. Players can join from the lobby list."
-                : "Private tournament created. Share the code to invite players.";
+                ? roomName + " is open for players in the lobby."
+                : roomName + " is ready. Share the room name and password to invite players.";
         return tournament;
     }
 

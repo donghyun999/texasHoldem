@@ -1,9 +1,10 @@
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 
 // Builds a deterministic tournament snapshot for local UI work.
-export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
+export function createDemoTournamentSnapshot(code: string, roomName = "Friday Night Sit & Go"): TournamentSnapshot {
   return {
     code: code.toUpperCase(),
+    roomName,
     visibility: "PRIVATE",
     handNumber: 1,
     stateVersion: 1,

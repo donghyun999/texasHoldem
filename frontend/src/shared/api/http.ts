@@ -116,16 +116,21 @@ export function getPublicWaitingTournaments(): Promise<PublicTournamentSummary[]
 export function createTournament(
   guestId: string,
   nickname: string,
+  roomName: string,
   visibility: TournamentVisibility,
-  code?: string,
+  password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; visibility: TournamentVisibility; code?: string }, TournamentSnapshot>(
+  return postJson<
+    { guestId: string; nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
+    TournamentSnapshot
+  >(
     "/api/v1/tournaments",
     {
       guestId,
       nickname,
+      roomName,
       visibility,
-      ...(code ? { code } : {}),
+      ...(password ? { password } : {}),
     },
   );
 }
@@ -136,6 +141,24 @@ export function joinTournament(code: string, guestId: string, nickname: string):
     guestId,
     nickname,
   });
+}
+
+// Joins one private waiting room using its shared title and password.
+export function joinPrivateTournament(
+  roomName: string,
+  password: string,
+  guestId: string,
+  nickname: string,
+): Promise<TournamentSnapshot> {
+  return postJson<{ guestId: string; nickname: string; roomName: string; password: string }, TournamentSnapshot>(
+    "/api/v1/tournaments/private/join",
+    {
+      guestId,
+      nickname,
+      roomName,
+      password,
+    },
+  );
 }
 
 // Notifies the backend that one player left the current tournament page.

@@ -453,7 +453,7 @@ function buildIdleMessage({
   }
 
   if (tournamentStatus === "WAITING") {
-    return currentPlayer.owner ? "Mark players ready, then start the tournament." : "Use ready when you want in.";
+    return currentPlayer.owner ? "Get everyone ready, then start the game." : "Tap Ready when you're set.";
   }
 
   if (tournamentStatus === "HAND_RESULT") {
@@ -904,7 +904,7 @@ export function ActionPanel({
                 disabled={!canPublish}
                 className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
-                {isReady ? "Cancel Ready" : "Mark Ready"}
+                {isReady ? "Cancel Ready" : "Ready Up"}
               </button>
             ) : null}
             {canStart ? (
@@ -914,7 +914,7 @@ export function ActionPanel({
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Start Tournament
+                Start Game
               </button>
             ) : null}
             {showDisconnect ? (
@@ -923,7 +923,7 @@ export function ActionPanel({
                 onClick={onDisconnect}
                 className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
-                {tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect"}
+                {tournamentStatus === "WAITING" ? "Leave Table" : "Disconnect"}
               </button>
             ) : null}
             {showReconnect ? (

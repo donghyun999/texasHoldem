@@ -36,6 +36,9 @@ interface TournamentStateStore {
     // Finds another non-finished tournament that already contains the guest.
     String findActiveTournamentCodeByGuestId(String guestId);
 
+    // Finds another non-finished tournament that already uses the same room title.
+    String findActiveTournamentCodeByRoomName(String roomName);
+
     // Counts all guests currently occupying non-finished tournaments.
     int countActiveGuests();
 

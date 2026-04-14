@@ -175,6 +175,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         ? {
             guestId,
             tournamentCode: nextSnapshot.code,
+            roomName: nextSnapshot.roomName,
             status: nextSnapshot.status,
           }
         : null;

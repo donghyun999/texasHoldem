@@ -16,6 +16,7 @@ import {
   getActiveTournamentForGuest,
   getBackendStatus,
   getPublicWaitingTournaments,
+  joinPrivateTournament,
   joinTournament,
 } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
@@ -31,8 +32,10 @@ export function HomePage() {
   const queryClient = useQueryClient();
   const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession();
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
-  const [createTournamentCode, setCreateTournamentCode] = useState("");
-  const [joinTournamentCode, setJoinTournamentCode] = useState("");
+  const [createRoomName, setCreateRoomName] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [privateRoomName, setPrivateRoomName] = useState("");
+  const [privateRoomPassword, setPrivateRoomPassword] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
@@ -51,25 +54,27 @@ export function HomePage() {
     retry: false,
     refetchInterval: 5_000,
   });
-  const previewSnapshot = createDemoTournamentSnapshot(createTournamentCode || "MVP01");
+  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "Friday Night Sit & Go");
   const createMutation = useMutation({
     mutationFn: ({
       guestId,
       nickname,
+      roomName,
       visibility,
-      code,
+      password,
     }: {
       guestId: string;
       nickname: string;
+      roomName: string;
       visibility: TournamentVisibility;
-      code?: string;
-    }) => createTournament(guestId, nickname, visibility, code),
+      password?: string;
+    }) => createTournament(guestId, nickname, roomName, visibility, password),
     onSuccess: (snapshot, variables) => {
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
       handleTournamentEntry(snapshot, variables.guestId);
     },
   });
-  const joinMutation = useMutation({
+  const publicJoinMutation = useMutation({
     mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
       joinTournament(code, guestId, nickname),
     onSuccess: (snapshot, variables) => {
@@ -77,25 +82,48 @@ export function HomePage() {
       handleTournamentEntry(snapshot, variables.guestId);
     },
   });
+  const privateJoinMutation = useMutation({
+    mutationFn: ({
+      roomName,
+      password,
+      guestId,
+      nickname,
+    }: {
+      roomName: string;
+      password: string;
+      guestId: string;
+      nickname: string;
+    }) => joinPrivateTournament(roomName, password, guestId, nickname),
+    onSuccess: (snapshot, variables) => {
+      handleTournamentEntry(snapshot, variables.guestId);
+    },
+  });
   const activeError =
     validationError ||
-    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create tournament.")) ||
-    (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join tournament.")) ||
+    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create table.")) ||
+    (publicJoinMutation.error && toErrorMessage(publicJoinMutation.error, "Failed to join table.")) ||
+    (privateJoinMutation.error && toErrorMessage(privateJoinMutation.error, "Failed to join private table.")) ||
     null;
   const activeTournament = activeTournamentQuery.data;
   const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
   const controlsDisabled =
-    !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
+    !!activeTournament ||
+    isCheckingActiveTournament ||
+    createMutation.isPending ||
+    publicJoinMutation.isPending ||
+    privateJoinMutation.isPending;
   const busyLabel = createMutation.isPending
-    ? "Creating tournament..."
-    : joinMutation.isPending
-      ? "Joining tournament..."
-      : isCheckingActiveTournament
-        ? "Checking your current tournament..."
-      : null;
+    ? "Creating your table..."
+    : publicJoinMutation.isPending
+      ? "Joining table..."
+      : privateJoinMutation.isPending
+        ? "Joining private table..."
+        : isCheckingActiveTournament
+          ? "Checking for an active table..."
+          : null;
   const publicListError =
     publicTournamentListQuery.error && !publicTournamentListQuery.isFetching
-      ? toErrorMessage(publicTournamentListQuery.error, "Failed to load public rooms.")
+      ? toErrorMessage(publicTournamentListQuery.error, "Failed to load open tables.")
       : null;
 
   // Seeds the destination snapshot cache before navigation so the table paints immediately.
@@ -104,78 +132,74 @@ export function HomePage() {
     queryClient.setQueryData(buildActiveTournamentKey(viewerGuestId), {
       guestId: viewerGuestId,
       tournamentCode: snapshot.code,
+      roomName: snapshot.roomName,
       status: snapshot.status,
     });
     syncPublicTournamentListCache(queryClient, snapshot);
     navigate(`/tournaments/${snapshot.code}`);
   }
 
-  function handleNicknameChange(value: string) {
+  function resetValidationError() {
     setValidationError(null);
-    setNickname(value);
   }
 
-  function handleTournamentCodeChange(value: string) {
-    setValidationError(null);
-    setCreateTournamentCode(value);
-  }
+  async function ensureAvailableGuest(nicknameRequiredMessage: string) {
+    if (isCheckingActiveTournament) {
+      throw new Error("Checking whether this guest is already seated at another table.");
+    }
+    if (activeTournament) {
+      throw new Error("You are already seated at another active table.");
+    }
+    if (!nickname.trim()) {
+      throw new Error(nicknameRequiredMessage);
+    }
 
-  function handleJoinTournamentCodeChange(value: string) {
-    setValidationError(null);
-    setJoinTournamentCode(value);
+    return ensureGuestSession();
   }
 
   async function handleCreate() {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
+    resetValidationError();
+
+    if (!createRoomName.trim()) {
+      setValidationError("Enter a table title before creating a table.");
       return;
     }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before creating a tournament.");
+    if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
+      setValidationError("Set a password before creating a private table.");
       return;
     }
 
-    setValidationError(null);
     try {
-      const resolvedGuestId = await ensureGuestSession();
+      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before creating a table.");
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
+        roomName: createRoomName.trim(),
         visibility: roomVisibility,
-        code: createTournamentCode.trim() ? createTournamentCode.trim().toUpperCase() : undefined,
+        password: roomVisibility === "PRIVATE" ? createPassword.trim() : undefined,
       });
     } catch (error) {
       setValidationError(toErrorMessage(error, "Failed to create guest session."));
     }
   }
 
-  async function handleJoin() {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
+  async function handleJoinPrivate() {
+    resetValidationError();
+
+    if (!privateRoomName.trim()) {
+      setValidationError("Enter the private table title before joining.");
       return;
     }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before joining a tournament.");
-      return;
-    }
-    if (!joinTournamentCode.trim()) {
-      setValidationError("Enter a tournament code before joining.");
+    if (!privateRoomPassword.trim()) {
+      setValidationError("Enter the private table password before joining.");
       return;
     }
 
-    setValidationError(null);
     try {
-      const resolvedGuestId = await ensureGuestSession();
-      joinMutation.mutate({
-        code: joinTournamentCode.trim().toUpperCase(),
+      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
+      privateJoinMutation.mutate({
+        roomName: privateRoomName.trim(),
+        password: privateRoomPassword.trim(),
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
       });
@@ -185,23 +209,11 @@ export function HomePage() {
   }
 
   async function handleJoinPublicRoom(code: string) {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
-      return;
-    }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before joining a tournament.");
-      return;
-    }
+    resetValidationError();
 
-    setValidationError(null);
     try {
-      const resolvedGuestId = await ensureGuestSession();
-      joinMutation.mutate({
+      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
+      publicJoinMutation.mutate({
         code,
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
@@ -216,7 +228,7 @@ export function HomePage() {
       return;
     }
 
-    setValidationError(null);
+    resetValidationError();
     navigate(`/tournaments/${activeTournament.tournamentCode}`);
   }
 
@@ -226,15 +238,15 @@ export function HomePage() {
         <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
           <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
           <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-            Public list join for open rooms, private code entry for direct invites.
+            Create a table for friends, or jump straight into an open seat.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            The current build keeps the existing ready, owner start, snapshot, and reconnect flow while making room
-            creation and entry clearer on the home screen.
+            Public tables appear in the lobby list. Private tables stay hidden and are shared with a title plus
+            password.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <MetricCard label="Backend API" value={statusQuery.data?.status ?? "OFFLINE"} />
-            <MetricCard label="Blind Level" value={`L${previewSnapshot.currentLevel.level}`} />
+            <MetricCard label="Backend" value={statusQuery.data?.status ?? "OFFLINE"} />
+            <MetricCard label="Blinds" value={`L${previewSnapshot.currentLevel.level}`} />
             <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} />
           </div>
         </div>
@@ -249,24 +261,45 @@ export function HomePage() {
       </div>
 
       <LobbyForm
-        guestId={guestId}
         nickname={nickname}
-        createTournamentCode={createTournamentCode}
-        joinTournamentCode={joinTournamentCode}
+        createRoomName={createRoomName}
+        createPassword={createPassword}
+        privateRoomName={privateRoomName}
+        privateRoomPassword={privateRoomPassword}
         roomVisibility={roomVisibility}
-        activeTournamentCode={activeTournament?.tournamentCode ?? null}
+        activeTournamentRoomName={activeTournament?.roomName ?? null}
         activeTournamentStatus={activeTournament?.status ?? null}
         createDisabled={controlsDisabled}
         joinDisabled={controlsDisabled}
         busyLabel={busyLabel}
         errorMessage={activeError}
-        onNicknameChange={handleNicknameChange}
-        onCreateTournamentCodeChange={handleTournamentCodeChange}
-        onJoinTournamentCodeChange={handleJoinTournamentCodeChange}
-        onRoomVisibilityChange={setRoomVisibility}
+        onNicknameChange={(value) => {
+          resetValidationError();
+          setNickname(value);
+        }}
+        onCreateRoomNameChange={(value) => {
+          resetValidationError();
+          setCreateRoomName(value);
+        }}
+        onCreatePasswordChange={(value) => {
+          resetValidationError();
+          setCreatePassword(value);
+        }}
+        onPrivateRoomNameChange={(value) => {
+          resetValidationError();
+          setPrivateRoomName(value);
+        }}
+        onPrivateRoomPasswordChange={(value) => {
+          resetValidationError();
+          setPrivateRoomPassword(value);
+        }}
+        onRoomVisibilityChange={(value) => {
+          resetValidationError();
+          setRoomVisibility(value);
+        }}
         onResumeTournament={handleResumeTournament}
         onCreate={handleCreate}
-        onJoin={handleJoin}
+        onJoinPrivate={handleJoinPrivate}
       />
     </section>
   );

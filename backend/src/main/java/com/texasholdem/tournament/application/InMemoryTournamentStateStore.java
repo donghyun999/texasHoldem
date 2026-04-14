@@ -56,6 +56,19 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .orElse(null);
     }
 
+    // Scans stored tournament payloads for one unfinished room-title match.
+    @Override
+    public String findActiveTournamentCodeByRoomName(String roomName) {
+        return payloads.values().stream()
+                .map(StoredPayload::payload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
+                .filter(tournament -> resolveRoomName(tournament).equalsIgnoreCase(roomName))
+                .map(tournament -> tournament.code)
+                .findFirst()
+                .orElse(null);
+    }
+
     // Counts every guest seat that still belongs to a non-finished tournament.
     @Override
     public int countActiveGuests() {
@@ -82,6 +95,7 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
+                        resolveRoomName(tournament),
                         tournament.visibility,
                         tournament.status,
                         tournament.players.size(),
@@ -187,6 +201,10 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
         return tournament.status == TournamentStatus.IN_HAND
                 && inHandIdleTtlMillis > 0
                 && ageMillis >= inHandIdleTtlMillis;
+    }
+
+    private String resolveRoomName(TournamentState tournament) {
+        return tournament.roomName == null || tournament.roomName.isBlank() ? tournament.code : tournament.roomName;
     }
 
     private record StoredPayload(String payload, long createdAtEpochMilli, long updatedAtEpochMilli) {

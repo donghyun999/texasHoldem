@@ -25,6 +25,7 @@ export function syncPublicTournamentListCache(queryClient: QueryClient, snapshot
 
     const nextRoom: PublicTournamentSummary = {
       code: snapshot.code,
+      roomName: snapshot.roomName,
       visibility: snapshot.visibility,
       status: snapshot.status,
       currentPlayers,

@@ -54,6 +54,7 @@ final class TournamentSnapshotFactory {
 
         return new TournamentSnapshot(
                 tournament.code,
+                tournament.roomName,
                 tournament.visibility,
                 tournament.handNumber,
                 tournament.stateVersion,

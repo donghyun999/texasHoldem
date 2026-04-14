@@ -22,6 +22,16 @@ final class TournamentIdentityFactory {
         return nickname == null ? "" : nickname.trim();
     }
 
+    // Trims room titles before they are stored or compared.
+    String normalizeRoomName(String roomName) {
+        return roomName == null ? "" : roomName.trim();
+    }
+
+    // Trims room passwords while preserving case-sensitive comparisons.
+    String normalizeRoomPassword(String roomPassword) {
+        return roomPassword == null ? "" : roomPassword.trim();
+    }
+
     // Resolves an optional caller-supplied code or generates one when omitted.
     String resolveTournamentCode(String requestedCode, Predicate<String> alreadyExists) {
         var normalizedRequestedCode = normalizeTournamentCode(requestedCode);

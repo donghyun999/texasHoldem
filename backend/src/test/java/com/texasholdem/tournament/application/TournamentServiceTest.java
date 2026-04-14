@@ -91,6 +91,42 @@ class TournamentServiceTest {
         assertThat(joinedSnapshot.players()).hasSize(2);
     }
 
+    // Verifies that lobby-facing creates keep a player-friendly room title while the server still generates an internal code.
+    @Test
+    void createsTournamentWithRoomNameAndGeneratedCode() {
+        var service = createService();
+
+        var snapshot = service.createTournament("guest-1", "Owner", "Friday Night Sit & Go", "letmein", TournamentVisibility.PRIVATE);
+
+        assertThat(snapshot.roomName()).isEqualTo("Friday Night Sit & Go");
+        assertThat(snapshot.code()).matches("[A-Z0-9]{5}");
+        assertThat(snapshot.visibility()).isEqualTo(TournamentVisibility.PRIVATE);
+    }
+
+    // Verifies that private-room entry can use the shared title and password instead of a user-entered code.
+    @Test
+    void joinsPrivateTournamentByRoomNameAndPassword() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "Crew Table", "letmein", TournamentVisibility.PRIVATE);
+
+        var joinedSnapshot = service.joinPrivateTournament("Crew Table", "letmein", "guest-2", "Player2");
+
+        assertThat(joinedSnapshot.roomName()).isEqualTo("Crew Table");
+        assertThat(joinedSnapshot.players()).hasSize(2);
+        assertThat(joinedSnapshot.players()).extracting(player -> player.nickname()).contains("Player2");
+    }
+
+    // Verifies that active room titles stay unique so private-room lookup remains unambiguous.
+    @Test
+    void rejectsDuplicateActiveRoomName() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "Crew Table", "letmein", TournamentVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> service.createTournament("guest-2", "OtherOwner", "Crew Table", null, TournamentVisibility.PUBLIC))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Room name is already in use");
+    }
+
     // Verifies that only waiting public tournaments are exposed through the lobby list.
     @Test
     void listsOnlyWaitingPublicTournaments() {

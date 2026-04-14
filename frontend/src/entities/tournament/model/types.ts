@@ -66,6 +66,7 @@ export type TournamentPlayer = {
 
 export type TournamentSnapshot = {
   code: string;
+  roomName: string;
   visibility: TournamentVisibility;
   handNumber: number;
   stateVersion: number;
@@ -108,11 +109,13 @@ export type TournamentEvent = {
 export type ActiveTournamentSession = {
   guestId: string;
   tournamentCode: string;
+  roomName: string;
   status: TournamentStatus;
 };
 
 export type PublicTournamentSummary = {
   code: string;
+  roomName: string;
   visibility: TournamentVisibility;
   status: TournamentStatus;
   currentPlayers: number;

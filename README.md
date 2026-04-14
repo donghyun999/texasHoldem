@@ -5,6 +5,8 @@ Single-table tournament MVP for a Texas Holdem web application.
 ## Current scope
 
 - Guest-based tournament join and ready flow
+- Lobby entry now uses player-facing room titles, with server-generated internal room codes
+- Private waiting-room join now uses room title plus password instead of a user-entered room code
 - Owner start and initial blind assignment
 - Tournament snapshot REST API and STOMP/WebSocket broadcast flow
 - Tournament table UI bound to the shared snapshot contract

@@ -16,6 +16,7 @@
 ## Completed
 
 - Guest-based tournament create, join, ready, and owner-start flow
+- Lobby create/join UX is now moving away from developer-facing room codes toward room-title and password based entry
 - Guest-level active-tournament detection and resume path on the home screen
 - Shared tournament snapshot contract across backend REST, WebSocket, and frontend UI
 - Snapshot identity now includes `handNumber`, `stateVersion`, and public/viewer audience metadata so clients can distinguish stale/public snapshots from viewer-personalized card state
@@ -36,7 +37,8 @@
 - Final-hand result hold before `FINISHED`, including expired reconnect/reload normalization
 - Basic reconnect and persistence flow
 - WebSocket origin allowlist now follows the shared environment-driven local frontend origin configuration
-- Custom tournament-code creation now works end-to-end for create and join flows
+- Table creation now keeps server-generated internal room codes while exposing player-facing room titles in the lobby and table UI
+- Private waiting-room join now resolves by room title and password instead of a user-entered room code
 - REST mirror endpoints for ready, start, disconnect, and reconnect now accept the tournament code from the URL path, so fallback disconnect and waiting-room leave flow no longer fail validation
 - Frontend disconnect fallback now applies returned snapshots locally and keeps active-tournament cache aligned after waiting-room leave
 - Table-entry disconnect cleanup now ignores the initial React `StrictMode` effect cleanup, so owner create/join flow no longer auto-removes the table immediately after navigation
@@ -80,6 +82,7 @@
 - No additional frontend or websocket contract changes are currently required for minimum-raise or short all-in raise-reopen handling
 - Current reconnect flow is consistent with the MVP scope for seat-level recovery, including persisted offline state and reconnect after reload
 - Home-screen UX now surfaces when the current guest is already seated in another active tournament instead of only failing after a create/join request
+- Guest ID and direct room-code UX are no longer required on the primary lobby path; the player-facing flow now centers on nickname, room title, and private-table password
 - Reconnect now normalizes stale expired `HAND_RESULT` state before reconnect/disconnect snapshots are published, so recovery lands on the real current hand
 - Final-hand results now stay visible for the full 5-second window before `FINISHED`, and expired recovery normalizes both next-hand and final-finish branches
 - Result handling now exposes richer websocket payload summaries while keeping the snapshot-driven client contract

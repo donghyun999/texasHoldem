@@ -4,6 +4,7 @@ import java.util.List;
 
 public record TournamentSnapshot(
         String code,
+        String roomName,
         TournamentVisibility visibility,
         long handNumber,
         long stateVersion,

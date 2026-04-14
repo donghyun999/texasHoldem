@@ -6,6 +6,7 @@ import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.presentation.dto.CreateTournamentRequest;
+import com.texasholdem.tournament.presentation.dto.JoinPrivateTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.JoinTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
@@ -44,7 +45,8 @@ public class TournamentController {
                 tournamentService.createTournament(
                         request.guestId(),
                         request.nickname(),
-                        request.code(),
+                        request.roomName(),
+                        request.password(),
                         request.visibility()
                 )
         );
@@ -74,6 +76,19 @@ public class TournamentController {
         var broadcast = tournamentService.joinTournamentBroadcast(code, request.guestId(), request.nickname());
         topicPublisher.publish(code, broadcast);
         return ApiResponse.ok(broadcast.primaryEvent().snapshot());
+    }
+
+    // Adds a guest to one private waiting room using its title and password.
+    @PostMapping("/private/join")
+    public ApiResponse<TournamentSnapshot> joinPrivateTournament(@Valid @RequestBody JoinPrivateTournamentRequest request) {
+        return ApiResponse.ok(
+                tournamentService.joinPrivateTournament(
+                        request.roomName(),
+                        request.password(),
+                        request.guestId(),
+                        request.nickname()
+                )
+        );
     }
 
     // Mirrors the ready toggle as a REST endpoint for quick testing.

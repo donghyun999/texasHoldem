@@ -13,6 +13,8 @@ import java.util.List;
 final class TournamentState {
 
     final String code;
+    String roomName = "";
+    String roomPassword = "";
     TournamentVisibility visibility = TournamentVisibility.PRIVATE;
     final List<TournamentPlayerState> players = new ArrayList<>();
     long handNumber = 0;

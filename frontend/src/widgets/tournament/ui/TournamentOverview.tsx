@@ -94,9 +94,12 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-bold text-white sm:text-2xl">{snapshot.code}</h2>
+            <h2 className="text-xl font-bold text-white sm:text-2xl">{snapshot.roomName}</h2>
             <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-100">
               {snapshot.status.replaceAll("_", " ")}
+            </span>
+            <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-100">
+              {snapshot.visibility === "PUBLIC" ? "Open Table" : "Private Table"}
             </span>
             <span className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${syncSummary.tone}`}>
               {syncSummary.label}

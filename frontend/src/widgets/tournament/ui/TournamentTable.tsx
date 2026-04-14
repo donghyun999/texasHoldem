@@ -1093,7 +1093,12 @@ export function TournamentTable({
       <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(245,158,11,0.22),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
 
       <div className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 px-2 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:left-4 sm:top-4 sm:text-xs">
-        <p className="font-semibold">{snapshot.code}</p>
+        <div className="min-w-0">
+          <p className="max-w-[8.5rem] truncate font-semibold sm:max-w-[10rem]">{snapshot.roomName}</p>
+          <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
+            {snapshot.visibility === "PUBLIC" ? "Open Table" : "Private Table"}
+          </p>
+        </div>
         <div className="flex rounded-full border border-white/10 bg-black/30 p-0.5">
           {(["chips", "bb"] as const).map((mode) => {
             const selected = stackDisplayMode === mode;

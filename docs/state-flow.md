@@ -40,6 +40,8 @@
 - Each hand now deals hole cards and hidden board cards from a shuffled 52-card deck before snapshots are broadcast
 - Blind levels advance only on the next hand boundary, never in the middle of an active hand
 - Waiting-room disconnects remove the player immediately and delegate owner rights by lowest eligible seat
+- Lobby create now uses a player-facing room title while the backend still keeps an auto-generated internal tournament code
+- Private waiting-room join uses room title plus password instead of a manually chosen room code
 - Waiting-room leave/disconnect semantics are the same server-side operation
   - when WebSocket is unavailable, the frontend falls back to `POST /api/v1/tournaments/{code}/disconnect` and applies the returned snapshot locally
 - Home public room list stays limited to joinable public `WAITING` rooms
