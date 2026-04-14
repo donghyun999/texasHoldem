@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
 import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
+import { WaitingRoomInvitePanel } from "@/features/lobby/ui/WaitingRoomInvitePanel";
 import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-tournament-realtime-snapshot";
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
@@ -15,6 +16,7 @@ import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 // Renders a tournament table from either a live server snapshot or a local fallback.
 export function TablePage() {
   const params = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const tournamentCode = params.tournamentCode ?? params.roomCode ?? "DEMO1";
@@ -34,6 +36,7 @@ export function TablePage() {
   const setStackDisplayMode = useUiStore((state) => state.setStackDisplayMode);
   const currentPlayer =
     realtimeSnapshot.currentPlayer ?? snapshot.players.find((player) => player.guestId === guestId) ?? null;
+  const createdRoomPassword = (location.state as { createdRoomPassword?: string | null } | null)?.createdRoomPassword ?? null;
   const wasSeatedRef = useRef(false);
   const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
 
@@ -52,6 +55,11 @@ export function TablePage() {
 
   return (
     <section className="space-y-6">
+      <WaitingRoomInvitePanel
+        snapshot={snapshot}
+        currentPlayer={currentPlayer}
+        createdRoomPassword={createdRoomPassword}
+      />
       <TournamentTable
         snapshot={snapshot}
         currentGuestId={guestId}

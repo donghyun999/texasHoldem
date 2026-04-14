@@ -6,6 +6,8 @@ type PublicTournamentListProps = {
   disabled?: boolean;
   loading?: boolean;
   errorMessage?: string | null;
+  passwordErrorMessage?: string | null;
+  onPasswordInteraction?: () => void;
   onJoin: (code: string, password?: string) => void;
 };
 
@@ -15,17 +17,21 @@ export function PublicTournamentList({
   disabled = false,
   loading = false,
   errorMessage = null,
+  passwordErrorMessage = null,
+  onPasswordInteraction,
   onJoin,
 }: PublicTournamentListProps) {
   const [passwordRoomCode, setPasswordRoomCode] = useState<string | null>(null);
   const [passwordDraft, setPasswordDraft] = useState("");
 
   function openPasswordPrompt(code: string) {
+    onPasswordInteraction?.();
     setPasswordRoomCode(code);
     setPasswordDraft("");
   }
 
   function closePasswordPrompt() {
+    onPasswordInteraction?.();
     setPasswordRoomCode(null);
     setPasswordDraft("");
   }
@@ -94,6 +100,11 @@ export function PublicTournamentList({
                     <p className="mt-1 text-xs text-zinc-400">
                       Seats {room.currentPlayers} / {room.maxPlayers}
                     </p>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      {locked
+                        ? "Locked table. Select it here, then enter the password to take a seat."
+                        : "Open table. Join immediately while seats are still available."}
+                    </p>
                   </div>
 
                   <button
@@ -107,21 +118,41 @@ export function PublicTournamentList({
                 </div>
 
                 {passwordPromptOpen ? (
-                  <div className="mt-4 rounded-2xl border border-amber-300/20 bg-black/25 p-4">
+                  <form
+                    className="mt-4 rounded-2xl border border-amber-300/20 bg-black/25 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (disabled || !passwordDraft.trim()) {
+                        return;
+                      }
+                      onJoin(room.code, passwordDraft);
+                    }}
+                  >
                     <label className="block">
-                      <span className="mb-2 block text-sm text-zinc-300">Password</span>
+                      <span className="mb-2 block text-sm text-zinc-300">{room.roomName} password</span>
                       <input
                         type="password"
                         value={passwordDraft}
-                        onChange={(event) => setPasswordDraft(event.target.value)}
+                        onChange={(event) => {
+                          onPasswordInteraction?.();
+                          setPasswordDraft(event.target.value);
+                        }}
                         placeholder="Enter the table password"
+                        autoFocus
                         className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-amber-300"
                       />
                     </label>
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Hosts should share the table title and password. Room codes stay internal.
+                    </p>
+                    {passwordErrorMessage ? (
+                      <p className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
+                        {passwordErrorMessage}
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex gap-2">
                       <button
-                        type="button"
-                        onClick={() => onJoin(room.code, passwordDraft)}
+                        type="submit"
                         disabled={disabled || !passwordDraft.trim()}
                         className="flex-1 rounded-2xl bg-amber-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
@@ -135,7 +166,7 @@ export function PublicTournamentList({
                         Cancel
                       </button>
                     </div>
-                  </div>
+                  </form>
                 ) : null}
               </div>
             );

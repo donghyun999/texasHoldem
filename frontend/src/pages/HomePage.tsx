@@ -24,6 +24,15 @@ function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+type ValidationError = {
+  scope: "create" | "join";
+  message: string;
+};
+
+type TableNavigationState = {
+  createdRoomPassword?: string | null;
+};
+
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -31,7 +40,8 @@ export function HomePage() {
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
   const [createRoomName, setCreateRoomName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<ValidationError | null>(null);
+  const [lastJoinUsedPassword, setLastJoinUsedPassword] = useState(false);
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
     queryFn: getBackendStatus,
@@ -66,7 +76,9 @@ export function HomePage() {
     }) => createTournament(guestId, nickname, roomName, visibility, password),
     onSuccess: (snapshot, variables) => {
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
-      handleTournamentEntry(snapshot, variables.guestId);
+      handleTournamentEntry(snapshot, variables.guestId, {
+        createdRoomPassword: variables.visibility === "PRIVATE" ? variables.password ?? null : null,
+      });
     },
   });
   const joinMutation = useMutation({
@@ -97,17 +109,45 @@ export function HomePage() {
       : isCheckingActiveTournament
         ? "Checking for an active table..."
         : null;
-  const activeError =
-    validationError ||
+  const createError =
+    (validationError?.scope === "create" ? validationError.message : null) ||
     (createMutation.error && toErrorMessage(createMutation.error, "Failed to create table.")) ||
+    null;
+  const joinError =
+    (validationError?.scope === "join" ? validationError.message : null) ||
     (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join table.")) ||
     null;
+  const passwordJoinError = lastJoinUsedPassword ? joinError : null;
   const waitingListError =
-    waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
+    (waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
       ? toErrorMessage(waitingRoomListQuery.error, "Failed to load waiting tables.")
-      : null;
+      : null) ||
+    (passwordJoinError ? null : joinError);
 
-  function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
+  function clearCreateErrors() {
+    if (validationError?.scope === "create") {
+      setValidationError(null);
+    }
+    if (createMutation.error) {
+      createMutation.reset();
+    }
+  }
+
+  function clearJoinErrors() {
+    if (validationError?.scope === "join") {
+      setValidationError(null);
+    }
+    if (joinMutation.error) {
+      joinMutation.reset();
+    }
+    setLastJoinUsedPassword(false);
+  }
+
+  function handleTournamentEntry(
+    snapshot: TournamentSnapshot,
+    viewerGuestId: string,
+    navigationState?: TableNavigationState,
+  ) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
     queryClient.setQueryData(buildActiveTournamentKey(viewerGuestId), {
       guestId: viewerGuestId,
@@ -116,7 +156,7 @@ export function HomePage() {
       status: snapshot.status,
     });
     syncPublicTournamentListCache(queryClient, snapshot);
-    navigate(`/tournaments/${snapshot.code}`);
+    navigate(`/tournaments/${snapshot.code}`, { state: navigationState });
   }
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
@@ -134,14 +174,15 @@ export function HomePage() {
   }
 
   async function handleCreate() {
-    setValidationError(null);
+    clearCreateErrors();
+    clearJoinErrors();
 
     if (!createRoomName.trim()) {
-      setValidationError("Enter a table title before creating a table.");
+      setValidationError({ scope: "create", message: "Enter a table title before creating a table." });
       return;
     }
     if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
-      setValidationError("Set a password before creating a locked table.");
+      setValidationError({ scope: "create", message: "Set a password before creating a locked table." });
       return;
     }
 
@@ -155,12 +196,14 @@ export function HomePage() {
         password: roomVisibility === "PRIVATE" ? createPassword.trim() : undefined,
       });
     } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+      setValidationError({ scope: "create", message: toErrorMessage(error, "Failed to create guest session.") });
     }
   }
 
   async function handleJoinTable(code: string, password?: string) {
-    setValidationError(null);
+    clearJoinErrors();
+    clearCreateErrors();
+    setLastJoinUsedPassword(typeof password === "string");
 
     try {
       const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
@@ -171,7 +214,7 @@ export function HomePage() {
         password,
       });
     } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+      setValidationError({ scope: "join", message: toErrorMessage(error, "Failed to create guest session.") });
     }
   }
 
@@ -180,7 +223,8 @@ export function HomePage() {
       return;
     }
 
-    setValidationError(null);
+    clearCreateErrors();
+    clearJoinErrors();
     navigate(`/tournaments/${activeTournament.tournamentCode}`);
   }
 
@@ -208,6 +252,8 @@ export function HomePage() {
           disabled={controlsDisabled}
           loading={waitingRoomListQuery.isPending}
           errorMessage={waitingListError}
+          passwordErrorMessage={passwordJoinError}
+          onPasswordInteraction={clearJoinErrors}
           onJoin={handleJoinTable}
         />
       </div>
@@ -221,21 +267,22 @@ export function HomePage() {
         activeTournamentStatus={activeTournament?.status ?? null}
         createDisabled={controlsDisabled}
         busyLabel={busyLabel}
-        errorMessage={activeError}
+        errorMessage={createError}
         onNicknameChange={(value) => {
-          setValidationError(null);
+          clearCreateErrors();
+          clearJoinErrors();
           setNickname(value);
         }}
         onCreateRoomNameChange={(value) => {
-          setValidationError(null);
+          clearCreateErrors();
           setCreateRoomName(value);
         }}
         onCreatePasswordChange={(value) => {
-          setValidationError(null);
+          clearCreateErrors();
           setCreatePassword(value);
         }}
         onRoomVisibilityChange={(value) => {
-          setValidationError(null);
+          clearCreateErrors();
           setRoomVisibility(value);
         }}
         onResumeTournament={handleResumeTournament}

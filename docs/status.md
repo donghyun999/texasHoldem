@@ -16,7 +16,7 @@
 ## Completed
 
 - Guest-based tournament create, join, ready, and owner-start flow
-- Lobby create/join UX is now moving away from developer-facing room codes toward room-title and password based entry
+- Lobby create flow now centers on nickname, room title, and table visibility instead of a user-entered room code
 - Guest-level active-tournament detection and resume path on the home screen
 - Shared tournament snapshot contract across backend REST, WebSocket, and frontend UI
 - Snapshot identity now includes `handNumber`, `stateVersion`, and public/viewer audience metadata so clients can distinguish stale/public snapshots from viewer-personalized card state
@@ -38,14 +38,16 @@
 - Basic reconnect and persistence flow
 - WebSocket origin allowlist now follows the shared environment-driven local frontend origin configuration
 - Table creation now keeps server-generated internal room codes while exposing player-facing room titles in the lobby and table UI
-- Private waiting-room join now resolves by room title and password instead of a user-entered room code
+- Home lobby list now shows both open and locked waiting rooms, and locked entries require a password prompt before join
+- Locked-table passwords are now stored as hashes instead of plain text in the mutable tournament state
+- Waiting-room owners now get an invite guidance panel that points players back to the lobby flow instead of a direct table deep link
 - REST mirror endpoints for ready, start, disconnect, and reconnect now accept the tournament code from the URL path, so fallback disconnect and waiting-room leave flow no longer fail validation
 - Frontend disconnect fallback now applies returned snapshots locally and keeps active-tournament cache aligned after waiting-room leave
 - Table-entry disconnect cleanup now ignores the initial React `StrictMode` effect cleanup, so owner create/join flow no longer auto-removes the table immediately after navigation
 - Table-page WebSocket lifecycle no longer re-creates the STOMP client on every render, so the realtime session now stays connected in browser play instead of falling back to a looping `LIVE SNAPSHOT` state
 - Explicit in-hand disconnect from the browser no longer auto-reconnects immediately on the same page, so manual reconnect flow is now testable and consistent with the UI
 - Waiting-room join now fan-outs a fresh `tournamentSnapshot`, so already seated browsers refresh the participant list immediately when a new player enters
-- Public room list now keeps a stable creation-based order, excludes full waiting rooms, and is re-synced from table snapshots so leave/start transitions do not wait for the next home poll to clear stale cache
+- Lobby room list now keeps a stable creation-based order, excludes full waiting rooms, and is re-synced from table snapshots so leave/start transitions do not wait for the next home poll to clear stale cache
 - Browser refresh no longer auto-sends the fallback disconnect for in-hand seats, so reloading the active actor restores the latest snapshot instead of forcing an immediate fold
 - Table REST snapshot now accepts an optional viewing `guestId` and returns `selfHoleCards`, so the current player can see their own hand without exposing opponents' cards
 - Frontend realtime snapshot merging now preserves last-known self hole cards only within the same `handNumber` and ignores older same-hand `stateVersion` updates
@@ -62,6 +64,7 @@
 - Keep the MVP working against local PostgreSQL
 - Preserve a clean path to final Docker-based deployment
 - Harden reconnect and persistence behavior
+- Review remaining lobby UX polish around locked-table affordances and post-create sharing guidance
 - Keep backend betting state, snapshot actions, and persisted hand state aligned with the tournament spec
 - Keep the snapshot identity contract aligned across backend REST, public WebSocket events, and frontend derived table state
 - Finish MVP closeout by separating true must-fix items from explicit out-of-scope items
@@ -69,6 +72,7 @@
 
 ## Next work
 
+- Tighten the lobby UX around locked-room messaging, password entry, and host sharing guidance
 - Final reconnect and persistence hardening review for any newly found edge case
 - Final browser smoke test across create, join, leave, resume, and reconnect flows
 - Repeat the Railway smoke pass only after the next meaningful gameplay or UI change
@@ -82,7 +86,7 @@
 - No additional frontend or websocket contract changes are currently required for minimum-raise or short all-in raise-reopen handling
 - Current reconnect flow is consistent with the MVP scope for seat-level recovery, including persisted offline state and reconnect after reload
 - Home-screen UX now surfaces when the current guest is already seated in another active tournament instead of only failing after a create/join request
-- Guest ID and direct room-code UX are no longer required on the primary lobby path; the player-facing flow now centers on nickname, room title, and private-table password
+- Guest ID and direct room-code input UX are no longer required on the primary lobby path; the player-facing flow now centers on nickname, room title, table visibility, and locked-table password when needed
 - Reconnect now normalizes stale expired `HAND_RESULT` state before reconnect/disconnect snapshots are published, so recovery lands on the real current hand
 - Final-hand results now stay visible for the full 5-second window before `FINISHED`, and expired recovery normalizes both next-hand and final-finish branches
 - Result handling now exposes richer websocket payload summaries while keeping the snapshot-driven client contract
@@ -96,9 +100,13 @@
 - The most recent smoke check also found and fixed an unintended auto-disconnect on initial table entry in frontend dev `StrictMode`
 - The latest browser verification also confirmed stable `LIVE WS` state through create, join, ready, start, waiting-room leave, disconnect, and reconnect flows
 - Waiting-room participant lists now refresh immediately on join because REST join mirrors one websocket snapshot broadcast to existing subscribers
-- Public waiting-room list semantics are now tighter: the home list only represents still-joinable public `WAITING` rooms, and table-driven cache sync removes stale entries immediately on leave/start/finish
+- Waiting-room list semantics are now tighter: the home list only represents still-joinable `WAITING` rooms with open seats, including locked tables, and table-driven cache sync removes stale entries immediately on leave/start/finish
+- Room codes remain internal stable identifiers for routing and server APIs even though the primary lobby UX no longer asks players to type them
+- Locked-table passwords are no longer recoverable from stored tournament state because the backend persists only hashed values
+- The current owner invite UX intentionally uses a waiting-room guidance panel and copied lobby note rather than a direct table invite link, because seating still starts from the lobby list
 - Reload recovery now preserves the current in-hand seat instead of converting the refresh into an automatic disconnect/fold path
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
+- The main remaining lobby follow-up is UX polish, not a known correctness gap in locked-room visibility or password enforcement
 - Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
 - Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
 - The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`

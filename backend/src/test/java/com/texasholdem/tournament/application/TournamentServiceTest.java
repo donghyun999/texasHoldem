@@ -116,6 +116,20 @@ class TournamentServiceTest {
         assertThat(joinedSnapshot.players()).extracting(player -> player.nickname()).contains("Player2");
     }
 
+    // Verifies that the main lobby path can join one locked room by selected entry code plus matching password.
+    @Test
+    void joinsLockedTournamentByCodeWhenPasswordMatches() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner", "Crew Table", "letmein", TournamentVisibility.PRIVATE);
+
+        var joinedSnapshot = service.joinTournament(snapshot.code(), "guest-2", "Player2", "letmein");
+
+        assertThat(joinedSnapshot.code()).isEqualTo(snapshot.code());
+        assertThat(joinedSnapshot.roomName()).isEqualTo("Crew Table");
+        assertThat(joinedSnapshot.players()).hasSize(2);
+        assertThat(joinedSnapshot.players()).extracting(player -> player.nickname()).contains("Player2");
+    }
+
     // Verifies that active room titles stay unique so private-room lookup remains unambiguous.
     @Test
     void rejectsDuplicateActiveRoomName() {
@@ -182,6 +196,20 @@ class TournamentServiceTest {
         service.createTournament("guest-1", "Owner", "FULL1", TournamentVisibility.PUBLIC);
         for (var playerNumber = 2; playerNumber <= 6; playerNumber++) {
             service.joinTournament("FULL1", "guest-" + playerNumber, "Player" + playerNumber);
+        }
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries).isEmpty();
+    }
+
+    // Verifies that full locked waiting rooms also disappear from the joinable lobby list.
+    @Test
+    void excludesFullLockedWaitingTournamentsFromLobbyList() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner", "Locked Full", "letmein", TournamentVisibility.PRIVATE);
+        for (var playerNumber = 2; playerNumber <= 6; playerNumber++) {
+            service.joinTournament(snapshot.code(), "guest-" + playerNumber, "Player" + playerNumber, "letmein");
         }
 
         var summaries = service.listPublicWaitingTournaments();

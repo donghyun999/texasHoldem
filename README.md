@@ -6,13 +6,23 @@ Single-table tournament MVP for a Texas Holdem web application.
 
 - Guest-based tournament join and ready flow
 - Lobby entry now uses player-facing room titles, with server-generated internal room codes
-- Private waiting-room join now uses room title plus password instead of a user-entered room code
+- Home lobby now lists both open and locked waiting rooms, with locked rooms requiring a password after selection
+- Private-room passwords are hashed server-side before they are persisted
 - Owner start and initial blind assignment
 - Tournament snapshot REST API and STOMP/WebSocket broadcast flow
 - Tournament table UI bound to the shared snapshot contract
 - In-hand action engine for `CHECK`, `CALL`, `RAISE`, `ALL_IN`, and `FOLD`
 - Contribution tracking, main pot and side pot calculation, showdown settlement, bust-out handling, and hand-end state transitions
 - Automatic next-hand advance from `HAND_RESULT` after 5 seconds with blind-level progression on hand boundaries
+
+## Lobby flow
+
+- Hosts enter a nickname, choose a table title, and create either an open or locked waiting room
+- The backend generates the internal tournament code; players do not type a room code on the primary lobby path
+- The lobby list shows every joinable `WAITING` room that still has seats, including locked rooms
+- Joining starts from the selected lobby entry; locked rooms open a password prompt before the join request is sent
+- Waiting-room owners now get a share panel that tells invitees to return to the lobby, because direct table links are not the primary join path
+- The table route and server APIs still use the internal tournament code as the stable identifier
 
 ## Stack
 
@@ -146,6 +156,7 @@ Deployment-targeted Railway smoke scripts:
 
 ## Next work
 
+- Lobby UX polish for locked-room affordances and post-create sharing guidance
 - Reconnect and persistence hardening
 - Richer hand-result events for client animation and replay
 - Final showdown/result UX polish and reconnect edge-case review
