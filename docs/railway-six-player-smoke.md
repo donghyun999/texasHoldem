@@ -44,7 +44,8 @@
 
 - `test-results/railway-six-player-smoke.json`
 - `test-results/railway-six-player-smoke-fold-priority.json`
-- `test-results/railway-six-player-smoke.cjs`
+- `scripts/railway-six-player-smoke.cjs`
+- `scripts/railway-six-player-continuous.cjs`
 
 ## Remaining Risk
 

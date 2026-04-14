@@ -5,6 +5,7 @@ import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -84,8 +85,34 @@ class TournamentServiceTest {
         var joinedSnapshot = service.joinTournament("1111", "guest-2", "Player2");
 
         assertThat(snapshot.code()).isEqualTo("1111");
+        assertThat(snapshot.visibility()).isEqualTo(TournamentVisibility.PRIVATE);
         assertThat(joinedSnapshot.code()).isEqualTo("1111");
         assertThat(joinedSnapshot.players()).hasSize(2);
+    }
+
+    // Verifies that only waiting public tournaments are exposed through the lobby list.
+    @Test
+    void listsOnlyWaitingPublicTournaments() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "PUB1", TournamentVisibility.PUBLIC);
+        service.joinTournament("PUB1", "guest-2", "Player2");
+        service.createTournament("guest-3", "PrivateOwner", "PRIV1", TournamentVisibility.PRIVATE);
+        service.createTournament("guest-4", "StartedOwner", "PUB2", TournamentVisibility.PUBLIC);
+        service.joinTournament("PUB2", "guest-5", "Player5");
+        service.changeReady("PUB2", "guest-4", true);
+        service.changeReady("PUB2", "guest-5", true);
+        service.startTournament("PUB2", "guest-4");
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries).hasSize(1);
+        var summary = summaries.get(0);
+        assertThat(summary.code()).isEqualTo("PUB1");
+        assertThat(summary.visibility()).isEqualTo(TournamentVisibility.PUBLIC);
+        assertThat(summary.status()).isEqualTo(TournamentStatus.WAITING);
+        assertThat(summary.currentPlayers()).isEqualTo(2);
+        assertThat(summary.maxPlayers()).isEqualTo(6);
+        assertThat(summary.ownerNickname()).isEqualTo("Owner");
     }
 
     // Verifies that a REST join can fan out one fresh snapshot to waiting-room subscribers immediately.
@@ -189,6 +216,21 @@ class TournamentServiceTest {
         assertThat(anonymousView.viewerHoleCardsIncluded()).isFalse();
     }
 
+    // Verifies that viewer snapshots expose the exact additional chips needed to call the current bet.
+    @Test
+    void getTournamentIncludesViewerChipsToCall() {
+        var service = createService();
+        var code = prepareTournament(service, 3);
+
+        var actingView = service.getTournament(code, "guest-2");
+        var bigBlindView = service.getTournament(code, "guest-1");
+        var anonymousView = service.getTournament(code);
+
+        assertThat(actingView.chipsToCall()).isEqualTo(10);
+        assertThat(bigBlindView.chipsToCall()).isEqualTo(20);
+        assertThat(anonymousView.chipsToCall()).isZero();
+    }
+
     // Verifies that snapshots expose stable hand identity and monotonic state identity.
     @Test
     void snapshotsCarryHandNumberAndStateVersion() {
@@ -227,6 +269,9 @@ class TournamentServiceTest {
         assertThat(snapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
         assertThat(snapshot.mainPot()).isEqualTo(30);
         assertThat(snapshot.sidePots()).isEmpty();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-1").roundContribution()).isZero();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-2").roundContribution()).isEqualTo(10);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-3").roundContribution()).isEqualTo(20);
     }
 
     // Verifies that manually reserved codes cannot be claimed twice.
@@ -410,6 +455,86 @@ class TournamentServiceTest {
         assertThat(snapshot.availableActions()).containsExactly("FOLD", "CALL", "RAISE", "ALL_IN");
     }
 
+    // Verifies that one missed decision immediately marks the player AFK and auto-folds when facing a bet.
+    @Test
+    void marksTimedOutActorAfkAndAutoFoldsWhenCheckIsUnavailable() {
+        var service = createService();
+        var code = prepareTournament(service, 2);
+        var expiredDeadline = Instant.now().minusMillis(1).toEpochMilli();
+
+        setActionDeadline(service, code, expiredDeadline);
+
+        var timeoutBroadcast = service.autoTimeoutActingPlayer(code, expiredDeadline);
+        var timeoutEvent = timeoutBroadcast.primaryEvent();
+        var snapshot = timeoutEvent.snapshot();
+
+        assertThat(eventTypes(timeoutBroadcast)).contains("actionApplied");
+        assertThat(timeoutEvent.payload()).containsEntry("guestId", "guest-1");
+        assertThat(timeoutEvent.payload()).containsEntry("action", "FOLD");
+        assertThat(timeoutEvent.payload()).containsEntry("reason", "timeout");
+        assertThat(timeoutEvent.payload()).containsEntry("afk", true);
+        assertThat(snapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
+        assertThat(requireSnapshotPlayer(snapshot, "guest-1").afk()).isTrue();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-1").connected()).isTrue();
+        assertThat(requireSnapshotPlayer(snapshot, "guest-1").status()).isEqualTo(PlayerStatus.FOLDED);
+        assertThat(snapshot.tableMessage()).contains("won 20");
+    }
+
+    // Verifies that AFK players keep auto-checking until they explicitly return to manual play.
+    @Test
+    void keepsAfkPlayerOnAutomaticChecksUntilTheyReturnToPlay() {
+        var service = createService();
+        var code = prepareTournament(service, 3);
+
+        service.applyAction(code, "guest-1", "CALL", null);
+        service.applyAction(code, "guest-2", "CALL", null);
+        var flopSnapshot = service.applyAction(code, "guest-3", "CHECK", null).primaryEvent().snapshot();
+        assertThat(flopSnapshot.actingSeat()).isEqualTo(1);
+        assertThat(flopSnapshot.availableActions()).containsExactly("CHECK", "BET", "ALL_IN");
+
+        var expiredDeadline = Instant.now().minusMillis(1).toEpochMilli();
+        setActionDeadline(service, code, expiredDeadline);
+
+        var timeoutBroadcast = service.autoTimeoutActingPlayer(code, expiredDeadline);
+        var timeoutEvent = timeoutBroadcast.primaryEvent();
+        var timeoutSnapshot = timeoutEvent.snapshot();
+
+        assertThat(timeoutEvent.payload()).containsEntry("guestId", "guest-2");
+        assertThat(timeoutEvent.payload()).containsEntry("action", "CHECK");
+        assertThat(timeoutEvent.payload()).containsEntry("reason", "timeout");
+        assertThat(requireSnapshotPlayer(timeoutSnapshot, "guest-2").afk()).isTrue();
+        assertThat(timeoutSnapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
+        assertThat(timeoutSnapshot.actingSeat()).isEqualTo(2);
+
+        service.applyAction(code, "guest-3", "CHECK", null);
+        var turnSnapshot = service.applyAction(code, "guest-1", "CHECK", null).primaryEvent().snapshot();
+
+        assertThat(requireSnapshotPlayer(turnSnapshot, "guest-2").afk()).isTrue();
+        assertThat(turnSnapshot.actingSeat()).isEqualTo(2);
+        assertThat(turnSnapshot.tableMessage()).contains("Player2 is AFK and was auto-checked.");
+
+        var returnBroadcast = service.returnPlayerToPlay(code, "guest-2");
+        var returnSnapshot = returnBroadcast.primaryEvent().snapshot();
+
+        assertThat(eventTypes(returnBroadcast)).containsExactly("playerReturned");
+        assertThat(returnBroadcast.primaryEvent().payload()).containsEntry("guestId", "guest-2");
+        assertThat(returnBroadcast.primaryEvent().payload()).containsEntry("afk", false);
+        assertThat(requireSnapshotPlayer(returnSnapshot, "guest-2").afk()).isFalse();
+        assertThat(returnSnapshot.tableMessage()).contains("Player2 returned to play.");
+
+        service.applyAction(code, "guest-3", "CHECK", null);
+        var riverSnapshot = service.applyAction(code, "guest-1", "CHECK", null).primaryEvent().snapshot();
+
+        assertThat(riverSnapshot.actingSeat()).isEqualTo(1);
+        assertThat(requireSnapshotPlayer(riverSnapshot, "guest-2").afk()).isFalse();
+        assertThat(riverSnapshot.availableActions()).containsExactly("CHECK", "BET", "ALL_IN");
+
+        var afterManualReturnAction = service.applyAction(code, "guest-2", "CHECK", null).primaryEvent().snapshot();
+
+        assertThat(afterManualReturnAction.actingSeat()).isEqualTo(2);
+        assertThat(requireSnapshotPlayer(afterManualReturnAction, "guest-2").afk()).isFalse();
+    }
+
     // Verifies that matched all-ins settle the showdown and hold the final result before finishing.
     @Test
     void revealsFullBoardWhenAllRemainingPlayersAreAllIn() {
@@ -463,10 +588,12 @@ class TournamentServiceTest {
         assertThat(showdownStarted.payload()).containsEntry("boardCards", List.of("AH", "KD", "7C", "4S", "2D"));
         assertThat(showdownStarted.payload()).containsEntry("showdownPotCount", 1);
         assertThat(showdownHandsPayload(showdownStarted))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(showdownStarted))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(showdownPotsPayload(showdownStarted)).singleElement().satisfies((pot) -> {
             assertThat(pot).containsEntry("type", "MAIN");
             assertThat(pot).containsEntry("amount", 4_000);
@@ -488,10 +615,12 @@ class TournamentServiceTest {
         assertThat(handEnded.payload()).containsEntry("showdownPotCount", 1);
         assertThat(handEnded.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
         assertThat(showdownHandsPayload(handEnded))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(handEnded))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(recentlyBustedPlayersPayload(handEnded)).singleElement().satisfies((player) -> {
             assertThat(player).containsEntry("guestId", "guest-1");
             assertThat(player).containsEntry("nickname", "Owner");
@@ -546,10 +675,12 @@ class TournamentServiceTest {
         assertThat(tournamentFinished.payload()).containsEntry("showdownPotCount", 1);
         assertThat(tournamentFinished.payload()).containsEntry("recentlyBustedGuestIds", List.of("guest-1"));
         assertThat(showdownHandsPayload(tournamentFinished))
-                .containsExactly(
-                        Map.of("guestId", "guest-2", "nickname", "Player2", "handLabel", "Three of a Kind"),
-                        Map.of("guestId", "guest-1", "nickname", "Owner", "handLabel", "One Pair")
-                );
+                .extracting(
+                        hand -> hand.get("guestId") + ":" + hand.get("nickname") + ":" + hand.get("handLabel")
+                )
+                .containsExactly("guest-2:Player2:Three of a Kind", "guest-1:Owner:One Pair");
+        assertThat(showdownHandsPayload(tournamentFinished))
+                .allSatisfy(hand -> assertThat((List<?>) hand.get("holeCards")).hasSize(2));
         assertThat(recentlyBustedPlayersPayload(tournamentFinished)).singleElement().satisfies((player) -> {
             assertThat(player).containsEntry("guestId", "guest-1");
             assertThat(player).containsEntry("nickname", "Owner");
@@ -847,7 +978,7 @@ class TournamentServiceTest {
     void reconnectsDisconnectedPlayerAfterPersistenceReload() {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -861,7 +992,8 @@ class TournamentServiceTest {
                 potResolver,
                 handSetupManager,
                 bettingActionManager,
-                handResultManager
+                handResultManager,
+                15
         );
         var handEngine = new TournamentHandEngine(
                 stateAccess,
@@ -880,12 +1012,14 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
                 50,
                 1_800,
                 7_200,
+                15,
                 86_400
         );
 
@@ -905,12 +1039,14 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
                 50,
                 1_800,
                 7_200,
+                15,
                 86_400
         );
 
@@ -1026,7 +1162,7 @@ class TournamentServiceTest {
     void restoresPersistedTournamentStateAcrossServiceInstances() {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -1040,7 +1176,8 @@ class TournamentServiceTest {
                 potResolver,
                 handSetupManager,
                 bettingActionManager,
-                handResultManager
+                handResultManager,
+                15
         );
         var handEngine = new TournamentHandEngine(
                 stateAccess,
@@ -1059,12 +1196,14 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
                 50,
                 1_800,
                 7_200,
+                15,
                 86_400
         );
 
@@ -1086,12 +1225,14 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
                 50,
                 1_800,
                 7_200,
+                15,
                 86_400
         );
         var restoredSnapshot = secondService.getTournament(code);
@@ -1177,7 +1318,7 @@ class TournamentServiceTest {
     ) {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -1191,7 +1332,8 @@ class TournamentServiceTest {
                 potResolver,
                 handSetupManager,
                 bettingActionManager,
-                handResultManager
+                handResultManager,
+                15
         );
         var handEngine = new TournamentHandEngine(
                 stateAccess,
@@ -1210,12 +1352,14 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
                 maxActivePlayers,
                 waitingIdleTtlSeconds,
                 inHandIdleTtlSeconds,
+                15,
                 hardTtlSeconds
         );
     }
@@ -1237,6 +1381,12 @@ class TournamentServiceTest {
     private void setHandResultDeadline(TournamentService service, String code, long epochMilli) {
         var tournament = requireTournamentState(service, code);
         ReflectionTestUtils.setField(tournament, "handResultEndsAtEpochMilli", epochMilli);
+    }
+
+    // Overrides the current action deadline so tests can force one turn timeout deterministically.
+    private void setActionDeadline(TournamentService service, String code, long epochMilli) {
+        var tournament = requireTournamentState(service, code);
+        ReflectionTestUtils.setField(tournament, "actionDeadlineAtEpochMilli", epochMilli);
     }
 
     // Overrides the finished cleanup deadline so tests can force the delayed delete branch deterministically.

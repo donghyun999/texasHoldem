@@ -2,6 +2,7 @@ package com.texasholdem.tournament.presentation;
 
 import com.texasholdem.common.api.ApiResponse;
 import com.texasholdem.tournament.application.TournamentService;
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.presentation.dto.CreateTournamentRequest;
@@ -20,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/tournaments")
@@ -37,7 +40,20 @@ public class TournamentController {
     // Creates a waiting tournament snapshot for the owner.
     @PostMapping
     public ApiResponse<TournamentSnapshot> createTournament(@Valid @RequestBody CreateTournamentRequest request) {
-        return ApiResponse.ok(tournamentService.createTournament(request.guestId(), request.nickname(), request.code()));
+        return ApiResponse.ok(
+                tournamentService.createTournament(
+                        request.guestId(),
+                        request.nickname(),
+                        request.code(),
+                        request.visibility()
+                )
+        );
+    }
+
+    // Lists the currently joinable public waiting rooms for the home lobby.
+    @GetMapping("/lobby/public")
+    public ApiResponse<List<PublicTournamentSummary>> getPublicWaitingTournaments() {
+        return ApiResponse.ok(tournamentService.listPublicWaitingTournaments());
     }
 
     // Returns the latest server snapshot for a tournament code.
@@ -87,6 +103,15 @@ public class TournamentController {
             @Valid @RequestBody TournamentConnectionMessage request
     ) {
         return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
+    }
+
+    // Restores an AFK player to normal turn control for future actions.
+    @PostMapping("/{code}/return-to-play")
+    public ApiResponse<TournamentEvent> returnAfkPlayerToPlay(
+            @PathVariable String code,
+            @Valid @RequestBody TournamentConnectionMessage request
+    ) {
+        return ApiResponse.ok(tournamentService.returnPlayerToPlay(request.resolveCode(code), request.guestId()).primaryEvent());
     }
 
     // Starts the first hand when the owner promotes ready players into the field.

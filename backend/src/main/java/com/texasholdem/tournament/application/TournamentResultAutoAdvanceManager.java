@@ -66,10 +66,20 @@ final class TournamentResultAutoAdvanceManager {
     // Replays persisted hand-result transitions so auto-advance survives service restarts.
     @EventListener(ApplicationReadyEvent.class)
     void recoverPendingHandResults() {
+        stateStore.findPendingActionTimeouts().forEach(pendingActionTimeout ->
+                onTournamentStateChanged(new TournamentStateChangedEvent(
+                        pendingActionTimeout.code(),
+                        TournamentStatus.IN_HAND,
+                        pendingActionTimeout.actionDeadlineAtEpochMilli(),
+                        0,
+                        0
+                ))
+        );
         stateStore.findPendingHandResults().forEach(pendingHandResult ->
                 onTournamentStateChanged(new TournamentStateChangedEvent(
                         pendingHandResult.code(),
                         TournamentStatus.HAND_RESULT,
+                        0,
                         pendingHandResult.handResultEndsAtEpochMilli(),
                         0
                 ))
@@ -78,6 +88,7 @@ final class TournamentResultAutoAdvanceManager {
                 onTournamentStateChanged(new TournamentStateChangedEvent(
                         pendingCleanup.code(),
                         TournamentStatus.FINISHED,
+                        0,
                         0,
                         pendingCleanup.finishedCleanupAtEpochMilli()
                 ))
@@ -101,6 +112,13 @@ final class TournamentResultAutoAdvanceManager {
         }
 
         scheduledTransitions.remove(code, scheduled);
+        if (transitionKind == TransitionKind.ACTION_TIMEOUT) {
+            var broadcast = tournamentService.autoTimeoutActingPlayer(code, deadlineEpochMilli);
+            if (broadcast != null) {
+                topicPublisher.publish(code, broadcast);
+            }
+            return;
+        }
         if (transitionKind == TransitionKind.HAND_RESULT) {
             var broadcast = tournamentService.autoAdvanceHandResult(code, deadlineEpochMilli);
             if (broadcast != null) {
@@ -121,6 +139,9 @@ final class TournamentResultAutoAdvanceManager {
     }
 
     private TransitionKind transitionKind(TournamentStateChangedEvent event) {
+        if (event.status() == TournamentStatus.IN_HAND && event.actionDeadlineAtEpochMilli() > 0) {
+            return TransitionKind.ACTION_TIMEOUT;
+        }
         if (event.status() == TournamentStatus.HAND_RESULT && event.handResultEndsAtEpochMilli() > 0) {
             return TransitionKind.HAND_RESULT;
         }
@@ -131,6 +152,9 @@ final class TournamentResultAutoAdvanceManager {
     }
 
     private long transitionDeadline(TournamentStateChangedEvent event, TransitionKind transitionKind) {
+        if (transitionKind == TransitionKind.ACTION_TIMEOUT) {
+            return event.actionDeadlineAtEpochMilli();
+        }
         return transitionKind == TransitionKind.HAND_RESULT
                 ? event.handResultEndsAtEpochMilli()
                 : event.finishedCleanupAtEpochMilli();
@@ -165,6 +189,7 @@ final class TournamentResultAutoAdvanceManager {
     }
 
     private enum TransitionKind {
+        ACTION_TIMEOUT,
         HAND_RESULT,
         FINISHED_CLEANUP
     }

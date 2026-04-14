@@ -3,10 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
 import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
-import type { TournamentSnapshot } from "@/entities/tournament/model/types";
+import type { TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
-import { createTournament, getActiveTournamentForGuest, getBackendStatus, joinTournament } from "@/shared/api/http";
+import { PublicTournamentList } from "@/features/lobby/ui/PublicTournamentList";
+import {
+  createTournament,
+  getActiveTournamentForGuest,
+  getBackendStatus,
+  getPublicWaitingTournaments,
+  joinTournament,
+} from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
+
+const publicTournamentListQueryKey = ["public-tournament-list"] as const;
 
 // Converts unknown mutation failures into a short UI-safe message.
 function toErrorMessage(error: unknown, fallback: string) {
@@ -18,7 +27,9 @@ export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession();
-  const [tournamentCode, setTournamentCode] = useState("");
+  const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
+  const [createTournamentCode, setCreateTournamentCode] = useState("");
+  const [joinTournamentCode, setJoinTournamentCode] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
@@ -31,16 +42,37 @@ export function HomePage() {
     enabled: !!guestId.trim(),
     retry: false,
   });
-  const previewSnapshot = createDemoTournamentSnapshot(tournamentCode || "MVP01");
+  const publicTournamentListQuery = useQuery({
+    queryKey: publicTournamentListQueryKey,
+    queryFn: getPublicWaitingTournaments,
+    retry: false,
+    refetchInterval: 5_000,
+  });
+  const previewSnapshot = createDemoTournamentSnapshot(createTournamentCode || "MVP01");
   const createMutation = useMutation({
-    mutationFn: ({ guestId, nickname, code }: { guestId: string; nickname: string; code?: string }) =>
-      createTournament(guestId, nickname, code),
-    onSuccess: (snapshot, variables) => handleTournamentEntry(snapshot, variables.guestId),
+    mutationFn: ({
+      guestId,
+      nickname,
+      visibility,
+      code,
+    }: {
+      guestId: string;
+      nickname: string;
+      visibility: TournamentVisibility;
+      code?: string;
+    }) => createTournament(guestId, nickname, visibility, code),
+    onSuccess: (snapshot, variables) => {
+      void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
+      handleTournamentEntry(snapshot, variables.guestId);
+    },
   });
   const joinMutation = useMutation({
     mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
       joinTournament(code, guestId, nickname),
-    onSuccess: (snapshot, variables) => handleTournamentEntry(snapshot, variables.guestId),
+    onSuccess: (snapshot, variables) => {
+      void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
+      handleTournamentEntry(snapshot, variables.guestId);
+    },
   });
   const activeError =
     validationError ||
@@ -58,6 +90,10 @@ export function HomePage() {
       : isCheckingActiveTournament
         ? "Checking your current tournament..."
       : null;
+  const publicListError =
+    publicTournamentListQuery.error && !publicTournamentListQuery.isFetching
+      ? toErrorMessage(publicTournamentListQuery.error, "Failed to load public rooms.")
+      : null;
 
   // Seeds the destination snapshot cache before navigation so the table paints immediately.
   function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
@@ -72,7 +108,12 @@ export function HomePage() {
 
   function handleTournamentCodeChange(value: string) {
     setValidationError(null);
-    setTournamentCode(value);
+    setCreateTournamentCode(value);
+  }
+
+  function handleJoinTournamentCodeChange(value: string) {
+    setValidationError(null);
+    setJoinTournamentCode(value);
   }
 
   async function handleCreate() {
@@ -95,7 +136,8 @@ export function HomePage() {
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
-        code: tournamentCode.trim() ? tournamentCode.trim().toUpperCase() : undefined,
+        visibility: roomVisibility,
+        code: createTournamentCode.trim() ? createTournamentCode.trim().toUpperCase() : undefined,
       });
     } catch (error) {
       setValidationError(toErrorMessage(error, "Failed to create guest session."));
@@ -115,7 +157,7 @@ export function HomePage() {
       setValidationError("Enter a nickname before joining a tournament.");
       return;
     }
-    if (!tournamentCode.trim()) {
+    if (!joinTournamentCode.trim()) {
       setValidationError("Enter a tournament code before joining.");
       return;
     }
@@ -124,7 +166,34 @@ export function HomePage() {
     try {
       const resolvedGuestId = await ensureGuestSession();
       joinMutation.mutate({
-        code: tournamentCode.trim().toUpperCase(),
+        code: joinTournamentCode.trim().toUpperCase(),
+        guestId: resolvedGuestId,
+        nickname: nickname.trim(),
+      });
+    } catch (error) {
+      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+    }
+  }
+
+  async function handleJoinPublicRoom(code: string) {
+    if (isCheckingActiveTournament) {
+      setValidationError("Checking whether this guest is already seated in another tournament.");
+      return;
+    }
+    if (activeTournament) {
+      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
+      return;
+    }
+    if (!nickname.trim()) {
+      setValidationError("Enter a nickname before joining a tournament.");
+      return;
+    }
+
+    setValidationError(null);
+    try {
+      const resolvedGuestId = await ensureGuestSession();
+      joinMutation.mutate({
+        code,
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
       });
@@ -143,27 +212,39 @@ export function HomePage() {
   }
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
-        <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
-        <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-          Single-table sit and go flow with live snapshots, websocket actions, and server-side settlement.
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-          The current build targets the MVP spec: live blind levels, all-in and side-pot settlement, reconnect
-          recovery, and a real create or join entry flow backed by the backend APIs.
-        </p>
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <MetricCard label="Backend API" value={statusQuery.data?.status ?? "OFFLINE"} />
-          <MetricCard label="Blind Level" value={`L${previewSnapshot.currentLevel.level}`} />
-          <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} />
+    <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+      <div className="space-y-6">
+        <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
+          <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
+          <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
+            Public list join for open rooms, private code entry for direct invites.
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
+            The current build keeps the existing ready, owner start, snapshot, and reconnect flow while making room
+            creation and entry clearer on the home screen.
+          </p>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <MetricCard label="Backend API" value={statusQuery.data?.status ?? "OFFLINE"} />
+            <MetricCard label="Blind Level" value={`L${previewSnapshot.currentLevel.level}`} />
+            <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} />
+          </div>
         </div>
+
+        <PublicTournamentList
+          rooms={publicTournamentListQuery.data ?? []}
+          disabled={controlsDisabled}
+          loading={publicTournamentListQuery.isPending}
+          errorMessage={publicListError}
+          onJoin={handleJoinPublicRoom}
+        />
       </div>
 
       <LobbyForm
         guestId={guestId}
         nickname={nickname}
-        tournamentCode={tournamentCode}
+        createTournamentCode={createTournamentCode}
+        joinTournamentCode={joinTournamentCode}
+        roomVisibility={roomVisibility}
         activeTournamentCode={activeTournament?.tournamentCode ?? null}
         activeTournamentStatus={activeTournament?.status ?? null}
         createDisabled={controlsDisabled}
@@ -171,7 +252,9 @@ export function HomePage() {
         busyLabel={busyLabel}
         errorMessage={activeError}
         onNicknameChange={handleNicknameChange}
-        onTournamentCodeChange={handleTournamentCodeChange}
+        onCreateTournamentCodeChange={handleTournamentCodeChange}
+        onJoinTournamentCodeChange={handleJoinTournamentCodeChange}
+        onRoomVisibilityChange={setRoomVisibility}
         onResumeTournament={handleResumeTournament}
         onCreate={handleCreate}
         onJoin={handleJoin}

@@ -2,10 +2,13 @@ package com.texasholdem.tournament.application;
 
 import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 
 @Component
@@ -70,6 +73,26 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .count();
     }
 
+    // Lists persisted public waiting rooms in newest-first order for the home lobby.
+    @Override
+    public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
+        return repository.findAll().stream()
+                .sorted(Comparator.comparing(TournamentStateEntity::getUpdatedAt).reversed())
+                .map(TournamentStateEntity::getPayload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
+                .filter(tournament -> tournament.status == TournamentStatus.WAITING)
+                .map(tournament -> new PublicTournamentSummary(
+                        tournament.code,
+                        tournament.visibility,
+                        tournament.status,
+                        tournament.players.size(),
+                        maxPlayers,
+                        resolveOwnerNickname(tournament)
+                ))
+                .toList();
+    }
+
     // Finds delayed hand-result transitions that should be rescheduled after a restart.
     @Override
     public List<PendingHandResult> findPendingHandResults() {
@@ -79,6 +102,18 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .filter(tournament -> tournament.status == TournamentStatus.HAND_RESULT)
                 .filter(tournament -> tournament.handResultEndsAtEpochMilli > 0)
                 .map(tournament -> new PendingHandResult(tournament.code, tournament.handResultEndsAtEpochMilli))
+                .toList();
+    }
+
+    // Finds delayed in-hand action deadlines that should be rescheduled after a restart.
+    @Override
+    public List<PendingActionTimeout> findPendingActionTimeouts() {
+        return repository.findAll().stream()
+                .map(TournamentStateEntity::getPayload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.IN_HAND)
+                .filter(tournament -> tournament.actionDeadlineAtEpochMilli > 0)
+                .map(tournament -> new PendingActionTimeout(tournament.code, tournament.actionDeadlineAtEpochMilli))
                 .toList();
     }
 
@@ -137,5 +172,13 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
         return tournament.status == TournamentStatus.IN_HAND
                 && inHandIdleTtlMillis > 0
                 && ageMillis >= inHandIdleTtlMillis;
+    }
+
+    private String resolveOwnerNickname(TournamentState tournament) {
+        return tournament.players.stream()
+                .filter(player -> player.owner)
+                .map(player -> player.nickname)
+                .findFirst()
+                .orElse("");
     }
 }

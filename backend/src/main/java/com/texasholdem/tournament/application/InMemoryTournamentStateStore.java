@@ -1,8 +1,11 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,6 +68,30 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .count();
     }
 
+    // Lists in-memory public waiting rooms in newest-first order for tests and local flows.
+    @Override
+    public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
+        return payloads.values().stream()
+                .sorted(Comparator.comparingLong(StoredPayload::updatedAtEpochMilli).reversed())
+                .map(StoredPayload::payload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
+                .filter(tournament -> tournament.status == TournamentStatus.WAITING)
+                .map(tournament -> new PublicTournamentSummary(
+                        tournament.code,
+                        tournament.visibility,
+                        tournament.status,
+                        tournament.players.size(),
+                        maxPlayers,
+                        tournament.players.stream()
+                                .filter(player -> player.owner)
+                                .map(player -> player.nickname)
+                                .findFirst()
+                                .orElse("")
+                ))
+                .toList();
+    }
+
     // Lists in-memory hand-result tournaments whose delayed transition should be recovered.
     @Override
     public List<PendingHandResult> findPendingHandResults() {
@@ -74,6 +101,18 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .filter(tournament -> tournament.status == TournamentStatus.HAND_RESULT)
                 .filter(tournament -> tournament.handResultEndsAtEpochMilli > 0)
                 .map(tournament -> new PendingHandResult(tournament.code, tournament.handResultEndsAtEpochMilli))
+                .toList();
+    }
+
+    // Lists in-memory in-hand action deadlines whose timeout transitions should be recovered.
+    @Override
+    public List<PendingActionTimeout> findPendingActionTimeouts() {
+        return payloads.values().stream()
+                .map(StoredPayload::payload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.IN_HAND)
+                .filter(tournament -> tournament.actionDeadlineAtEpochMilli > 0)
+                .map(tournament -> new PendingActionTimeout(tournament.code, tournament.actionDeadlineAtEpochMilli))
                 .toList();
     }
 

@@ -4,6 +4,7 @@ type ActionPanelStateInput = {
   actions: string[];
   currentPlayer: TournamentPlayer | null;
   tournamentStatus: TournamentStatus;
+  paused: boolean;
   canPublish: boolean;
 };
 
@@ -16,6 +17,7 @@ export type ActionPanelViewModel = {
   canAct: boolean;
   showDisconnect: boolean;
   showReconnect: boolean;
+  showReturnToPlay: boolean;
   canSubmitSizedAction: boolean;
   controlHint: string;
 };
@@ -42,6 +44,7 @@ export function parseTargetAmount(value: string) {
 function describeControlState(
   currentPlayer: TournamentPlayer | null,
   tournamentStatus: TournamentStatus,
+  paused: boolean,
   actions: string[],
 ) {
   if (!currentPlayer) {
@@ -50,6 +53,14 @@ function describeControlState(
 
   if (!currentPlayer.connected) {
     return "Reconnect to restore seat ownership and receive live updates.";
+  }
+
+  if (currentPlayer.afk) {
+    return "You are AFK. Your turns will auto-check or auto-fold until you return to play.";
+  }
+
+  if (paused) {
+    return "The hand is paused because every active player is AFK. Play will resume once the current actor returns.";
   }
 
   if (tournamentStatus === "WAITING") {
@@ -76,6 +87,7 @@ export function buildActionPanelViewModel({
   actions,
   currentPlayer,
   tournamentStatus,
+  paused,
   canPublish,
 }: ActionPanelStateInput): ActionPanelViewModel {
   const sizeAction = actions.find(requiresAmount) ?? null;
@@ -85,10 +97,11 @@ export function buildActionPanelViewModel({
   const canToggleReady =
     !!currentPlayer &&
     currentPlayer.connected &&
+    !currentPlayer.afk &&
     isWaiting &&
     (currentPlayer.status === "SEATED" || currentPlayer.status === "READY");
-  const canStart = !!currentPlayer && currentPlayer.connected && currentPlayer.owner && isWaiting;
-  const canAct = !!currentPlayer && currentPlayer.connected && currentPlayer.acting;
+  const canStart = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && currentPlayer.owner && isWaiting;
+  const canAct = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && !paused && currentPlayer.acting;
 
   return {
     sizeAction,
@@ -97,9 +110,10 @@ export function buildActionPanelViewModel({
     canToggleReady,
     canStart,
     canAct,
-    showDisconnect: !!currentPlayer?.connected,
+    showDisconnect: !!currentPlayer?.connected && isWaiting,
     showReconnect: !!currentPlayer && !currentPlayer.connected,
+    showReturnToPlay: !!currentPlayer?.connected && !!currentPlayer?.afk,
     canSubmitSizedAction: canPublish && canAct,
-    controlHint: describeControlState(currentPlayer, tournamentStatus, actions),
+    controlHint: describeControlState(currentPlayer, tournamentStatus, paused, actions),
   };
 }

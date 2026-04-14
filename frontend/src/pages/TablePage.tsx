@@ -8,7 +8,7 @@ import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-t
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
-import { TournamentOverview } from "@/widgets/tournament/ui/TournamentOverview";
+import { useUiStore } from "@/shared/model/ui-store";
 import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 
@@ -30,16 +30,12 @@ export function TablePage() {
   });
   const realtimeSnapshot = useTournamentRealtimeSnapshot(tournamentCode, guestId, snapshotQuery.data);
   const snapshot = realtimeSnapshot.snapshot ?? snapshotQuery.data ?? createDemoTournamentSnapshot(tournamentCode);
-  const syncState = realtimeSnapshot.snapshot
-    ? realtimeSnapshot.syncState
-    : snapshotQuery.data
-      ? "LIVE SNAPSHOT"
-      : snapshotQuery.isError
-        ? "DEMO FALLBACK"
-        : "SYNCING";
+  const stackDisplayMode = useUiStore((state) => state.stackDisplayMode);
+  const setStackDisplayMode = useUiStore((state) => state.setStackDisplayMode);
   const currentPlayer =
     realtimeSnapshot.currentPlayer ?? snapshot.players.find((player) => player.guestId === guestId) ?? null;
   const wasSeatedRef = useRef(false);
+  const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
 
   // Returns the user to the lobby after an explicit waiting-room leave removes the seat.
   useEffect(() => {
@@ -56,37 +52,37 @@ export function TablePage() {
 
   return (
     <section className="space-y-6">
-      <TournamentOverview snapshot={snapshot} syncState={syncState} currentPlayer={currentPlayer} />
-      <div className="lg:hidden">
-        <ActionPanel
-          actions={snapshot.availableActions}
-          message={snapshot.tableMessage}
-          tournamentStatus={snapshot.status}
-          currentPlayer={currentPlayer}
-          canPublish={realtimeSnapshot.canPublish}
-          onAction={realtimeSnapshot.sendAction}
-          onReadyChange={realtimeSnapshot.sendReady}
-          onStart={realtimeSnapshot.sendStart}
-          onDisconnect={realtimeSnapshot.sendDisconnect}
-          onReconnect={realtimeSnapshot.sendReconnect}
-        />
-      </div>
-      <TournamentTable snapshot={snapshot} currentGuestId={guestId} />
+      <TournamentTable
+        snapshot={snapshot}
+        currentGuestId={guestId}
+        stackDisplayMode={stackDisplayMode}
+        onStackDisplayModeChange={setStackDisplayMode}
+        actionBar={
+          <ActionPanel
+            actions={snapshot.availableActions}
+            chipsToCall={snapshot.chipsToCall}
+            minimumRaiseTo={snapshot.minimumRaiseTo}
+            potSize={totalPot}
+            bigBlind={snapshot.currentLevel.bigBlind}
+            message={snapshot.tableMessage}
+            tournamentStatus={snapshot.status}
+            currentPlayer={currentPlayer}
+            paused={snapshot.paused}
+            pauseReason={snapshot.pauseReason}
+            actionDeadlineAtEpochMilli={snapshot.actionDeadlineAtEpochMilli}
+            actionTimeoutSeconds={snapshot.actionTimeoutSeconds}
+            stackDisplayMode={stackDisplayMode}
+            canPublish={realtimeSnapshot.canPublish}
+            onAction={realtimeSnapshot.sendAction}
+            onReadyChange={realtimeSnapshot.sendReady}
+            onStart={realtimeSnapshot.sendStart}
+            onDisconnect={realtimeSnapshot.sendDisconnect}
+            onReconnect={realtimeSnapshot.sendReconnect}
+            onReturnToPlay={realtimeSnapshot.sendReturnToPlay}
+          />
+        }
+      />
       <TournamentShowdownPanel snapshot={snapshot} />
-      <div className="hidden lg:block">
-        <ActionPanel
-          actions={snapshot.availableActions}
-          message={snapshot.tableMessage}
-          tournamentStatus={snapshot.status}
-          currentPlayer={currentPlayer}
-          canPublish={realtimeSnapshot.canPublish}
-          onAction={realtimeSnapshot.sendAction}
-          onReadyChange={realtimeSnapshot.sendReady}
-          onStart={realtimeSnapshot.sendStart}
-          onDisconnect={realtimeSnapshot.sendDisconnect}
-          onReconnect={realtimeSnapshot.sendReconnect}
-        />
-      </div>
     </section>
   );
 }

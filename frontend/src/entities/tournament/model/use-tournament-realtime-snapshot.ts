@@ -88,6 +88,7 @@ function mergeSnapshotForViewer(
   if (nextSnapshot.status === "WAITING") {
     return {
       ...nextSnapshot,
+      chipsToCall: 0,
       selfHoleCards: [],
     };
   }
@@ -105,6 +106,7 @@ function mergeSnapshotForViewer(
     snapshotAudience: "VIEWER",
     viewerGuestId: currentSnapshot.viewerGuestId,
     viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
+    chipsToCall: currentSnapshot.chipsToCall,
     selfHoleCards: currentSnapshot.selfHoleCards,
   };
 }
@@ -214,9 +216,11 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     applyTournamentEvent(event);
 
     if (
+      event.eventType === "actionApplied" ||
       event.eventType === "handStarted" ||
       event.eventType === "tournamentSnapshot" ||
-      event.eventType === "playerReconnected"
+      event.eventType === "playerReconnected" ||
+      event.eventType === "playerReturned"
     ) {
       hydrateViewerSnapshot();
     }
@@ -374,6 +378,10 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       publishWhenConnected((client, currentCode, currentGuestId) => {
         manualReconnectRequiredRef.current = false;
         sendTournamentConnection(client, "/app/tournament.reconnect", currentCode, currentGuestId);
+      }),
+    sendReturnToPlay: () =>
+      publishWhenConnected((client, currentCode, currentGuestId) => {
+        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode, currentGuestId);
       }),
     sendStart: () =>
       publishWhenConnected((client, currentCode, currentGuestId) => {

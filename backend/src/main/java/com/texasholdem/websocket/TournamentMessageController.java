@@ -49,6 +49,14 @@ public class TournamentMessageController {
         topicPublisher.publish(code, broadcast);
     }
 
+    // Broadcasts the AFK return snapshot so the player can resume manual actions.
+    @MessageMapping("/tournament.return-to-play")
+    public void returnToPlay(@Valid @Payload TournamentConnectionMessage message) {
+        var code = message.resolveCode(null);
+        var broadcast = tournamentService.returnPlayerToPlay(code, message.guestId());
+        topicPublisher.publish(code, broadcast);
+    }
+
     // Broadcasts the hand-start snapshot when the owner starts the tournament.
     @MessageMapping("/tournament.start")
     public void start(@Valid @Payload TournamentStartMessage message) {

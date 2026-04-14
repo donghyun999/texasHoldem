@@ -3,7 +3,9 @@ package com.texasholdem.tournament.application;
 import com.texasholdem.tournament.domain.PotView;
 import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
+import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +13,7 @@ import java.util.List;
 final class TournamentState {
 
     final String code;
+    TournamentVisibility visibility = TournamentVisibility.PRIVATE;
     final List<TournamentPlayerState> players = new ArrayList<>();
     long handNumber = 0;
     long stateVersion = 0;
@@ -28,6 +31,10 @@ final class TournamentState {
     Integer smallBlindSeat;
     Integer bigBlindSeat;
     Integer actingSeat;
+    boolean paused = false;
+    TournamentPauseReason pauseReason;
+    long levelPausedRemainingSeconds = 0;
+    long actionDeadlineAtEpochMilli = 0;
     long handResultEndsAtEpochMilli = 0;
     long finishedCleanupAtEpochMilli = 0;
     List<ShowdownPotView> showdownPots = new ArrayList<>();

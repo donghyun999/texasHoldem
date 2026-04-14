@@ -4,6 +4,7 @@ import java.util.List;
 
 public record TournamentSnapshot(
         String code,
+        TournamentVisibility visibility,
         long handNumber,
         long stateVersion,
         SnapshotAudience snapshotAudience,
@@ -21,11 +22,17 @@ public record TournamentSnapshot(
         Integer smallBlindSeat,
         Integer bigBlindSeat,
         Integer actingSeat,
+        boolean paused,
+        TournamentPauseReason pauseReason,
+        long actionDeadlineAtEpochMilli,
+        long actionTimeoutSeconds,
         List<TournamentPlayerView> players,
         List<ShowdownPotView> showdownPots,
         List<ShowdownHandView> showdownHands,
         List<String> recentlyBustedGuestIds,
         List<String> availableActions,
+        int chipsToCall,
+        int minimumRaiseTo,
         String tableMessage,
         List<String> selfHoleCards
 ) {

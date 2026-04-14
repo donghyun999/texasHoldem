@@ -2,6 +2,10 @@ export type TournamentStatus = "WAITING" | "IN_HAND" | "HAND_RESULT" | "FINISHED
 
 export type SnapshotAudience = "PUBLIC" | "VIEWER";
 
+export type TournamentPauseReason = "ALL_PLAYERS_AFK";
+
+export type TournamentVisibility = "PUBLIC" | "PRIVATE";
+
 export type PlayerStatus =
   | "LOBBY"
   | "SEATED"
@@ -43,6 +47,7 @@ export type ShowdownHand = {
   guestId: string;
   nickname: string;
   handLabel: string;
+  holeCards: string[];
 };
 
 export type TournamentPlayer = {
@@ -51,14 +56,17 @@ export type TournamentPlayer = {
   seatIndex: number;
   status: PlayerStatus;
   stack: number;
+  roundContribution: number;
   owner: boolean;
   connected: boolean;
+  afk: boolean;
   participating: boolean;
   acting: boolean;
 };
 
 export type TournamentSnapshot = {
   code: string;
+  visibility: TournamentVisibility;
   handNumber: number;
   stateVersion: number;
   snapshotAudience: SnapshotAudience;
@@ -76,11 +84,17 @@ export type TournamentSnapshot = {
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
   actingSeat: number | null;
+  paused: boolean;
+  pauseReason: TournamentPauseReason | null;
+  actionDeadlineAtEpochMilli: number;
+  actionTimeoutSeconds: number;
   players: TournamentPlayer[];
   showdownPots: ShowdownPot[];
   showdownHands: ShowdownHand[];
   recentlyBustedGuestIds: string[];
   availableActions: string[];
+  chipsToCall: number;
+  minimumRaiseTo: number;
   tableMessage: string;
   selfHoleCards: string[];
 };
@@ -95,4 +109,13 @@ export type ActiveTournamentSession = {
   guestId: string;
   tournamentCode: string;
   status: TournamentStatus;
+};
+
+export type PublicTournamentSummary = {
+  code: string;
+  visibility: TournamentVisibility;
+  status: TournamentStatus;
+  currentPlayers: number;
+  maxPlayers: number;
+  ownerNickname: string;
 };

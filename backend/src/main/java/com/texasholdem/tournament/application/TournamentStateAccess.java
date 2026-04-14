@@ -1,11 +1,13 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +65,11 @@ final class TournamentStateAccess {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No seat is available");
     }
 
+    // Exposes the seat cap so read models can stay aligned with live tournament rules.
+    int maxSeats() {
+        return rules.maxSeats();
+    }
+
     // Counts the entrants still alive in the overall tournament.
     long countRemainingParticipants(TournamentState tournament) {
         return tournament.players.stream()
@@ -82,6 +89,14 @@ final class TournamentStateAccess {
         return tournament.players.stream()
                 .filter(player -> player.status == PlayerStatus.ACTIVE)
                 .count();
+    }
+
+    // Returns whether every still-active player is currently marked AFK.
+    boolean allActivePlayersAreAfk(TournamentState tournament) {
+        var activePlayers = tournament.players.stream()
+                .filter(player -> player.status == PlayerStatus.ACTIVE)
+                .toList();
+        return !activePlayers.isEmpty() && activePlayers.stream().allMatch(player -> player.afk);
     }
 
     // Returns the sorted seat list for every remaining tournament entrant.
@@ -131,6 +146,63 @@ final class TournamentStateAccess {
                 .filter(seat -> seat > currentSeat)
                 .findFirst()
                 .orElse(awaitingSeats.get(0));
+    }
+
+    // Returns whether one player can manually continue the current paused hand.
+    boolean canManuallyAct(TournamentPlayerState player) {
+        return player.status == PlayerStatus.ACTIVE
+                && player.awaitingAction
+                && player.connected
+                && !player.afk;
+    }
+
+    // Freezes the current hand and blind clock when every active player is AFK.
+    void pauseForAllPlayersAfk(TournamentState tournament) {
+        if (!tournament.paused) {
+            tournament.levelPausedRemainingSeconds = currentLevelSecondsRemaining(tournament);
+        }
+        tournament.paused = true;
+        tournament.pauseReason = TournamentPauseReason.ALL_PLAYERS_AFK;
+        tournament.actionDeadlineAtEpochMilli = 0;
+    }
+
+    // Restores the blind clock baseline after one paused hand becomes live again.
+    void resumePausedHand(TournamentState tournament) {
+        if (!tournament.paused) {
+            return;
+        }
+
+        var durationSeconds = currentLevelDurationSeconds(tournament);
+        tournament.levelActivatedAtEpochSecond = Instant.now().getEpochSecond()
+                - Math.max(0, durationSeconds - tournament.levelPausedRemainingSeconds);
+        clearPausedHand(tournament);
+    }
+
+    // Clears paused metadata when the hand leaves its soft-pause branch.
+    void clearPausedHand(TournamentState tournament) {
+        tournament.paused = false;
+        tournament.pauseReason = null;
+        tournament.levelPausedRemainingSeconds = 0;
+    }
+
+    // Computes the blind countdown visible to clients for the current level.
+    long currentLevelSecondsRemaining(TournamentState tournament) {
+        if (tournament.paused) {
+            return Math.max(0, tournament.levelPausedRemainingSeconds);
+        }
+
+        var durationSeconds = currentLevelDurationSeconds(tournament);
+        if (tournament.levelActivatedAtEpochSecond == 0) {
+            return durationSeconds;
+        }
+
+        var levelEndsAtEpochSecond = tournament.levelActivatedAtEpochSecond + durationSeconds;
+        return Math.max(0, levelEndsAtEpochSecond - Instant.now().getEpochSecond());
+    }
+
+    // Exposes the configured blind duration for the current level.
+    long currentLevelDurationSeconds(TournamentState tournament) {
+        return rules.currentLevel(tournament.levelIndex).durationSeconds();
     }
 
     // Marks a single player as the current actor and clears the rest.

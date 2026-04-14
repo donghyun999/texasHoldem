@@ -6,7 +6,9 @@ import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.PotView;
 import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
+import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -46,6 +48,7 @@ final class TournamentStatePersistenceMapper {
     private PersistedTournamentState toPayload(TournamentState tournament) {
         return new PersistedTournamentState(
                 tournament.code,
+                tournament.visibility,
                 tournament.handNumber,
                 tournament.stateVersion,
                 tournament.status,
@@ -62,6 +65,10 @@ final class TournamentStatePersistenceMapper {
                 tournament.smallBlindSeat,
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
+                tournament.paused,
+                tournament.pauseReason,
+                tournament.levelPausedRemainingSeconds,
+                tournament.actionDeadlineAtEpochMilli,
                 tournament.handResultEndsAtEpochMilli,
                 tournament.finishedCleanupAtEpochMilli,
                 tournament.players.stream().map(this::toPayload).toList(),
@@ -89,6 +96,7 @@ final class TournamentStatePersistenceMapper {
                 player.roundContribution,
                 player.awaitingAction,
                 player.raiseRightsAvailable,
+                player.afk,
                 List.copyOf(player.holeCards)
         );
     }
@@ -96,6 +104,7 @@ final class TournamentStatePersistenceMapper {
     // Rehydrates the mutable tournament aggregate from the persistence DTO tree.
     private TournamentState fromPayload(PersistedTournamentState payload) {
         var tournament = new TournamentState(payload.code());
+        tournament.visibility = payload.visibility() == null ? TournamentVisibility.PRIVATE : payload.visibility();
         tournament.handNumber = payload.handNumber();
         tournament.stateVersion = payload.stateVersion();
         tournament.status = payload.status();
@@ -114,6 +123,14 @@ final class TournamentStatePersistenceMapper {
         tournament.smallBlindSeat = payload.smallBlindSeat();
         tournament.bigBlindSeat = payload.bigBlindSeat();
         tournament.actingSeat = payload.actingSeat();
+        tournament.paused = payload.paused() != null && payload.paused();
+        tournament.pauseReason = payload.pauseReason();
+        tournament.levelPausedRemainingSeconds = payload.levelPausedRemainingSeconds() == null
+                ? 0
+                : payload.levelPausedRemainingSeconds();
+        tournament.actionDeadlineAtEpochMilli = payload.actionDeadlineAtEpochMilli() == null
+                ? 0
+                : payload.actionDeadlineAtEpochMilli();
         tournament.handResultEndsAtEpochMilli = payload.handResultEndsAtEpochMilli();
         tournament.finishedCleanupAtEpochMilli = payload.finishedCleanupAtEpochMilli() == null
                 ? 0
@@ -148,6 +165,7 @@ final class TournamentStatePersistenceMapper {
         player.raiseRightsAvailable = payload.raiseRightsAvailable() == null
                 ? payload.awaitingAction()
                 : payload.raiseRightsAvailable();
+        player.afk = payload.afk() != null && payload.afk();
         player.holeCards = new ArrayList<>(payload.holeCards());
         return player;
     }
@@ -175,6 +193,7 @@ final class TournamentStatePersistenceMapper {
 
     private record PersistedTournamentState(
             String code,
+            TournamentVisibility visibility,
             long handNumber,
             long stateVersion,
             TournamentStatus status,
@@ -191,6 +210,10 @@ final class TournamentStatePersistenceMapper {
             Integer smallBlindSeat,
             Integer bigBlindSeat,
             Integer actingSeat,
+            Boolean paused,
+            TournamentPauseReason pauseReason,
+            Long levelPausedRemainingSeconds,
+            Long actionDeadlineAtEpochMilli,
             long handResultEndsAtEpochMilli,
             Long finishedCleanupAtEpochMilli,
             List<PersistedTournamentPlayerState> players,
@@ -216,6 +239,7 @@ final class TournamentStatePersistenceMapper {
             int roundContribution,
             boolean awaitingAction,
             Boolean raiseRightsAvailable,
+            Boolean afk,
             List<String> holeCards
     ) {
     }

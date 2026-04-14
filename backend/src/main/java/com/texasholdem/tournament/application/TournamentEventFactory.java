@@ -127,7 +127,8 @@ final class TournamentEventFactory {
                 .map(hand -> Map.<String, Object>of(
                         "guestId", hand.guestId(),
                         "nickname", hand.nickname(),
-                        "handLabel", hand.handLabel()
+                        "handLabel", hand.handLabel(),
+                        "holeCards", hand.holeCards()
                 ))
                 .toList();
     }

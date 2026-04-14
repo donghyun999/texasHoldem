@@ -28,6 +28,7 @@ class TournamentResultAutoAdvanceManagerTest {
         when(stateStore.findPendingHandResults()).thenReturn(List.of(
                 new TournamentStateStore.PendingHandResult("ABCD1", deadline)
         ));
+        when(stateStore.findPendingActionTimeouts()).thenReturn(List.of());
         when(stateStore.findPendingFinishedCleanups()).thenReturn(List.of());
         when(tournamentService.autoAdvanceHandResult("ABCD1", deadline)).thenReturn(broadcast);
 
@@ -53,6 +54,7 @@ class TournamentResultAutoAdvanceManagerTest {
         when(stateStore.findPendingHandResults()).thenReturn(List.of(
                 new TournamentStateStore.PendingHandResult("ABCD1", deadline)
         ));
+        when(stateStore.findPendingActionTimeouts()).thenReturn(List.of());
         when(stateStore.findPendingFinishedCleanups()).thenReturn(List.of());
         when(tournamentService.autoAdvanceHandResult("ABCD1", deadline)).thenReturn(null);
 
@@ -72,6 +74,7 @@ class TournamentResultAutoAdvanceManagerTest {
         var manager = new TournamentResultAutoAdvanceManager(tournamentService, topicPublisher, stateStore);
         var deadline = Instant.now().minusMillis(1).toEpochMilli();
 
+        when(stateStore.findPendingActionTimeouts()).thenReturn(List.of());
         when(stateStore.findPendingHandResults()).thenReturn(List.of());
         when(stateStore.findPendingFinishedCleanups()).thenReturn(List.of(
                 new TournamentStateStore.PendingFinishedCleanup("DONE1", deadline)
@@ -80,6 +83,33 @@ class TournamentResultAutoAdvanceManagerTest {
         manager.recoverPendingHandResults();
 
         await().untilAsserted(() -> verify(tournamentService).cleanupFinishedTournament("DONE1", deadline));
+
+        manager.shutdown();
+    }
+
+    // Verifies that persisted action deadlines are rescheduled when the service boots again.
+    @Test
+    void recoversPendingActionTimeoutsOnStartup() {
+        var tournamentService = mock(TournamentService.class);
+        var topicPublisher = mock(TournamentTopicPublisher.class);
+        var stateStore = mock(TournamentStateStore.class);
+        var manager = new TournamentResultAutoAdvanceManager(tournamentService, topicPublisher, stateStore);
+        var deadline = Instant.now().minusMillis(1).toEpochMilli();
+        var broadcast = new TournamentBroadcast(List.of(mock(TournamentEvent.class)));
+
+        when(stateStore.findPendingActionTimeouts()).thenReturn(List.of(
+                new TournamentStateStore.PendingActionTimeout("TURN1", deadline)
+        ));
+        when(stateStore.findPendingHandResults()).thenReturn(List.of());
+        when(stateStore.findPendingFinishedCleanups()).thenReturn(List.of());
+        when(tournamentService.autoTimeoutActingPlayer("TURN1", deadline)).thenReturn(broadcast);
+
+        manager.recoverPendingHandResults();
+
+        await().untilAsserted(() -> {
+            verify(tournamentService).autoTimeoutActingPlayer("TURN1", deadline);
+            verify(topicPublisher).publish(eq("TURN1"), eq(broadcast));
+        });
 
         manager.shutdown();
     }

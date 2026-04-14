@@ -90,65 +90,42 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
   }, [snapshot.levelEndsAtEpochSecond]);
 
   return (
-    <div className="grid gap-4 rounded-[2rem] border border-white/10 bg-black/20 px-5 py-5 lg:grid-cols-[1.1fr_0.9fr] lg:px-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/70">Tournament</p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <h2 className="text-3xl font-semibold text-white">{snapshot.code}</h2>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-100 sm:text-xs">
-            {snapshot.status}
-          </span>
-          <span
-            className={`rounded-full border px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] sm:text-xs ${syncSummary.tone}`}
-          >
-            {syncSummary.label}
-          </span>
+    <div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-bold text-white sm:text-2xl">{snapshot.code}</h2>
+            <span className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-100">
+              {snapshot.status.replaceAll("_", " ")}
+            </span>
+            <span className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${syncSummary.tone}`}>
+              {syncSummary.label}
+            </span>
+          </div>
+          <p className="mt-2 truncate text-sm text-zinc-300">{snapshot.tableMessage}</p>
         </div>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">{snapshot.tableMessage}</p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <HeaderChip label="Players" value={`${seatSummary.seatedPlayers} / 6`} />
-          <HeaderChip label="Online" value={`${seatSummary.connectedPlayers}`} />
+        <div className="grid w-full grid-cols-2 gap-2 text-xs sm:w-auto sm:grid-cols-4">
+          <HeaderChip label="Blind" value={formatBlindLevel(snapshot.currentLevel.smallBlind, snapshot.currentLevel.bigBlind)} />
+          <HeaderChip label="Next" value={formatCountdown(liveSecondsUntilNextLevel)} />
+          <HeaderChip label="Players" value={`${seatSummary.seatedPlayers}/6`} />
           <HeaderChip
             label="You"
-            value={
-              currentPlayer
-                ? `Seat ${currentPlayer.seatIndex + 1} | ${currentPlayer.stack} chips`
-                : "Not seated"
-            }
+            value={currentPlayer ? `S${currentPlayer.seatIndex + 1} ${currentPlayer.stack}` : "Out"}
           />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <MetricCard
-          label="Current Blind"
-          value={formatBlindLevel(snapshot.currentLevel.smallBlind, snapshot.currentLevel.bigBlind)}
-        />
-        <MetricCard
-          label="Next Level"
-          value={`${formatBlindLevel(snapshot.nextLevel.smallBlind, snapshot.nextLevel.bigBlind)} in ${formatCountdown(liveSecondsUntilNextLevel)}`}
-        />
-        <MetricCard label="Table Sync" value={syncSummary.value} />
-        <MetricCard label="Transport" value={realtimeHost} />
-      </div>
+      <p className="mt-2 hidden text-xs text-zinc-500 sm:block">
+        {syncSummary.value} | {realtimeHost}
+      </p>
     </div>
   );
 }
 
 function HeaderChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-2">
-      <p className="text-[9px] uppercase tracking-[0.18em] text-zinc-400 sm:text-[10px]">{label}</p>
-      <p className="mt-1 text-xs font-medium text-white sm:text-sm">{value}</p>
-    </div>
-  );
-}
-
-// Displays a single tournament metric with consistent styling.
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">{label}</p>
-      <p className="mt-3 text-sm font-medium leading-6 text-white">{value}</p>
+    <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2">
+      <p className="text-[10px] text-zinc-400">{label}</p>
+      <p className="mt-1 text-xs font-semibold text-white sm:text-sm">{value}</p>
     </div>
   );
 }

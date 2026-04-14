@@ -120,6 +120,13 @@ From `frontend/`:
 npm run build
 ```
 
+Deployment-targeted Railway smoke scripts:
+
+- `scripts/railway-six-player-smoke.cjs` is a one-shot six-player deployed smoke harness for the current Railway frontend/backend URLs.
+- `scripts/railway-six-player-continuous.cjs` repeats deployed smoke runs and should stay manual-only because it can consume Railway usage; it now refuses to start unless `ALLOW_CONTINUOUS_RAILWAY_TESTS=true` is set, and infinite mode additionally requires `ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true`.
+- These scripts are intentionally coupled to the current create/join/table UI labels, local storage key, and tournament snapshot API; when those flows change, update the scripts together instead of treating them as stable black-box tests.
+- Playwright resolution is environment-driven: prefer a normal local install, but the scripts can also fall back to the existing `test-results/playwright-work` installation used in prior sessions.
+
 ## Key docs
 
 - `docs/setup.md`

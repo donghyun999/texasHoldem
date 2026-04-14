@@ -14,6 +14,7 @@ final class TournamentPlayerState {
     PlayerStatus status = PlayerStatus.SEATED;
     boolean owner = false;
     boolean connected = true;
+    boolean afk = false;
     boolean participating = false;
     boolean acting = false;
     int totalContribution = 0;
