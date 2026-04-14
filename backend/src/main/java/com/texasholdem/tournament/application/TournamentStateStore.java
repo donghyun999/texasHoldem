@@ -10,6 +10,12 @@ interface TournamentStateStore {
     ) {
     }
 
+    record PendingActionTimeout(
+            String code,
+            long actionDeadlineAtEpochMilli
+    ) {
+    }
+
     record PendingFinishedCleanup(
             String code,
             long finishedCleanupAtEpochMilli
@@ -33,6 +39,9 @@ interface TournamentStateStore {
 
     // Lists persisted hand-result tournaments whose delayed transition must survive a restart.
     List<PendingHandResult> findPendingHandResults();
+
+    // Lists persisted in-hand action deadlines whose timeout transition must survive a restart.
+    List<PendingActionTimeout> findPendingActionTimeouts();
 
     // Lists persisted finished tournaments whose delayed cleanup must survive a restart.
     List<PendingFinishedCleanup> findPendingFinishedCleanups();

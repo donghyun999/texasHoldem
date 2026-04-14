@@ -219,7 +219,8 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       event.eventType === "actionApplied" ||
       event.eventType === "handStarted" ||
       event.eventType === "tournamentSnapshot" ||
-      event.eventType === "playerReconnected"
+      event.eventType === "playerReconnected" ||
+      event.eventType === "playerReturned"
     ) {
       hydrateViewerSnapshot();
     }
@@ -377,6 +378,10 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       publishWhenConnected((client, currentCode, currentGuestId) => {
         manualReconnectRequiredRef.current = false;
         sendTournamentConnection(client, "/app/tournament.reconnect", currentCode, currentGuestId);
+      }),
+    sendReturnToPlay: () =>
+      publishWhenConnected((client, currentCode, currentGuestId) => {
+        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode, currentGuestId);
       }),
     sendStart: () =>
       publishWhenConnected((client, currentCode, currentGuestId) => {

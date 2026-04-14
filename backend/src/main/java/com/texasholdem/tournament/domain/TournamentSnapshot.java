@@ -21,6 +21,8 @@ public record TournamentSnapshot(
         Integer smallBlindSeat,
         Integer bigBlindSeat,
         Integer actingSeat,
+        long actionDeadlineAtEpochMilli,
+        long actionTimeoutSeconds,
         List<TournamentPlayerView> players,
         List<ShowdownPotView> showdownPots,
         List<ShowdownHandView> showdownHands,

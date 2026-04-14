@@ -9,6 +9,7 @@ public record TournamentPlayerView(
         int roundContribution,
         boolean owner,
         boolean connected,
+        boolean afk,
         boolean participating,
         boolean acting
 ) {

@@ -132,6 +132,23 @@ function formatLevelCountdown(totalSeconds: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function isBlindClockActive(status: TournamentSnapshot["status"]) {
+  return status !== "WAITING" && status !== "FINISHED";
+}
+
+function buildDisplayedLevelSeconds(snapshot: TournamentSnapshot) {
+  if (!isBlindClockActive(snapshot.status)) {
+    return Math.max(0, snapshot.currentLevel.durationSeconds);
+  }
+
+  if (snapshot.levelEndsAtEpochSecond > 0) {
+    const now = Math.floor(Date.now() / 1000);
+    return Math.max(0, snapshot.levelEndsAtEpochSecond - now);
+  }
+
+  return Math.max(0, snapshot.secondsUntilNextLevel);
+}
+
 function getLevelProgressPercent(secondsRemaining: number, durationSeconds: number) {
   if (durationSeconds <= 0) {
     return 0;
@@ -242,7 +259,7 @@ export function TournamentTable({
   onStackDisplayModeChange,
   actionBar,
 }: TournamentTableProps) {
-  const [secondsRemaining, setSecondsRemaining] = useState(snapshot.secondsUntilNextLevel);
+  const [secondsRemaining, setSecondsRemaining] = useState(() => buildDisplayedLevelSeconds(snapshot));
   const seats = buildSeatMap(snapshot.players);
   const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
   const showdownHoleCardsByGuestId = new Map(
@@ -256,6 +273,7 @@ export function TournamentTable({
   const showBoardSlots = snapshot.status !== "WAITING" || snapshot.boardCards.length > 0;
   const betMarkers = buildBetMarkers(snapshot, displayedSeatIndexes);
   const sidePotSummary = buildSidePotSummary(snapshot);
+  const blindClockActive = isBlindClockActive(snapshot.status);
   const levelProgressPercent = getLevelProgressPercent(secondsRemaining, snapshot.currentLevel.durationSeconds);
   const levelTimerState = getLevelTimerState(secondsRemaining, snapshot.currentLevel.durationSeconds);
   const totalPotLabel = formatAmountDisplay({
@@ -278,14 +296,24 @@ export function TournamentTable({
 
   useEffect(() => {
     const updateRemaining = () => {
-      const now = Math.floor(Date.now() / 1000);
-      setSecondsRemaining(Math.max(0, snapshot.levelEndsAtEpochSecond - now));
+      setSecondsRemaining(buildDisplayedLevelSeconds(snapshot));
     };
 
     updateRemaining();
+    if (!blindClockActive) {
+      return;
+    }
+
     const intervalId = window.setInterval(updateRemaining, 1000);
     return () => window.clearInterval(intervalId);
-  }, [snapshot.levelEndsAtEpochSecond, snapshot.stateVersion]);
+  }, [
+    blindClockActive,
+    snapshot.currentLevel.durationSeconds,
+    snapshot.levelEndsAtEpochSecond,
+    snapshot.secondsUntilNextLevel,
+    snapshot.stateVersion,
+    snapshot.status,
+  ]);
 
   return (
     <div className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[#050b0a] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]">

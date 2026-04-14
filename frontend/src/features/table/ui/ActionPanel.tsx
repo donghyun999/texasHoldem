@@ -18,6 +18,8 @@ type ActionPanelProps = {
   message: string;
   tournamentStatus: TournamentStatus;
   currentPlayer: TournamentPlayer | null;
+  actionDeadlineAtEpochMilli: number;
+  actionTimeoutSeconds: number;
   stackDisplayMode: StackDisplayMode;
   canPublish: boolean;
   onAction: (action: string, amount?: number) => void;
@@ -25,6 +27,7 @@ type ActionPanelProps = {
   onStart: () => void;
   onDisconnect: () => void;
   onReconnect: () => void;
+  onReturnToPlay: () => void;
 };
 
 type SizingPreset = {
@@ -170,6 +173,10 @@ function buildCompactStatusLabel({
     return "Reconnect";
   }
 
+  if (currentPlayer.afk) {
+    return "AFK";
+  }
+
   if (!canPublish) {
     return "Syncing";
   }
@@ -195,6 +202,8 @@ function getStatusTone(label: string) {
       return "border-amber-300/30 bg-amber-400/12 text-amber-50";
     case "Reconnect":
       return "border-sky-300/25 bg-sky-400/10 text-sky-50";
+    case "AFK":
+      return "border-rose-300/30 bg-rose-400/12 text-rose-50";
     case "Ready":
       return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50";
     case "Result":
@@ -412,6 +421,10 @@ function getButtonClass(kind: "fold" | "primary" | "size" | "utility") {
   }
 }
 
+function formatActionTimerLabel(secondsRemaining: number) {
+  return secondsRemaining >= 10 ? `${Math.ceil(secondsRemaining)}s left` : `${secondsRemaining.toFixed(1)}s left`;
+}
+
 function buildIdleMessage({
   currentPlayer,
   tournamentStatus,
@@ -424,6 +437,10 @@ function buildIdleMessage({
 
   if (!currentPlayer.connected) {
     return "Reconnect this seat to resume play.";
+  }
+
+  if (currentPlayer.afk) {
+    return "Return to play to stop automatic check or fold actions on your turns.";
   }
 
   if (!canPublish) {
@@ -451,6 +468,8 @@ export function ActionPanel({
   message,
   tournamentStatus,
   currentPlayer,
+  actionDeadlineAtEpochMilli,
+  actionTimeoutSeconds,
   stackDisplayMode,
   canPublish,
   onAction,
@@ -458,9 +477,11 @@ export function ActionPanel({
   onStart,
   onDisconnect,
   onReconnect,
+  onReturnToPlay,
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
   const [isSizingOpen, setIsSizingOpen] = useState(false);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
   const keypadRows = getKeypadRows(stackDisplayMode);
   const {
     sizeAction,
@@ -471,6 +492,7 @@ export function ActionPanel({
     canAct,
     showDisconnect,
     showReconnect,
+    showReturnToPlay,
     canSubmitSizedAction,
   } = buildActionPanelViewModel({
     actions,
@@ -491,10 +513,18 @@ export function ActionPanel({
   });
   const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
   const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
-  const shouldShowInHandControls = tournamentStatus === "IN_HAND" && (canAct || !!allInAction || !!sizeAction || !!primaryAction);
+  const shouldShowInHandControls =
+    tournamentStatus === "IN_HAND" && !currentPlayer?.afk && (canAct || !!allInAction || !!sizeAction || !!primaryAction);
   const shouldShowUtilityControls =
-    tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect);
+    showReturnToPlay || (tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect));
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, canPublish, message });
+  const shouldShowActionTimer =
+    tournamentStatus === "IN_HAND" && actionDeadlineAtEpochMilli > 0 && actionTimeoutSeconds > 0 && !currentPlayer?.afk;
+  const totalActionWindowMs = actionTimeoutSeconds * 1_000;
+  const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
+  const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
+  const secondsRemaining = remainingActionMs / 1_000;
+  const actionTimerLabel = currentPlayer?.acting ? "Your turn timer" : "Action timer";
   const maxCommitment = getMaxCommitment(currentPlayer);
   const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
   const sizeButtonCaption = buildSizeButtonCaption({
@@ -531,6 +561,29 @@ export function ActionPanel({
     setIsSizingOpen(false);
     setTargetAmount("");
   }, [stackDisplayMode]);
+
+  useEffect(() => {
+    if (!shouldShowActionTimer) {
+      setTimerNow(Date.now());
+      return;
+    }
+
+    setTimerNow(Date.now());
+    const timerId = window.setInterval(() => {
+      setTimerNow(Date.now());
+    }, 200);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [shouldShowActionTimer, actionDeadlineAtEpochMilli]);
+
+  const actionTimerTone =
+    timerProgress <= 0.25
+      ? "bg-rose-400"
+      : timerProgress <= 0.5
+        ? "bg-amber-300"
+        : "bg-emerald-300";
 
   const openSizer = () => {
     if (!sizeAction) {
@@ -638,6 +691,23 @@ export function ActionPanel({
             </button>
           ) : null}
         </div>
+
+        {shouldShowActionTimer ? (
+          <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+                {actionTimerLabel}
+              </span>
+              <span className="text-xs font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
+                style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {shouldShowInHandControls ? (
           <div className="relative mt-3 grid grid-cols-3 gap-2">
@@ -813,6 +883,16 @@ export function ActionPanel({
                 className="min-h-11 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reconnect
+              </button>
+            ) : null}
+            {showReturnToPlay ? (
+              <button
+                type="button"
+                onClick={onReturnToPlay}
+                disabled={!canPublish}
+                className="min-h-11 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Return to Play
               </button>
             ) : null}
           </div>

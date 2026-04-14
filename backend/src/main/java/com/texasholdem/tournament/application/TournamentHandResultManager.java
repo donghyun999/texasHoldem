@@ -74,6 +74,7 @@ final class TournamentHandResultManager {
     void moveToFinished(TournamentState tournament, String tableMessage) {
         tournament.status = TournamentStatus.FINISHED;
         tournament.actingSeat = null;
+        tournament.actionDeadlineAtEpochMilli = 0;
         tournament.handResultEndsAtEpochMilli = 0;
         tournament.finishedCleanupAtEpochMilli = Instant.now().toEpochMilli() + FINISHED_CLEANUP_DURATION_MILLIS;
         tournament.availableActions = new ArrayList<>();
@@ -90,6 +91,7 @@ final class TournamentHandResultManager {
     void moveToHandResult(TournamentState tournament, String tableMessage) {
         tournament.status = TournamentStatus.HAND_RESULT;
         tournament.actingSeat = null;
+        tournament.actionDeadlineAtEpochMilli = 0;
         tournament.handResultEndsAtEpochMilli = Instant.now().toEpochMilli() + HAND_RESULT_DURATION_MILLIS;
         tournament.finishedCleanupAtEpochMilli = 0;
         tournament.availableActions = new ArrayList<>();

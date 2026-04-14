@@ -16,6 +16,7 @@ export type ActionPanelViewModel = {
   canAct: boolean;
   showDisconnect: boolean;
   showReconnect: boolean;
+  showReturnToPlay: boolean;
   canSubmitSizedAction: boolean;
   controlHint: string;
 };
@@ -52,6 +53,10 @@ function describeControlState(
     return "Reconnect to restore seat ownership and receive live updates.";
   }
 
+  if (currentPlayer.afk) {
+    return "You are AFK. Your turns will auto-check or auto-fold until you return to play.";
+  }
+
   if (tournamentStatus === "WAITING") {
     return currentPlayer.status === "READY"
       ? "You are ready. The owner can start once at least two players are ready."
@@ -85,10 +90,11 @@ export function buildActionPanelViewModel({
   const canToggleReady =
     !!currentPlayer &&
     currentPlayer.connected &&
+    !currentPlayer.afk &&
     isWaiting &&
     (currentPlayer.status === "SEATED" || currentPlayer.status === "READY");
-  const canStart = !!currentPlayer && currentPlayer.connected && currentPlayer.owner && isWaiting;
-  const canAct = !!currentPlayer && currentPlayer.connected && currentPlayer.acting;
+  const canStart = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && currentPlayer.owner && isWaiting;
+  const canAct = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && currentPlayer.acting;
 
   return {
     sizeAction,
@@ -97,8 +103,9 @@ export function buildActionPanelViewModel({
     canToggleReady,
     canStart,
     canAct,
-    showDisconnect: !!currentPlayer?.connected,
+    showDisconnect: !!currentPlayer?.connected && isWaiting,
     showReconnect: !!currentPlayer && !currentPlayer.connected,
+    showReturnToPlay: !!currentPlayer?.connected && !!currentPlayer?.afk,
     canSubmitSizedAction: canPublish && canAct,
     controlHint: describeControlState(currentPlayer, tournamentStatus, actions),
   };

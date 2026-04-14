@@ -28,6 +28,7 @@ final class TournamentState {
     Integer smallBlindSeat;
     Integer bigBlindSeat;
     Integer actingSeat;
+    long actionDeadlineAtEpochMilli = 0;
     long handResultEndsAtEpochMilli = 0;
     long finishedCleanupAtEpochMilli = 0;
     List<ShowdownPotView> showdownPots = new ArrayList<>();

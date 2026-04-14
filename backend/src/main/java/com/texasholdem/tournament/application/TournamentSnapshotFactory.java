@@ -3,6 +3,7 @@ package com.texasholdem.tournament.application;
 import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentPlayerView;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -14,10 +15,15 @@ import java.util.stream.Collectors;
 final class TournamentSnapshotFactory {
 
     private final TournamentRules rules;
+    private final long actionTimeoutSeconds;
 
     // Wires snapshot assembly to the shared tournament rules.
-    TournamentSnapshotFactory(TournamentRules rules) {
+    TournamentSnapshotFactory(
+            TournamentRules rules,
+            @Value("${app.tournament.action-timeout-seconds:20}") long actionTimeoutSeconds
+    ) {
         this.rules = rules;
+        this.actionTimeoutSeconds = Math.max(0, actionTimeoutSeconds);
     }
 
     // Converts mutable in-memory state into the API snapshot contract.
@@ -58,6 +64,8 @@ final class TournamentSnapshotFactory {
                 tournament.smallBlindSeat,
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
+                tournament.actionDeadlineAtEpochMilli,
+                actionTimeoutSeconds,
                 tournament.players.stream()
                         .sorted(Comparator.comparingInt(player -> player.seatIndex))
                         .map(this::toView)
@@ -84,6 +92,7 @@ final class TournamentSnapshotFactory {
                 player.roundContribution,
                 player.owner,
                 player.connected,
+                player.afk,
                 player.participating,
                 player.acting
         );

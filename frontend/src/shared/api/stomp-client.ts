@@ -26,7 +26,7 @@ export function sendTournamentReady(client: Client, code: string, guestId: strin
 // Sends a tournament lifecycle connect or reconnect command for one player.
 export function sendTournamentConnection(
   client: Client,
-  destination: "/app/tournament.disconnect" | "/app/tournament.reconnect",
+  destination: "/app/tournament.disconnect" | "/app/tournament.reconnect" | "/app/tournament.return-to-play",
   code: string,
   guestId: string,
 ) {

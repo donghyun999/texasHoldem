@@ -67,6 +67,8 @@ export function TablePage() {
             message={snapshot.tableMessage}
             tournamentStatus={snapshot.status}
             currentPlayer={currentPlayer}
+            actionDeadlineAtEpochMilli={snapshot.actionDeadlineAtEpochMilli}
+            actionTimeoutSeconds={snapshot.actionTimeoutSeconds}
             stackDisplayMode={stackDisplayMode}
             canPublish={realtimeSnapshot.canPublish}
             onAction={realtimeSnapshot.sendAction}
@@ -74,6 +76,7 @@ export function TablePage() {
             onStart={realtimeSnapshot.sendStart}
             onDisconnect={realtimeSnapshot.sendDisconnect}
             onReconnect={realtimeSnapshot.sendReconnect}
+            onReturnToPlay={realtimeSnapshot.sendReturnToPlay}
           />
         }
       />

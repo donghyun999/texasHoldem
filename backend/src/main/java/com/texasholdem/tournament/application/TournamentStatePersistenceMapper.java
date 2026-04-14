@@ -62,6 +62,7 @@ final class TournamentStatePersistenceMapper {
                 tournament.smallBlindSeat,
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
+                tournament.actionDeadlineAtEpochMilli,
                 tournament.handResultEndsAtEpochMilli,
                 tournament.finishedCleanupAtEpochMilli,
                 tournament.players.stream().map(this::toPayload).toList(),
@@ -89,6 +90,7 @@ final class TournamentStatePersistenceMapper {
                 player.roundContribution,
                 player.awaitingAction,
                 player.raiseRightsAvailable,
+                player.afk,
                 List.copyOf(player.holeCards)
         );
     }
@@ -114,6 +116,9 @@ final class TournamentStatePersistenceMapper {
         tournament.smallBlindSeat = payload.smallBlindSeat();
         tournament.bigBlindSeat = payload.bigBlindSeat();
         tournament.actingSeat = payload.actingSeat();
+        tournament.actionDeadlineAtEpochMilli = payload.actionDeadlineAtEpochMilli() == null
+                ? 0
+                : payload.actionDeadlineAtEpochMilli();
         tournament.handResultEndsAtEpochMilli = payload.handResultEndsAtEpochMilli();
         tournament.finishedCleanupAtEpochMilli = payload.finishedCleanupAtEpochMilli() == null
                 ? 0
@@ -148,6 +153,7 @@ final class TournamentStatePersistenceMapper {
         player.raiseRightsAvailable = payload.raiseRightsAvailable() == null
                 ? payload.awaitingAction()
                 : payload.raiseRightsAvailable();
+        player.afk = payload.afk() != null && payload.afk();
         player.holeCards = new ArrayList<>(payload.holeCards());
         return player;
     }
@@ -191,6 +197,7 @@ final class TournamentStatePersistenceMapper {
             Integer smallBlindSeat,
             Integer bigBlindSeat,
             Integer actingSeat,
+            Long actionDeadlineAtEpochMilli,
             long handResultEndsAtEpochMilli,
             Long finishedCleanupAtEpochMilli,
             List<PersistedTournamentPlayerState> players,
@@ -216,6 +223,7 @@ final class TournamentStatePersistenceMapper {
             int roundContribution,
             boolean awaitingAction,
             Boolean raiseRightsAvailable,
+            Boolean afk,
             List<String> holeCards
     ) {
     }

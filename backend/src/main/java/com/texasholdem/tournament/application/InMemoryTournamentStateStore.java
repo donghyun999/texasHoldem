@@ -77,6 +77,18 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .toList();
     }
 
+    // Lists in-memory in-hand action deadlines whose timeout transitions should be recovered.
+    @Override
+    public List<PendingActionTimeout> findPendingActionTimeouts() {
+        return payloads.values().stream()
+                .map(StoredPayload::payload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.IN_HAND)
+                .filter(tournament -> tournament.actionDeadlineAtEpochMilli > 0)
+                .map(tournament -> new PendingActionTimeout(tournament.code, tournament.actionDeadlineAtEpochMilli))
+                .toList();
+    }
+
     // Lists in-memory finished tournaments whose delayed cleanup should be recovered.
     @Override
     public List<PendingFinishedCleanup> findPendingFinishedCleanups() {

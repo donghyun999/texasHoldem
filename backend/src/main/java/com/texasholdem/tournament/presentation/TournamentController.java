@@ -89,6 +89,15 @@ public class TournamentController {
         return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
     }
 
+    // Restores an AFK player to normal turn control for future actions.
+    @PostMapping("/{code}/return-to-play")
+    public ApiResponse<TournamentEvent> returnAfkPlayerToPlay(
+            @PathVariable String code,
+            @Valid @RequestBody TournamentConnectionMessage request
+    ) {
+        return ApiResponse.ok(tournamentService.returnPlayerToPlay(request.resolveCode(code), request.guestId()).primaryEvent());
+    }
+
     // Starts the first hand when the owner promotes ready players into the field.
     @PostMapping("/{code}/start")
     public ApiResponse<TournamentEvent> startTournament(

@@ -51,6 +51,7 @@
 - Railway deployment profile and service manifests now separate MVP hosting concerns from the local `local` profile workflow
 - Railway public-domain smoke verification has been completed through create, join, ready, start, all-in, call, and showdown, including showdown hand-label rendering
 - Railway 6-player browser smoke verification has been completed against the deployed frontend URL; two full-table runs found no reproduction of the reported seat 5 missing-card or wrong-card issue
+- Deployment-targeted Railway smoke scripts now live under `scripts/`, share a common config helper, and the continuous runner requires explicit opt-in env flags before it will start
 
 ## In progress / focus
 
@@ -96,6 +97,7 @@
 - Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
 - The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`
 - The table state contract now has explicit hand and state identifiers; this reduces reliance on frontend status/board heuristics when public WebSocket snapshots race personalized REST snapshots
+- The current Railway smoke harness remains maintainable as an MVP regression tool, but it is still deliberately coupled to current UI labels, local storage, and snapshot contract details rather than a broader Playwright test framework
 
 ## MVP closeout boundary
 

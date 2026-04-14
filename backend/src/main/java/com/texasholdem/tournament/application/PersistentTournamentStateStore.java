@@ -82,6 +82,18 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .toList();
     }
 
+    // Finds delayed in-hand action deadlines that should be rescheduled after a restart.
+    @Override
+    public List<PendingActionTimeout> findPendingActionTimeouts() {
+        return repository.findAll().stream()
+                .map(TournamentStateEntity::getPayload)
+                .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.IN_HAND)
+                .filter(tournament -> tournament.actionDeadlineAtEpochMilli > 0)
+                .map(tournament -> new PendingActionTimeout(tournament.code, tournament.actionDeadlineAtEpochMilli))
+                .toList();
+    }
+
     // Finds delayed finished cleanups that should be rescheduled after a restart.
     @Override
     public List<PendingFinishedCleanup> findPendingFinishedCleanups() {

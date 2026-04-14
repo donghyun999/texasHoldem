@@ -57,6 +57,8 @@ function getSeatBadgeTone(badge: string) {
   switch (badge) {
     case "YOU":
       return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
+    case "AFK":
+      return "border-rose-200/30 bg-rose-300/15 text-rose-50";
     case "OWNER":
       return "border-white/15 bg-white/10 text-white";
     case "SB":
@@ -71,6 +73,10 @@ function getSeatBadgeTone(badge: string) {
 function getStatusBadge(player: TournamentPlayer) {
   if (!player.connected) {
     return "OFF";
+  }
+
+  if (player.afk) {
+    return "AFK";
   }
 
   switch (player.status) {

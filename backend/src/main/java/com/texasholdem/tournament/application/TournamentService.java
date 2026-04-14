@@ -2,6 +2,7 @@ package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.GuestSession;
 import com.texasholdem.tournament.domain.ActiveTournamentSession;
+import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,6 +50,7 @@ public class TournamentService {
             @Value("${app.tournament.max-active-players:50}") int maxActivePlayers,
             @Value("${app.tournament.waiting-idle-ttl-seconds:1800}") long waitingIdleTtlSeconds,
             @Value("${app.tournament.in-hand-idle-ttl-seconds:7200}") long inHandIdleTtlSeconds,
+            @Value("${app.tournament.action-timeout-seconds:20}") long actionTimeoutSeconds,
             @Value("${app.tournament.hard-ttl-seconds:86400}") long hardTtlSeconds
     ) {
         this.identityFactory = identityFactory;
@@ -215,6 +217,31 @@ public class TournamentService {
         }
     }
 
+    // Restores an AFK player to manual control for future turns without changing chips or seat ownership.
+    public TournamentBroadcast returnPlayerToPlay(String code, String guestId) {
+        var tournament = requireTournament(code);
+        synchronized (tournament) {
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
+            var player = stateAccess.requirePlayer(tournament, guestId);
+            if (!player.connected) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player must reconnect before returning to play");
+            }
+            if (!player.afk) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player is already active");
+            }
+
+            player.afk = false;
+            tournament.tableMessage = stateAccess.combineMessages(player.nickname + " returned to play.", tournament.tableMessage);
+            saveTournamentState(tournament);
+            return eventFactory.createBroadcast(
+                    "playerReturned",
+                    tournament,
+                    Map.of("guestId", guestId, "afk", false),
+                    beforeSnapshot
+            );
+        }
+    }
+
     // Converts ready players into active participants and opens the first hand.
     public TournamentBroadcast startTournament(String code, String guestId) {
         var tournament = requireTournament(code);
@@ -262,6 +289,54 @@ public class TournamentService {
                     "actionApplied",
                     tournament,
                     eventFactory.actionPayload(guestId, result.action(), result.amount()),
+                    beforeSnapshot
+            );
+        }
+    }
+
+    // Auto-applies one AFK timeout action when the acting player misses the current decision window.
+    TournamentBroadcast autoTimeoutActingPlayer(String code, long expectedDeadlineEpochMilli) {
+        var tournament = findTournament(code);
+        if (tournament == null) {
+            return null;
+        }
+
+        synchronized (tournament) {
+            if (tournament.status != TournamentStatus.IN_HAND
+                    || tournament.actionDeadlineAtEpochMilli != expectedDeadlineEpochMilli
+                    || tournament.actionDeadlineAtEpochMilli == 0
+                    || tournament.actionDeadlineAtEpochMilli > Instant.now().toEpochMilli()
+                    || tournament.actingSeat == null) {
+                return null;
+            }
+
+            var actingPlayer = stateAccess.requireSeatPlayer(tournament, tournament.actingSeat);
+            if (actingPlayer.status != PlayerStatus.ACTIVE || !actingPlayer.connected || actingPlayer.afk) {
+                return null;
+            }
+
+            var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
+            actingPlayer.afk = true;
+            var automaticAction = beforeSnapshot.availableActions().contains("CHECK") ? "CHECK" : "FOLD";
+            var result = handEngine.applyAutomaticAction(
+                    tournament,
+                    actingPlayer,
+                    automaticAction,
+                    automaticAction.equals("CHECK")
+                            ? actingPlayer.nickname + " timed out, became AFK, and was auto-checked."
+                            : actingPlayer.nickname + " timed out, became AFK, and was auto-folded."
+            );
+            saveTournamentState(tournament);
+            return eventFactory.createBroadcast(
+                    "actionApplied",
+                    tournament,
+                    Map.of(
+                            "guestId", actingPlayer.guestId,
+                            "action", result.action(),
+                            "amount", result.amount(),
+                            "reason", "timeout",
+                            "afk", true
+                    ),
                     beforeSnapshot
             );
         }
@@ -368,6 +443,7 @@ public class TournamentService {
         eventPublisher.publishEvent(new TournamentStateChangedEvent(
                 tournament.code,
                 tournament.status,
+                tournament.actionDeadlineAtEpochMilli,
                 tournament.handResultEndsAtEpochMilli,
                 tournament.finishedCleanupAtEpochMilli
         ));

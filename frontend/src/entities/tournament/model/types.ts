@@ -55,6 +55,7 @@ export type TournamentPlayer = {
   roundContribution: number;
   owner: boolean;
   connected: boolean;
+  afk: boolean;
   participating: boolean;
   acting: boolean;
 };
@@ -78,6 +79,8 @@ export type TournamentSnapshot = {
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
   actingSeat: number | null;
+  actionDeadlineAtEpochMilli: number;
+  actionTimeoutSeconds: number;
   players: TournamentPlayer[];
   showdownPots: ShowdownPot[];
   showdownHands: ShowdownHand[];
