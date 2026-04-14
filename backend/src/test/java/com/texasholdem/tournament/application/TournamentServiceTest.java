@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
@@ -113,6 +114,50 @@ class TournamentServiceTest {
         assertThat(summary.currentPlayers()).isEqualTo(2);
         assertThat(summary.maxPlayers()).isEqualTo(6);
         assertThat(summary.ownerNickname()).isEqualTo("Owner");
+    }
+
+    // Verifies that full public waiting rooms stay out of the joinable home list.
+    @Test
+    void excludesFullPublicWaitingTournamentsFromLobbyList() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "FULL1", TournamentVisibility.PUBLIC);
+        for (var playerNumber = 2; playerNumber <= 6; playerNumber++) {
+            service.joinTournament("FULL1", "guest-" + playerNumber, "Player" + playerNumber);
+        }
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries).isEmpty();
+    }
+
+    // Verifies that waiting-room joins no longer reshuffle list order away from creation recency.
+    @Test
+    void keepsPublicTournamentCreationOrderWhenRoomsUpdate() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner1", "PUB1", TournamentVisibility.PUBLIC);
+        service.createTournament("guest-2", "Owner2", "PUB2", TournamentVisibility.PUBLIC);
+
+        service.joinTournament("PUB1", "guest-3", "Player3");
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries).extracting(PublicTournamentSummary::code)
+                .containsExactly("PUB2", "PUB1");
+    }
+
+    // Verifies that leaving a waiting room clears both active-tournament lookup and the public list entry.
+    @Test
+    void waitingRoomLeaveClearsActiveTournamentAndRemovesEmptyPublicRoom() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "PUB1", TournamentVisibility.PUBLIC);
+
+        service.disconnectPlayer("PUB1", "guest-1");
+
+        assertThat(service.findActiveTournament("guest-1")).isNull();
+        assertThat(service.listPublicWaitingTournaments()).isEmpty();
+        assertThatThrownBy(() -> service.getTournament("PUB1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Tournament not found");
     }
 
     // Verifies that a REST join can fan out one fresh snapshot to waiting-room subscribers immediately.

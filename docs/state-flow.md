@@ -42,6 +42,8 @@
 - Waiting-room disconnects remove the player immediately and delegate owner rights by lowest eligible seat
 - Waiting-room leave/disconnect semantics are the same server-side operation
   - when WebSocket is unavailable, the frontend falls back to `POST /api/v1/tournaments/{code}/disconnect` and applies the returned snapshot locally
+- Home public room list stays limited to joinable public `WAITING` rooms
+  - full rooms are filtered out, and list ordering now follows room creation recency rather than bouncing on later join/leave updates
 - Browser refresh no longer auto-disconnects the current table seat
   - waiting-room route exit inside the SPA still falls back to `POST /api/v1/tournaments/{code}/disconnect`
   - in-hand refresh now preserves the seat so the same `guestId` can restore the latest snapshot after reload

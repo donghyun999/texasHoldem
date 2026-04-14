@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
-import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
+import { syncPublicTournamentListCache } from "@/entities/tournament/model/lobby-cache";
+import {
+  buildActiveTournamentKey,
+  buildTournamentSnapshotKey,
+  publicTournamentListQueryKey,
+} from "@/entities/tournament/model/query-keys";
 import type { TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
 import { PublicTournamentList } from "@/features/lobby/ui/PublicTournamentList";
@@ -14,8 +19,6 @@ import {
   joinTournament,
 } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
-
-const publicTournamentListQueryKey = ["public-tournament-list"] as const;
 
 // Converts unknown mutation failures into a short UI-safe message.
 function toErrorMessage(error: unknown, fallback: string) {
@@ -37,7 +40,7 @@ export function HomePage() {
     retry: false,
   });
   const activeTournamentQuery = useQuery({
-    queryKey: ["active-tournament", guestId],
+    queryKey: buildActiveTournamentKey(guestId),
     queryFn: () => getActiveTournamentForGuest(guestId),
     enabled: !!guestId.trim(),
     retry: false,
@@ -98,6 +101,12 @@ export function HomePage() {
   // Seeds the destination snapshot cache before navigation so the table paints immediately.
   function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
+    queryClient.setQueryData(buildActiveTournamentKey(viewerGuestId), {
+      guestId: viewerGuestId,
+      tournamentCode: snapshot.code,
+      status: snapshot.status,
+    });
+    syncPublicTournamentListCache(queryClient, snapshot);
     navigate(`/tournaments/${snapshot.code}`);
   }
 

@@ -43,6 +43,7 @@
 - Table-page WebSocket lifecycle no longer re-creates the STOMP client on every render, so the realtime session now stays connected in browser play instead of falling back to a looping `LIVE SNAPSHOT` state
 - Explicit in-hand disconnect from the browser no longer auto-reconnects immediately on the same page, so manual reconnect flow is now testable and consistent with the UI
 - Waiting-room join now fan-outs a fresh `tournamentSnapshot`, so already seated browsers refresh the participant list immediately when a new player enters
+- Public room list now keeps a stable creation-based order, excludes full waiting rooms, and is re-synced from table snapshots so leave/start transitions do not wait for the next home poll to clear stale cache
 - Browser refresh no longer auto-sends the fallback disconnect for in-hand seats, so reloading the active actor restores the latest snapshot instead of forcing an immediate fold
 - Table REST snapshot now accepts an optional viewing `guestId` and returns `selfHoleCards`, so the current player can see their own hand without exposing opponents' cards
 - Frontend realtime snapshot merging now preserves last-known self hole cards only within the same `handNumber` and ignores older same-hand `stateVersion` updates
@@ -92,6 +93,7 @@
 - The most recent smoke check also found and fixed an unintended auto-disconnect on initial table entry in frontend dev `StrictMode`
 - The latest browser verification also confirmed stable `LIVE WS` state through create, join, ready, start, waiting-room leave, disconnect, and reconnect flows
 - Waiting-room participant lists now refresh immediately on join because REST join mirrors one websocket snapshot broadcast to existing subscribers
+- Public waiting-room list semantics are now tighter: the home list only represents still-joinable public `WAITING` rooms, and table-driven cache sync removes stale entries immediately on leave/start/finish
 - Reload recovery now preserves the current in-hand seat instead of converting the refresh into an automatic disconnect/fold path
 - The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
 - Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing

@@ -35,7 +35,14 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
     // Saves the latest serialized tournament aggregate into the database.
     @Override
     public void save(TournamentState tournament) {
-        repository.save(new TournamentStateEntity(tournament.code, mapper.write(tournament)));
+        var payload = mapper.write(tournament);
+        var entity = repository.findById(tournament.code)
+                .map(existingEntity -> {
+                    existingEntity.setPayload(payload);
+                    return existingEntity;
+                })
+                .orElseGet(() -> new TournamentStateEntity(tournament.code, payload));
+        repository.save(entity);
     }
 
     // Reloads one serialized tournament aggregate from the database.
@@ -77,11 +84,13 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
         return repository.findAll().stream()
-                .sorted(Comparator.comparing(TournamentStateEntity::getUpdatedAt).reversed())
+                .sorted(Comparator.comparing(TournamentStateEntity::getCreatedAt).reversed())
                 .map(TournamentStateEntity::getPayload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
+                .filter(tournament -> !tournament.players.isEmpty())
+                .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
                         tournament.visibility,

@@ -10,6 +10,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,6 +26,7 @@ class PersistentTournamentStateStoreTest {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
         when(mapper.write(any(TournamentState.class))).thenReturn("{\"code\":\"ABCDE\"}");
+        when(repository.findById("ABCDE")).thenReturn(Optional.empty());
         when(repository.save(any(TournamentStateEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var store = new PersistentTournamentStateStore(repository, mapper);
@@ -37,7 +39,32 @@ class PersistentTournamentStateStoreTest {
         var savedEntity = entityCaptor.getValue();
         assertThat(savedEntity.getCode()).isEqualTo("ABCDE");
         assertThat(savedEntity.getPayload()).isEqualTo("{\"code\":\"ABCDE\"}");
+        assertThat(savedEntity.getCreatedAt()).isNotNull();
         assertThat(savedEntity.getUpdatedAt()).isNotNull();
+    }
+
+    // Verifies that updating an existing row preserves the original creation timestamp.
+    @Test
+    void preservesCreatedAtWhenSavingExistingTournamentState() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        when(mapper.write(any(TournamentState.class))).thenReturn("{\"code\":\"ABCDE\",\"status\":\"WAITING\"}");
+        var existingEntity = new TournamentStateEntity("ABCDE", "{\"code\":\"ABCDE\"}");
+        var originalCreatedAt = LocalDateTime.now().minusMinutes(15);
+        ReflectionTestUtils.setField(existingEntity, "createdAt", originalCreatedAt);
+        ReflectionTestUtils.setField(existingEntity, "updatedAt", LocalDateTime.now().minusMinutes(5));
+        when(repository.findById("ABCDE")).thenReturn(Optional.of(existingEntity));
+        when(repository.save(any(TournamentStateEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        store.save(new TournamentState("ABCDE"));
+
+        var entityCaptor = ArgumentCaptor.forClass(TournamentStateEntity.class);
+        verify(repository).save(entityCaptor.capture());
+        var savedEntity = entityCaptor.getValue();
+        assertThat(savedEntity.getCreatedAt()).isEqualTo(originalCreatedAt);
+        assertThat(savedEntity.getPayload()).isEqualTo("{\"code\":\"ABCDE\",\"status\":\"WAITING\"}");
     }
 
     // Verifies that restart recovery only sees persisted hand-result tournaments with a deadline.
@@ -121,6 +148,10 @@ class PersistentTournamentStateStoreTest {
         var olderEntity = new TournamentStateEntity("PUB1", "pub1");
         var privateEntity = new TournamentStateEntity("PRIV1", "priv1");
         var inHandEntity = new TournamentStateEntity("HAND1", "hand1");
+        ReflectionTestUtils.setField(newestEntity, "createdAt", LocalDateTime.now().minusMinutes(1));
+        ReflectionTestUtils.setField(olderEntity, "createdAt", LocalDateTime.now().minusMinutes(10));
+        ReflectionTestUtils.setField(privateEntity, "createdAt", LocalDateTime.now().minusMinutes(2));
+        ReflectionTestUtils.setField(inHandEntity, "createdAt", LocalDateTime.now().minusMinutes(3));
         ReflectionTestUtils.setField(newestEntity, "updatedAt", LocalDateTime.now().minusMinutes(1));
         ReflectionTestUtils.setField(olderEntity, "updatedAt", LocalDateTime.now().minusMinutes(10));
         ReflectionTestUtils.setField(privateEntity, "updatedAt", LocalDateTime.now().minusMinutes(2));

@@ -29,10 +29,11 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     // Serializes and stores one tournament state in the backing map.
     @Override
     public void save(TournamentState tournament) {
-        payloads.put(
-                tournament.code,
-                new StoredPayload(mapper.write(tournament), Instant.now().toEpochMilli())
-        );
+        payloads.compute(tournament.code, (code, existingPayload) -> new StoredPayload(
+                mapper.write(tournament),
+                existingPayload == null ? Instant.now().toEpochMilli() : existingPayload.createdAtEpochMilli(),
+                Instant.now().toEpochMilli()
+        ));
     }
 
     // Deserializes one persisted tournament state from the backing map.
@@ -72,11 +73,13 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
         return payloads.values().stream()
-                .sorted(Comparator.comparingLong(StoredPayload::updatedAtEpochMilli).reversed())
+                .sorted(Comparator.comparingLong(StoredPayload::createdAtEpochMilli).reversed())
                 .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
+                .filter(tournament -> !tournament.players.isEmpty())
+                .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
                         tournament.visibility,
@@ -158,7 +161,11 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     // Overrides one stored update timestamp so tests can model stale persisted tournaments.
     void touch(String code, long updatedAtEpochMilli) {
         payloads.computeIfPresent(code, (currentCode, storedPayload) ->
-                new StoredPayload(storedPayload.payload(), updatedAtEpochMilli)
+                new StoredPayload(
+                        storedPayload.payload(),
+                        storedPayload.createdAtEpochMilli(),
+                        updatedAtEpochMilli
+                )
         );
     }
 
@@ -182,6 +189,6 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 && ageMillis >= inHandIdleTtlMillis;
     }
 
-    private record StoredPayload(String payload, long updatedAtEpochMilli) {
+    private record StoredPayload(String payload, long createdAtEpochMilli, long updatedAtEpochMilli) {
     }
 }
