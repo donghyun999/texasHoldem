@@ -5,6 +5,7 @@ import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
 import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
 final class TournamentState {
 
     final String code;
+    TournamentVisibility visibility = TournamentVisibility.PRIVATE;
     final List<TournamentPlayerState> players = new ArrayList<>();
     long handNumber = 0;
     long stateVersion = 0;

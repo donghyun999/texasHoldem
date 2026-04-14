@@ -1,10 +1,12 @@
 package com.texasholdem.tournament.application;
 
-import com.texasholdem.tournament.domain.GuestSession;
 import com.texasholdem.tournament.domain.ActiveTournamentSession;
+import com.texasholdem.tournament.domain.GuestSession;
 import com.texasholdem.tournament.domain.PlayerStatus;
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -96,20 +98,41 @@ public class TournamentService {
         }
     }
 
+    // Lists public waiting rooms that are currently joinable from the home lobby.
+    public java.util.List<PublicTournamentSummary> listPublicWaitingTournaments() {
+        cleanupStaleTournaments();
+        return stateStore.findPublicWaitingTournaments(stateAccess.maxSeats());
+    }
+
     // Creates a waiting tournament and seats the owner immediately.
     public TournamentSnapshot createTournament(String guestId, String nickname) {
-        return createTournament(guestId, nickname, null);
+        return createTournament(guestId, nickname, null, TournamentVisibility.PRIVATE);
     }
 
     // Creates a waiting tournament and optionally reserves the caller-supplied code.
     public TournamentSnapshot createTournament(String guestId, String nickname, String requestedCode) {
+        return createTournament(guestId, nickname, requestedCode, TournamentVisibility.PRIVATE);
+    }
+
+    // Creates a waiting tournament with one public or private lobby policy.
+    public TournamentSnapshot createTournament(
+            String guestId,
+            String nickname,
+            String requestedCode,
+            TournamentVisibility visibility
+    ) {
         cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, null);
         ensureCapacityForNewGuest();
         var code = identityFactory.resolveTournamentCode(requestedCode, currentCode ->
                 isTournamentCodeReserved(currentCode)
         );
-        var tournament = lobbyManager.createTournament(code, guestId, nickname);
+        var tournament = lobbyManager.createTournament(
+                code,
+                guestId,
+                nickname,
+                visibility == null ? TournamentVisibility.PRIVATE : visibility
+        );
         tournaments.put(code, tournament);
         saveTournamentState(tournament);
         return snapshotFactory.toSnapshot(tournament, guestId);
@@ -190,10 +213,10 @@ public class TournamentService {
             return mergeBroadcasts(
                     expiredHandResultBroadcast,
                     eventFactory.createBroadcast(
-                    "playerDisconnected",
-                    tournament,
-                    eventFactory.connectionPayload(change),
-                    normalizedBeforeSnapshot
+                            "playerDisconnected",
+                            tournament,
+                            eventFactory.connectionPayload(change),
+                            normalizedBeforeSnapshot
                     )
             );
         }
@@ -211,10 +234,10 @@ public class TournamentService {
             return mergeBroadcasts(
                     expiredHandResultBroadcast,
                     eventFactory.createBroadcast(
-                    "playerReconnected",
-                    tournament,
-                    eventFactory.connectionPayload(change),
-                    normalizedBeforeSnapshot
+                            "playerReconnected",
+                            tournament,
+                            eventFactory.connectionPayload(change),
+                            normalizedBeforeSnapshot
                     )
             );
         }

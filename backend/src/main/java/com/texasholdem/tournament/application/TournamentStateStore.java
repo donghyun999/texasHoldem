@@ -1,5 +1,7 @@
 package com.texasholdem.tournament.application;
 
+import com.texasholdem.tournament.domain.PublicTournamentSummary;
+
 import java.util.List;
 
 interface TournamentStateStore {
@@ -36,6 +38,9 @@ interface TournamentStateStore {
 
     // Counts all guests currently occupying non-finished tournaments.
     int countActiveGuests();
+
+    // Lists public waiting rooms that can be joined from the home lobby.
+    List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers);
 
     // Lists persisted hand-result tournaments whose delayed transition must survive a restart.
     List<PendingHandResult> findPendingHandResults();

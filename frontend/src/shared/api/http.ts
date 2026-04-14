@@ -1,4 +1,10 @@
-import type { ActiveTournamentSession, TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
+import type {
+  ActiveTournamentSession,
+  PublicTournamentSummary,
+  TournamentEvent,
+  TournamentSnapshot,
+  TournamentVisibility,
+} from "@/entities/tournament/model/types";
 import { API_BASE_URL } from "@/shared/config/runtime";
 
 export type GuestSession = {
@@ -101,13 +107,27 @@ export function getTournamentSnapshot(code: string, guestId?: string): Promise<T
   return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}${query}`);
 }
 
+// Fetches the current list of joinable public waiting rooms for the lobby.
+export function getPublicWaitingTournaments(): Promise<PublicTournamentSummary[]> {
+  return fetchJson<PublicTournamentSummary[]>("/api/v1/tournaments/lobby/public");
+}
+
 // Creates one waiting tournament and immediately seats the owner.
-export function createTournament(guestId: string, nickname: string, code?: string): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; code?: string }, TournamentSnapshot>("/api/v1/tournaments", {
-    guestId,
-    nickname,
-    ...(code ? { code } : {}),
-  });
+export function createTournament(
+  guestId: string,
+  nickname: string,
+  visibility: TournamentVisibility,
+  code?: string,
+): Promise<TournamentSnapshot> {
+  return postJson<{ guestId: string; nickname: string; visibility: TournamentVisibility; code?: string }, TournamentSnapshot>(
+    "/api/v1/tournaments",
+    {
+      guestId,
+      nickname,
+      visibility,
+      ...(code ? { code } : {}),
+    },
+  );
 }
 
 // Joins one waiting tournament with the current persisted guest identity.

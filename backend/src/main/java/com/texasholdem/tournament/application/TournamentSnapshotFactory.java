@@ -54,6 +54,7 @@ final class TournamentSnapshotFactory {
 
         return new TournamentSnapshot(
                 tournament.code,
+                tournament.visibility,
                 tournament.handNumber,
                 tournament.stateVersion,
                 normalizedViewerGuestId == null ? SnapshotAudience.PUBLIC : SnapshotAudience.VIEWER,

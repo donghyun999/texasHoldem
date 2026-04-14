@@ -3,6 +3,7 @@ package com.texasholdem.tournament.application;
 import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
@@ -91,6 +92,61 @@ class PersistentTournamentStateStoreTest {
 
         assertThat(store.findPendingFinishedCleanups())
                 .containsExactly(new TournamentStateStore.PendingFinishedCleanup("DONE1", 654_321L));
+    }
+
+    // Verifies that only public waiting rooms are surfaced in newest-first order for the home lobby.
+    @Test
+    void findsPublicWaitingTournamentsForLobbyList() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        var newestPublicWaiting = new TournamentState("PUB2");
+        newestPublicWaiting.visibility = TournamentVisibility.PUBLIC;
+        newestPublicWaiting.status = TournamentStatus.WAITING;
+        newestPublicWaiting.players.add(TournamentPlayerState.owner("guest-2", "NewestOwner", 0));
+        newestPublicWaiting.players.add(new TournamentPlayerState("guest-3", "Player3", 1));
+        var olderPublicWaiting = new TournamentState("PUB1");
+        olderPublicWaiting.visibility = TournamentVisibility.PUBLIC;
+        olderPublicWaiting.status = TournamentStatus.WAITING;
+        olderPublicWaiting.players.add(TournamentPlayerState.owner("guest-1", "OlderOwner", 0));
+        var privateWaiting = new TournamentState("PRIV1");
+        privateWaiting.visibility = TournamentVisibility.PRIVATE;
+        privateWaiting.status = TournamentStatus.WAITING;
+        privateWaiting.players.add(TournamentPlayerState.owner("guest-4", "PrivateOwner", 0));
+        var publicInHand = new TournamentState("HAND1");
+        publicInHand.visibility = TournamentVisibility.PUBLIC;
+        publicInHand.status = TournamentStatus.IN_HAND;
+        publicInHand.players.add(TournamentPlayerState.owner("guest-5", "InHandOwner", 0));
+
+        var newestEntity = new TournamentStateEntity("PUB2", "pub2");
+        var olderEntity = new TournamentStateEntity("PUB1", "pub1");
+        var privateEntity = new TournamentStateEntity("PRIV1", "priv1");
+        var inHandEntity = new TournamentStateEntity("HAND1", "hand1");
+        ReflectionTestUtils.setField(newestEntity, "updatedAt", LocalDateTime.now().minusMinutes(1));
+        ReflectionTestUtils.setField(olderEntity, "updatedAt", LocalDateTime.now().minusMinutes(10));
+        ReflectionTestUtils.setField(privateEntity, "updatedAt", LocalDateTime.now().minusMinutes(2));
+        ReflectionTestUtils.setField(inHandEntity, "updatedAt", LocalDateTime.now().minusMinutes(3));
+
+        when(repository.findAll()).thenReturn(List.of(olderEntity, newestEntity, privateEntity, inHandEntity));
+        when(mapper.read("pub1")).thenReturn(olderPublicWaiting);
+        when(mapper.read("pub2")).thenReturn(newestPublicWaiting);
+        when(mapper.read("priv1")).thenReturn(privateWaiting);
+        when(mapper.read("hand1")).thenReturn(publicInHand);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findPublicWaitingTournaments(6))
+                .extracting(summary -> List.of(
+                        summary.code(),
+                        summary.visibility(),
+                        summary.status(),
+                        summary.currentPlayers(),
+                        summary.maxPlayers(),
+                        summary.ownerNickname()
+                ))
+                .containsExactly(
+                        List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, 6, "NewestOwner"),
+                        List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
+                );
     }
 
     // Verifies that waiting and in-hand tournaments can be identified as stale from updated_at timestamps.

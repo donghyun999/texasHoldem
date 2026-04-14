@@ -4,6 +4,7 @@ import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
   return {
     code: code.toUpperCase(),
+    visibility: "PRIVATE",
     handNumber: 1,
     stateVersion: 1,
     snapshotAudience: "VIEWER",

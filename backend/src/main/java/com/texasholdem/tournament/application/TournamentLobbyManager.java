@@ -2,6 +2,7 @@ package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,10 +30,13 @@ final class TournamentLobbyManager {
     }
 
     // Creates a waiting tournament state and seats the owner immediately.
-    TournamentState createTournament(String code, String guestId, String nickname) {
+    TournamentState createTournament(String code, String guestId, String nickname, TournamentVisibility visibility) {
         var tournament = new TournamentState(code);
+        tournament.visibility = visibility;
         tournament.players.add(TournamentPlayerState.owner(guestId, identityFactory.normalizeNickname(nickname), 0));
-        tournament.tableMessage = "Tournament created. Owner can wait for ready players.";
+        tournament.tableMessage = visibility == TournamentVisibility.PUBLIC
+                ? "Public tournament created. Players can join from the lobby list."
+                : "Private tournament created. Share the code to invite players.";
         return tournament;
     }
 

@@ -8,6 +8,7 @@ import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
 import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ final class TournamentStatePersistenceMapper {
     private PersistedTournamentState toPayload(TournamentState tournament) {
         return new PersistedTournamentState(
                 tournament.code,
+                tournament.visibility,
                 tournament.handNumber,
                 tournament.stateVersion,
                 tournament.status,
@@ -102,6 +104,7 @@ final class TournamentStatePersistenceMapper {
     // Rehydrates the mutable tournament aggregate from the persistence DTO tree.
     private TournamentState fromPayload(PersistedTournamentState payload) {
         var tournament = new TournamentState(payload.code());
+        tournament.visibility = payload.visibility() == null ? TournamentVisibility.PRIVATE : payload.visibility();
         tournament.handNumber = payload.handNumber();
         tournament.stateVersion = payload.stateVersion();
         tournament.status = payload.status();
@@ -190,6 +193,7 @@ final class TournamentStatePersistenceMapper {
 
     private record PersistedTournamentState(
             String code,
+            TournamentVisibility visibility,
             long handNumber,
             long stateVersion,
             TournamentStatus status,

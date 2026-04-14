@@ -65,6 +65,11 @@ final class TournamentStateAccess {
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No seat is available");
     }
 
+    // Exposes the seat cap so read models can stay aligned with live tournament rules.
+    int maxSeats() {
+        return rules.maxSeats();
+    }
+
     // Counts the entrants still alive in the overall tournament.
     long countRemainingParticipants(TournamentState tournament) {
         return tournament.players.stream()

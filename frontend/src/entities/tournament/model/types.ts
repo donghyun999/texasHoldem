@@ -4,6 +4,8 @@ export type SnapshotAudience = "PUBLIC" | "VIEWER";
 
 export type TournamentPauseReason = "ALL_PLAYERS_AFK";
 
+export type TournamentVisibility = "PUBLIC" | "PRIVATE";
+
 export type PlayerStatus =
   | "LOBBY"
   | "SEATED"
@@ -64,6 +66,7 @@ export type TournamentPlayer = {
 
 export type TournamentSnapshot = {
   code: string;
+  visibility: TournamentVisibility;
   handNumber: number;
   stateVersion: number;
   snapshotAudience: SnapshotAudience;
@@ -106,4 +109,13 @@ export type ActiveTournamentSession = {
   guestId: string;
   tournamentCode: string;
   status: TournamentStatus;
+};
+
+export type PublicTournamentSummary = {
+  code: string;
+  visibility: TournamentVisibility;
+  status: TournamentStatus;
+  currentPlayers: number;
+  maxPlayers: number;
+  ownerNickname: string;
 };

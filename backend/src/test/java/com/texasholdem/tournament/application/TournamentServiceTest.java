@@ -5,6 +5,7 @@ import com.texasholdem.tournament.domain.SnapshotAudience;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -84,8 +85,34 @@ class TournamentServiceTest {
         var joinedSnapshot = service.joinTournament("1111", "guest-2", "Player2");
 
         assertThat(snapshot.code()).isEqualTo("1111");
+        assertThat(snapshot.visibility()).isEqualTo(TournamentVisibility.PRIVATE);
         assertThat(joinedSnapshot.code()).isEqualTo("1111");
         assertThat(joinedSnapshot.players()).hasSize(2);
+    }
+
+    // Verifies that only waiting public tournaments are exposed through the lobby list.
+    @Test
+    void listsOnlyWaitingPublicTournaments() {
+        var service = createService();
+        service.createTournament("guest-1", "Owner", "PUB1", TournamentVisibility.PUBLIC);
+        service.joinTournament("PUB1", "guest-2", "Player2");
+        service.createTournament("guest-3", "PrivateOwner", "PRIV1", TournamentVisibility.PRIVATE);
+        service.createTournament("guest-4", "StartedOwner", "PUB2", TournamentVisibility.PUBLIC);
+        service.joinTournament("PUB2", "guest-5", "Player5");
+        service.changeReady("PUB2", "guest-4", true);
+        service.changeReady("PUB2", "guest-5", true);
+        service.startTournament("PUB2", "guest-4");
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries).hasSize(1);
+        var summary = summaries.get(0);
+        assertThat(summary.code()).isEqualTo("PUB1");
+        assertThat(summary.visibility()).isEqualTo(TournamentVisibility.PUBLIC);
+        assertThat(summary.status()).isEqualTo(TournamentStatus.WAITING);
+        assertThat(summary.currentPlayers()).isEqualTo(2);
+        assertThat(summary.maxPlayers()).isEqualTo(6);
+        assertThat(summary.ownerNickname()).isEqualTo("Owner");
     }
 
     // Verifies that a REST join can fan out one fresh snapshot to waiting-room subscribers immediately.
@@ -985,6 +1012,7 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
@@ -1011,6 +1039,7 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
@@ -1167,6 +1196,7 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
@@ -1195,6 +1225,7 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
@@ -1321,6 +1352,7 @@ class TournamentServiceTest {
                 lobbyManager,
                 connectionManager,
                 handEngine,
+                handProgressManager,
                 stateStore,
                 event -> {
                 },
