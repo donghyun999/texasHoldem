@@ -107,7 +107,7 @@ export function getTournamentSnapshot(code: string, guestId?: string): Promise<T
   return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}${query}`);
 }
 
-// Fetches the current list of joinable public waiting rooms for the lobby.
+// Fetches the current list of joinable waiting rooms for the lobby.
 export function getPublicWaitingTournaments(): Promise<PublicTournamentSummary[]> {
   return fetchJson<PublicTournamentSummary[]>("/api/v1/tournaments/lobby/public");
 }
@@ -135,30 +135,18 @@ export function createTournament(
   );
 }
 
-// Joins one waiting tournament with the current persisted guest identity.
-export function joinTournament(code: string, guestId: string, nickname: string): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
-    guestId,
-    nickname,
-  });
-}
-
-// Joins one private waiting room using its shared title and password.
-export function joinPrivateTournament(
-  roomName: string,
-  password: string,
+// Joins one waiting tournament with the current persisted guest identity and optional room password.
+export function joinTournament(
+  code: string,
   guestId: string,
   nickname: string,
+  password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; roomName: string; password: string }, TournamentSnapshot>(
-    "/api/v1/tournaments/private/join",
-    {
-      guestId,
-      nickname,
-      roomName,
-      password,
-    },
-  );
+  return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
+    guestId,
+    nickname,
+    ...(password ? { password } : {}),
+  });
 }
 
 // Notifies the backend that one player left the current tournament page.

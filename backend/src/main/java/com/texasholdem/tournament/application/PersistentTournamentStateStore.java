@@ -93,14 +93,13 @@ final class PersistentTournamentStateStore implements TournamentStateStore {
                 .count();
     }
 
-    // Lists persisted public waiting rooms in newest-first order for the home lobby.
+    // Lists persisted waiting rooms in newest-first order for the home lobby.
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
         return repository.findAll().stream()
                 .sorted(Comparator.comparing(TournamentStateEntity::getCreatedAt).reversed())
                 .map(TournamentStateEntity::getPayload)
                 .map(mapper::read)
-                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
                 .filter(tournament -> !tournament.players.isEmpty())
                 .filter(tournament -> tournament.players.size() < maxPlayers)

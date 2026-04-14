@@ -16,17 +16,14 @@ import {
   getActiveTournamentForGuest,
   getBackendStatus,
   getPublicWaitingTournaments,
-  joinPrivateTournament,
   joinTournament,
 } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
 
-// Converts unknown mutation failures into a short UI-safe message.
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-// Renders the landing page for live tournament creation and entry.
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -34,8 +31,6 @@ export function HomePage() {
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
   const [createRoomName, setCreateRoomName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
-  const [privateRoomName, setPrivateRoomName] = useState("");
-  const [privateRoomPassword, setPrivateRoomPassword] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
@@ -48,7 +43,7 @@ export function HomePage() {
     enabled: !!guestId.trim(),
     retry: false,
   });
-  const publicTournamentListQuery = useQuery({
+  const waitingRoomListQuery = useQuery({
     queryKey: publicTournamentListQueryKey,
     queryFn: getPublicWaitingTournaments,
     retry: false,
@@ -74,59 +69,44 @@ export function HomePage() {
       handleTournamentEntry(snapshot, variables.guestId);
     },
   });
-  const publicJoinMutation = useMutation({
-    mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
-      joinTournament(code, guestId, nickname),
+  const joinMutation = useMutation({
+    mutationFn: ({
+      code,
+      guestId,
+      nickname,
+      password,
+    }: {
+      code: string;
+      guestId: string;
+      nickname: string;
+      password?: string;
+    }) => joinTournament(code, guestId, nickname, password),
     onSuccess: (snapshot, variables) => {
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
       handleTournamentEntry(snapshot, variables.guestId);
     },
   });
-  const privateJoinMutation = useMutation({
-    mutationFn: ({
-      roomName,
-      password,
-      guestId,
-      nickname,
-    }: {
-      roomName: string;
-      password: string;
-      guestId: string;
-      nickname: string;
-    }) => joinPrivateTournament(roomName, password, guestId, nickname),
-    onSuccess: (snapshot, variables) => {
-      handleTournamentEntry(snapshot, variables.guestId);
-    },
-  });
-  const activeError =
-    validationError ||
-    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create table.")) ||
-    (publicJoinMutation.error && toErrorMessage(publicJoinMutation.error, "Failed to join table.")) ||
-    (privateJoinMutation.error && toErrorMessage(privateJoinMutation.error, "Failed to join private table.")) ||
-    null;
   const activeTournament = activeTournamentQuery.data;
   const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
   const controlsDisabled =
-    !!activeTournament ||
-    isCheckingActiveTournament ||
-    createMutation.isPending ||
-    publicJoinMutation.isPending ||
-    privateJoinMutation.isPending;
+    !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
   const busyLabel = createMutation.isPending
     ? "Creating your table..."
-    : publicJoinMutation.isPending
+    : joinMutation.isPending
       ? "Joining table..."
-      : privateJoinMutation.isPending
-        ? "Joining private table..."
-        : isCheckingActiveTournament
-          ? "Checking for an active table..."
-          : null;
-  const publicListError =
-    publicTournamentListQuery.error && !publicTournamentListQuery.isFetching
-      ? toErrorMessage(publicTournamentListQuery.error, "Failed to load open tables.")
+      : isCheckingActiveTournament
+        ? "Checking for an active table..."
+        : null;
+  const activeError =
+    validationError ||
+    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create table.")) ||
+    (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join table.")) ||
+    null;
+  const waitingListError =
+    waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
+      ? toErrorMessage(waitingRoomListQuery.error, "Failed to load waiting tables.")
       : null;
 
-  // Seeds the destination snapshot cache before navigation so the table paints immediately.
   function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
     queryClient.setQueryData(buildActiveTournamentKey(viewerGuestId), {
@@ -137,10 +117,6 @@ export function HomePage() {
     });
     syncPublicTournamentListCache(queryClient, snapshot);
     navigate(`/tournaments/${snapshot.code}`);
-  }
-
-  function resetValidationError() {
-    setValidationError(null);
   }
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
@@ -158,14 +134,14 @@ export function HomePage() {
   }
 
   async function handleCreate() {
-    resetValidationError();
+    setValidationError(null);
 
     if (!createRoomName.trim()) {
       setValidationError("Enter a table title before creating a table.");
       return;
     }
     if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
-      setValidationError("Set a password before creating a private table.");
+      setValidationError("Set a password before creating a locked table.");
       return;
     }
 
@@ -183,40 +159,16 @@ export function HomePage() {
     }
   }
 
-  async function handleJoinPrivate() {
-    resetValidationError();
-
-    if (!privateRoomName.trim()) {
-      setValidationError("Enter the private table title before joining.");
-      return;
-    }
-    if (!privateRoomPassword.trim()) {
-      setValidationError("Enter the private table password before joining.");
-      return;
-    }
+  async function handleJoinTable(code: string, password?: string) {
+    setValidationError(null);
 
     try {
       const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
-      privateJoinMutation.mutate({
-        roomName: privateRoomName.trim(),
-        password: privateRoomPassword.trim(),
-        guestId: resolvedGuestId,
-        nickname: nickname.trim(),
-      });
-    } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
-    }
-  }
-
-  async function handleJoinPublicRoom(code: string) {
-    resetValidationError();
-
-    try {
-      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
-      publicJoinMutation.mutate({
+      joinMutation.mutate({
         code,
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
+        password,
       });
     } catch (error) {
       setValidationError(toErrorMessage(error, "Failed to create guest session."));
@@ -228,7 +180,7 @@ export function HomePage() {
       return;
     }
 
-    resetValidationError();
+    setValidationError(null);
     navigate(`/tournaments/${activeTournament.tournamentCode}`);
   }
 
@@ -238,11 +190,11 @@ export function HomePage() {
         <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
           <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
           <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-            Create a table for friends, or jump straight into an open seat.
+            Browse every waiting table, then join instantly or unlock a seat with a password.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            Public tables appear in the lobby list. Private tables stay hidden and are shared with a title plus
-            password.
+            Open and locked tables now share the same lobby list. Hosts set a title, the server handles room codes, and
+            locked tables prompt for a password before entry.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <MetricCard label="Backend" value={statusQuery.data?.status ?? "OFFLINE"} />
@@ -252,11 +204,11 @@ export function HomePage() {
         </div>
 
         <PublicTournamentList
-          rooms={publicTournamentListQuery.data ?? []}
+          rooms={waitingRoomListQuery.data ?? []}
           disabled={controlsDisabled}
-          loading={publicTournamentListQuery.isPending}
-          errorMessage={publicListError}
-          onJoin={handleJoinPublicRoom}
+          loading={waitingRoomListQuery.isPending}
+          errorMessage={waitingListError}
+          onJoin={handleJoinTable}
         />
       </div>
 
@@ -264,48 +216,35 @@ export function HomePage() {
         nickname={nickname}
         createRoomName={createRoomName}
         createPassword={createPassword}
-        privateRoomName={privateRoomName}
-        privateRoomPassword={privateRoomPassword}
         roomVisibility={roomVisibility}
         activeTournamentRoomName={activeTournament?.roomName ?? null}
         activeTournamentStatus={activeTournament?.status ?? null}
         createDisabled={controlsDisabled}
-        joinDisabled={controlsDisabled}
         busyLabel={busyLabel}
         errorMessage={activeError}
         onNicknameChange={(value) => {
-          resetValidationError();
+          setValidationError(null);
           setNickname(value);
         }}
         onCreateRoomNameChange={(value) => {
-          resetValidationError();
+          setValidationError(null);
           setCreateRoomName(value);
         }}
         onCreatePasswordChange={(value) => {
-          resetValidationError();
+          setValidationError(null);
           setCreatePassword(value);
         }}
-        onPrivateRoomNameChange={(value) => {
-          resetValidationError();
-          setPrivateRoomName(value);
-        }}
-        onPrivateRoomPasswordChange={(value) => {
-          resetValidationError();
-          setPrivateRoomPassword(value);
-        }}
         onRoomVisibilityChange={(value) => {
-          resetValidationError();
+          setValidationError(null);
           setRoomVisibility(value);
         }}
         onResumeTournament={handleResumeTournament}
         onCreate={handleCreate}
-        onJoinPrivate={handleJoinPrivate}
       />
     </section>
   );
 }
 
-// Displays one landing-page metric for the current prototype state.
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4">

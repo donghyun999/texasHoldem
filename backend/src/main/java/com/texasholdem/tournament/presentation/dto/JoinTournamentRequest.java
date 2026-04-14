@@ -9,6 +9,8 @@ public record JoinTournamentRequest(
         String guestId,
         @NotBlank
         @Size(max = 20)
-        String nickname
+        String nickname,
+        @Size(max = 40)
+        String password
 ) {
 }

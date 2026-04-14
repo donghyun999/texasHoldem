@@ -4,24 +4,18 @@ type LobbyFormProps = {
   nickname: string;
   createRoomName: string;
   createPassword: string;
-  privateRoomName: string;
-  privateRoomPassword: string;
   roomVisibility: TournamentVisibility;
   activeTournamentRoomName?: string | null;
   activeTournamentStatus?: TournamentStatus | null;
   createDisabled?: boolean;
-  joinDisabled?: boolean;
   busyLabel?: string | null;
   errorMessage?: string | null;
   onNicknameChange: (value: string) => void;
   onCreateRoomNameChange: (value: string) => void;
   onCreatePasswordChange: (value: string) => void;
-  onPrivateRoomNameChange: (value: string) => void;
-  onPrivateRoomPasswordChange: (value: string) => void;
   onRoomVisibilityChange: (value: TournamentVisibility) => void;
   onResumeTournament?: () => void;
   onCreate: () => void;
-  onJoinPrivate: () => void;
 };
 
 const visibilityOptions: Array<{ value: TournamentVisibility; label: string; description: string }> = [
@@ -32,41 +26,35 @@ const visibilityOptions: Array<{ value: TournamentVisibility; label: string; des
   },
   {
     value: "PRIVATE",
-    label: "Private Table",
-    description: "Hidden from the lobby list. Friends join with the table title and password.",
+    label: "Locked Table",
+    description: "Still appears in the lobby list, but players need the password to join.",
   },
 ];
 
-// Collects player-facing lobby inputs for creating a table or joining a private one.
+// Collects player-facing inputs for creating one open or locked table.
 export function LobbyForm({
   nickname,
   createRoomName,
   createPassword,
-  privateRoomName,
-  privateRoomPassword,
   roomVisibility,
   activeTournamentRoomName = null,
   activeTournamentStatus = null,
   createDisabled = false,
-  joinDisabled = false,
   busyLabel = null,
   errorMessage = null,
   onNicknameChange,
   onCreateRoomNameChange,
   onCreatePasswordChange,
-  onPrivateRoomNameChange,
-  onPrivateRoomPasswordChange,
   onRoomVisibilityChange,
   onResumeTournament,
   onCreate,
-  onJoinPrivate,
 }: LobbyFormProps) {
   return (
     <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
-      <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">Play Now</p>
-      <h3 className="mt-3 text-2xl font-semibold text-white">Create or Join a Table</h3>
+      <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">Host a Table</p>
+      <h3 className="mt-3 text-2xl font-semibold text-white">Create a New Game</h3>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Pick a nickname, open a table for the lobby, or join a private table with its title and password.
+        Pick a nickname, name your table, and decide whether anyone can sit down or a password is required.
       </p>
 
       {activeTournamentRoomName ? (
@@ -100,13 +88,11 @@ export function LobbyForm({
         </label>
 
         <div className="rounded-[1.6rem] border border-white/10 bg-black/20 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-white">Create Table</p>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Room codes are generated automatically. Players will see the title you set here.
-              </p>
-            </div>
+          <div>
+            <p className="text-sm font-semibold text-white">Table Setup</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">
+              Room codes are generated automatically. Players will see the title and, if locked, a password prompt.
+            </p>
           </div>
 
           <div className="mt-4 grid gap-3">
@@ -130,7 +116,7 @@ export function LobbyForm({
                         selected ? "bg-emerald-300 text-slate-950" : "bg-white/10 text-zinc-300"
                       }`}
                     >
-                      {option.value === "PUBLIC" ? "OPEN" : "PRIVATE"}
+                      {option.value === "PUBLIC" ? "OPEN" : "LOCKED"}
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-zinc-400">{option.description}</p>
@@ -156,7 +142,7 @@ export function LobbyForm({
                 type="password"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="Choose a password for your table"
+                placeholder="Choose a password for this table"
                 className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
               />
             </label>
@@ -168,44 +154,7 @@ export function LobbyForm({
             disabled={createDisabled}
             className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Create {roomVisibility === "PUBLIC" ? "Open" : "Private"} Table
-          </button>
-        </div>
-
-        <div className="rounded-[1.6rem] border border-white/10 bg-black/20 p-4">
-          <p className="text-sm font-semibold text-white">Join Private Table</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-400">
-            Ask the host for the table title and password. Open tables can be joined from the list.
-          </p>
-
-          <label className="mt-4 block">
-            <span className="mb-2 block text-sm text-zinc-300">Table Title</span>
-            <input
-              value={privateRoomName}
-              onChange={(event) => onPrivateRoomNameChange(event.target.value)}
-              placeholder="Enter the private table title"
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-sky-400"
-            />
-          </label>
-
-          <label className="mt-4 block">
-            <span className="mb-2 block text-sm text-zinc-300">Password</span>
-            <input
-              type="password"
-              value={privateRoomPassword}
-              onChange={(event) => onPrivateRoomPasswordChange(event.target.value)}
-              placeholder="Enter the table password"
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-sky-400"
-            />
-          </label>
-
-          <button
-            type="button"
-            onClick={onJoinPrivate}
-            disabled={joinDisabled}
-            className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Join Private Table
+            Create {roomVisibility === "PUBLIC" ? "Open" : "Locked"} Table
           </button>
         </div>
 

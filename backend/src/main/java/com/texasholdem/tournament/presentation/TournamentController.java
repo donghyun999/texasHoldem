@@ -73,7 +73,7 @@ public class TournamentController {
             @PathVariable String code,
             @Valid @RequestBody JoinTournamentRequest request
     ) {
-        var broadcast = tournamentService.joinTournamentBroadcast(code, request.guestId(), request.nickname());
+        var broadcast = tournamentService.joinTournamentBroadcast(code, request.guestId(), request.nickname(), request.password());
         topicPublisher.publish(code, broadcast);
         return ApiResponse.ok(broadcast.primaryEvent().snapshot());
     }

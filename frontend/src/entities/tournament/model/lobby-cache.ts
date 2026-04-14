@@ -14,10 +14,7 @@ export function syncPublicTournamentListCache(queryClient: QueryClient, snapshot
     const ownerNickname =
       snapshot.players.find((player) => player.owner)?.nickname ?? existingRoom?.ownerNickname ?? "";
     const shouldAppear =
-      snapshot.visibility === "PUBLIC" &&
-      snapshot.status === "WAITING" &&
-      currentPlayers > 0 &&
-      currentPlayers < maxPlayers;
+      snapshot.status === "WAITING" && currentPlayers > 0 && currentPlayers < maxPlayers;
 
     if (!shouldAppear) {
       return rooms.filter((room) => room.code !== snapshot.code);

@@ -82,14 +82,13 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 .count();
     }
 
-    // Lists in-memory public waiting rooms in newest-first order for tests and local flows.
+    // Lists in-memory waiting rooms in newest-first order for tests and local flows.
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
         return payloads.values().stream()
                 .sorted(Comparator.comparingLong(StoredPayload::createdAtEpochMilli).reversed())
                 .map(StoredPayload::payload)
                 .map(mapper::read)
-                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
                 .filter(tournament -> !tournament.players.isEmpty())
                 .filter(tournament -> tournament.players.size() < maxPlayers)

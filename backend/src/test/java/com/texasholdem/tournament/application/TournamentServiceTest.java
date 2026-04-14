@@ -127,9 +127,22 @@ class TournamentServiceTest {
                 .hasMessageContaining("Room name is already in use");
     }
 
-    // Verifies that only waiting public tournaments are exposed through the lobby list.
+    // Verifies that locked-table passwords are not stored in plain text inside the mutable tournament state.
     @Test
-    void listsOnlyWaitingPublicTournaments() {
+    void storesLockedTablePasswordAsHash() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner", "Crew Table", "letmein", TournamentVisibility.PRIVATE);
+
+        var tournament = requireTournamentState(service, snapshot.code());
+        var storedPassword = (String) ReflectionTestUtils.getField(tournament, "roomPassword");
+
+        assertThat(storedPassword).isNotBlank();
+        assertThat(storedPassword).isNotEqualTo("letmein");
+    }
+
+    // Verifies that waiting tables of either visibility are exposed through the lobby list.
+    @Test
+    void listsWaitingTournamentsIncludingLockedTables() {
         var service = createService();
         service.createTournament("guest-1", "Owner", "PUB1", TournamentVisibility.PUBLIC);
         service.joinTournament("PUB1", "guest-2", "Player2");
@@ -142,14 +155,24 @@ class TournamentServiceTest {
 
         var summaries = service.listPublicWaitingTournaments();
 
-        assertThat(summaries).hasSize(1);
-        var summary = summaries.get(0);
-        assertThat(summary.code()).isEqualTo("PUB1");
-        assertThat(summary.visibility()).isEqualTo(TournamentVisibility.PUBLIC);
-        assertThat(summary.status()).isEqualTo(TournamentStatus.WAITING);
-        assertThat(summary.currentPlayers()).isEqualTo(2);
-        assertThat(summary.maxPlayers()).isEqualTo(6);
-        assertThat(summary.ownerNickname()).isEqualTo("Owner");
+        assertThat(summaries).extracting(PublicTournamentSummary::code)
+                .containsExactly("PRIV1", "PUB1");
+        assertThat(summaries).extracting(PublicTournamentSummary::visibility)
+                .containsExactly(TournamentVisibility.PRIVATE, TournamentVisibility.PUBLIC);
+    }
+
+    // Verifies that locked tables reject joins when the supplied password is missing or wrong.
+    @Test
+    void rejectsLockedTableJoinWithoutMatchingPassword() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner", "Crew Table", "letmein", TournamentVisibility.PRIVATE);
+
+        assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-2", "Player2"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Password does not match");
+        assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-2", "Player2", "wrong"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Password does not match");
     }
 
     // Verifies that full public waiting rooms stay out of the joinable home list.

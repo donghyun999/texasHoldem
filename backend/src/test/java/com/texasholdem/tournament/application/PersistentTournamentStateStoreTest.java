@@ -121,7 +121,7 @@ class PersistentTournamentStateStoreTest {
                 .containsExactly(new TournamentStateStore.PendingFinishedCleanup("DONE1", 654_321L));
     }
 
-    // Verifies that only public waiting rooms are surfaced in newest-first order for the home lobby.
+    // Verifies that waiting rooms of either visibility are surfaced in newest-first order for the home lobby.
     @Test
     void findsPublicWaitingTournamentsForLobbyList() {
         var repository = mock(TournamentStateJpaRepository.class);
@@ -176,6 +176,7 @@ class PersistentTournamentStateStoreTest {
                 ))
                 .containsExactly(
                         List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, 6, "NewestOwner"),
+                        List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, 6, "PrivateOwner"),
                         List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
                 );
     }

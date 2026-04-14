@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.application;
 
 import com.texasholdem.tournament.domain.GuestSession;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -11,6 +12,8 @@ import java.util.function.Predicate;
 
 @Component
 final class TournamentIdentityFactory {
+
+    private static final BCryptPasswordEncoder ROOM_PASSWORD_ENCODER = new BCryptPasswordEncoder();
 
     // Issues a normalized guest session for the tournament flow.
     GuestSession registerGuest(String nickname) {
@@ -30,6 +33,21 @@ final class TournamentIdentityFactory {
     // Trims room passwords while preserving case-sensitive comparisons.
     String normalizeRoomPassword(String roomPassword) {
         return roomPassword == null ? "" : roomPassword.trim();
+    }
+
+    // Hashes one private-room password before it is persisted.
+    String hashRoomPassword(String roomPassword) {
+        var normalizedRoomPassword = normalizeRoomPassword(roomPassword);
+        return normalizedRoomPassword.isBlank() ? "" : ROOM_PASSWORD_ENCODER.encode(normalizedRoomPassword);
+    }
+
+    // Verifies one raw room password against its persisted hash.
+    boolean matchesRoomPassword(String roomPassword, String encodedRoomPassword) {
+        var normalizedRoomPassword = normalizeRoomPassword(roomPassword);
+        if (encodedRoomPassword == null || encodedRoomPassword.isBlank()) {
+            return normalizedRoomPassword.isBlank();
+        }
+        return !normalizedRoomPassword.isBlank() && ROOM_PASSWORD_ENCODER.matches(normalizedRoomPassword, encodedRoomPassword);
     }
 
     // Resolves an optional caller-supplied code or generates one when omitted.
