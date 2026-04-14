@@ -178,6 +178,13 @@ function getLevelTimerState(secondsRemaining: number, durationSeconds: number) {
   };
 }
 
+function getPausedLevelTimerState() {
+  return {
+    timerClass: "text-amber-100",
+    barClass: "bg-[linear-gradient(90deg,_rgba(245,158,11,0.7),_rgba(161,98,7,0.78))]",
+  };
+}
+
 function buildBetMarkers(snapshot: TournamentSnapshot, displayedSeatIndexes: number[]) {
   return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
     const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
@@ -275,7 +282,9 @@ export function TournamentTable({
   const sidePotSummary = buildSidePotSummary(snapshot);
   const blindClockActive = isBlindClockActive(snapshot.status);
   const levelProgressPercent = getLevelProgressPercent(secondsRemaining, snapshot.currentLevel.durationSeconds);
-  const levelTimerState = getLevelTimerState(secondsRemaining, snapshot.currentLevel.durationSeconds);
+  const levelTimerState = snapshot.paused
+    ? getPausedLevelTimerState()
+    : getLevelTimerState(secondsRemaining, snapshot.currentLevel.durationSeconds);
   const totalPotLabel = formatAmountDisplay({
     amount: totalPot,
     bigBlind: snapshot.currentLevel.bigBlind,
@@ -290,9 +299,11 @@ export function TournamentTable({
   });
   const centerStatusLabel = resultSummary
     ? "Hand settled"
-    : actingPlayer
-      ? `${actingPlayer.nickname} acting`
-      : snapshot.status.replaceAll("_", " ");
+    : snapshot.paused
+      ? "Hand paused"
+      : actingPlayer
+        ? `${actingPlayer.nickname} acting`
+        : snapshot.status.replaceAll("_", " ");
 
   useEffect(() => {
     const updateRemaining = () => {
@@ -311,6 +322,7 @@ export function TournamentTable({
     snapshot.currentLevel.durationSeconds,
     snapshot.levelEndsAtEpochSecond,
     snapshot.secondsUntilNextLevel,
+    snapshot.paused,
     snapshot.stateVersion,
     snapshot.status,
   ]);
@@ -351,7 +363,14 @@ export function TournamentTable({
         <p className="mt-1 text-[10px] text-zinc-400">
           Next {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
         </p>
-        <p className={`mt-1 text-[10px] ${levelTimerState.timerClass}`}>{formatLevelCountdown(secondsRemaining)}</p>
+        <div className="mt-1 flex items-center justify-end gap-2">
+          {snapshot.paused ? (
+            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-amber-100">
+              Paused
+            </span>
+          ) : null}
+          <p className={`text-[10px] ${levelTimerState.timerClass}`}>{formatLevelCountdown(secondsRemaining)}</p>
+        </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
           <div
             className={`h-full rounded-full transition-[width] duration-1000 ${levelTimerState.barClass}`}
@@ -370,6 +389,12 @@ export function TournamentTable({
           </span>
           <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{centerStatusLabel}</span>
         </div>
+        {snapshot.paused ? (
+          <div className="mx-auto mt-2 max-w-[16rem] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All Players AFK</p>
+            <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
+          </div>
+        ) : null}
         {resultSummary ? (
           <div className="mx-auto mt-2 max-w-[14rem] rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.56),_rgba(12,12,12,0.86))] px-3 py-2 shadow-xl shadow-black/30">
             <div className="flex items-center justify-center gap-2">

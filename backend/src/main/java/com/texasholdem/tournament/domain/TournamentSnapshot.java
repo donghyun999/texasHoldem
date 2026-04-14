@@ -21,6 +21,8 @@ public record TournamentSnapshot(
         Integer smallBlindSeat,
         Integer bigBlindSeat,
         Integer actingSeat,
+        boolean paused,
+        TournamentPauseReason pauseReason,
         long actionDeadlineAtEpochMilli,
         long actionTimeoutSeconds,
         List<TournamentPlayerView> players,

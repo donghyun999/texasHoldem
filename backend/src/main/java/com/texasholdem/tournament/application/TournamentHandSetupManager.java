@@ -66,6 +66,7 @@ final class TournamentHandSetupManager {
         tournament.showdownPots = new ArrayList<>();
         tournament.showdownHands = new ArrayList<>();
         tournament.recentlyBustedGuestIds = new ArrayList<>();
+        stateAccess.clearPausedHand(tournament);
         assignDealerAndBlinds(tournament);
         var orderedSeats = buildDealOrder(tournament);
         var deck = deckFactory.createDeck(orderedSeats.size());

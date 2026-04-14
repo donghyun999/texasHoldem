@@ -4,6 +4,7 @@ type ActionPanelStateInput = {
   actions: string[];
   currentPlayer: TournamentPlayer | null;
   tournamentStatus: TournamentStatus;
+  paused: boolean;
   canPublish: boolean;
 };
 
@@ -43,6 +44,7 @@ export function parseTargetAmount(value: string) {
 function describeControlState(
   currentPlayer: TournamentPlayer | null,
   tournamentStatus: TournamentStatus,
+  paused: boolean,
   actions: string[],
 ) {
   if (!currentPlayer) {
@@ -55,6 +57,10 @@ function describeControlState(
 
   if (currentPlayer.afk) {
     return "You are AFK. Your turns will auto-check or auto-fold until you return to play.";
+  }
+
+  if (paused) {
+    return "The hand is paused because every active player is AFK. Play will resume once the current actor returns.";
   }
 
   if (tournamentStatus === "WAITING") {
@@ -81,6 +87,7 @@ export function buildActionPanelViewModel({
   actions,
   currentPlayer,
   tournamentStatus,
+  paused,
   canPublish,
 }: ActionPanelStateInput): ActionPanelViewModel {
   const sizeAction = actions.find(requiresAmount) ?? null;
@@ -94,7 +101,7 @@ export function buildActionPanelViewModel({
     isWaiting &&
     (currentPlayer.status === "SEATED" || currentPlayer.status === "READY");
   const canStart = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && currentPlayer.owner && isWaiting;
-  const canAct = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && currentPlayer.acting;
+  const canAct = !!currentPlayer && currentPlayer.connected && !currentPlayer.afk && !paused && currentPlayer.acting;
 
   return {
     sizeAction,
@@ -107,6 +114,6 @@ export function buildActionPanelViewModel({
     showReconnect: !!currentPlayer && !currentPlayer.connected,
     showReturnToPlay: !!currentPlayer?.connected && !!currentPlayer?.afk,
     canSubmitSizedAction: canPublish && canAct,
-    controlHint: describeControlState(currentPlayer, tournamentStatus, actions),
+    controlHint: describeControlState(currentPlayer, tournamentStatus, paused, actions),
   };
 }

@@ -3,6 +3,7 @@ package com.texasholdem.tournament.application;
 import com.texasholdem.tournament.domain.PotView;
 import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
+import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
 
 import java.util.ArrayList;
@@ -28,6 +29,9 @@ final class TournamentState {
     Integer smallBlindSeat;
     Integer bigBlindSeat;
     Integer actingSeat;
+    boolean paused = false;
+    TournamentPauseReason pauseReason;
+    long levelPausedRemainingSeconds = 0;
     long actionDeadlineAtEpochMilli = 0;
     long handResultEndsAtEpochMilli = 0;
     long finishedCleanupAtEpochMilli = 0;

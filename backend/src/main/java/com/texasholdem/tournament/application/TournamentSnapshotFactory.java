@@ -39,11 +39,18 @@ final class TournamentSnapshotFactory {
         var viewerMinimumRaiseTo = viewerMinimumRaiseTo(tournament, normalizedViewerGuestId);
         var currentLevel = rules.currentLevel(tournament.levelIndex);
         var nextLevel = rules.nextLevel(tournament.levelIndex);
-        var now = Instant.now().getEpochSecond();
-        var levelEndsAt = tournament.levelActivatedAtEpochSecond == 0
-                ? now + currentLevel.durationSeconds()
-                : tournament.levelActivatedAtEpochSecond + currentLevel.durationSeconds();
-        var secondsUntilNextLevel = Math.max(0, levelEndsAt - now);
+        long levelEndsAt;
+        long secondsUntilNextLevel;
+        if (tournament.paused) {
+            levelEndsAt = 0;
+            secondsUntilNextLevel = Math.max(0, tournament.levelPausedRemainingSeconds);
+        } else {
+            var now = Instant.now().getEpochSecond();
+            levelEndsAt = tournament.levelActivatedAtEpochSecond == 0
+                    ? now + currentLevel.durationSeconds()
+                    : tournament.levelActivatedAtEpochSecond + currentLevel.durationSeconds();
+            secondsUntilNextLevel = Math.max(0, levelEndsAt - now);
+        }
 
         return new TournamentSnapshot(
                 tournament.code,
@@ -64,6 +71,8 @@ final class TournamentSnapshotFactory {
                 tournament.smallBlindSeat,
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
+                tournament.paused,
+                tournament.pauseReason,
                 tournament.actionDeadlineAtEpochMilli,
                 actionTimeoutSeconds,
                 tournament.players.stream()

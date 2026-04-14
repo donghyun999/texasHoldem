@@ -38,6 +38,8 @@ export function createDemoTournamentSnapshot(code: string): TournamentSnapshot {
     smallBlindSeat: 2,
     bigBlindSeat: 3,
     actingSeat: 4,
+    paused: false,
+    pauseReason: null,
     actionDeadlineAtEpochMilli: Date.now() + 14_000,
     actionTimeoutSeconds: 20,
     players: [

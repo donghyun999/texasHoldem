@@ -62,6 +62,9 @@ final class TournamentHandEngine {
         if (tournament.status != TournamentStatus.IN_HAND) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is not currently in hand");
         }
+        if (tournament.paused) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is paused until the current actor returns");
+        }
 
         var player = stateAccess.requirePlayer(tournament, guestId);
         if (player.afk) {

@@ -67,6 +67,8 @@ export function TablePage() {
             message={snapshot.tableMessage}
             tournamentStatus={snapshot.status}
             currentPlayer={currentPlayer}
+            paused={snapshot.paused}
+            pauseReason={snapshot.pauseReason}
             actionDeadlineAtEpochMilli={snapshot.actionDeadlineAtEpochMilli}
             actionTimeoutSeconds={snapshot.actionTimeoutSeconds}
             stackDisplayMode={stackDisplayMode}

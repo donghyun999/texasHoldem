@@ -29,6 +29,7 @@ public class TournamentService {
     private final TournamentLobbyManager lobbyManager;
     private final TournamentConnectionManager connectionManager;
     private final TournamentHandEngine handEngine;
+    private final TournamentHandProgressManager handProgressManager;
     private final TournamentStateStore stateStore;
     private final ApplicationEventPublisher eventPublisher;
     private final int maxActivePlayers;
@@ -45,6 +46,7 @@ public class TournamentService {
             TournamentLobbyManager lobbyManager,
             TournamentConnectionManager connectionManager,
             TournamentHandEngine handEngine,
+            TournamentHandProgressManager handProgressManager,
             TournamentStateStore stateStore,
             ApplicationEventPublisher eventPublisher,
             @Value("${app.tournament.max-active-players:50}") int maxActivePlayers,
@@ -60,6 +62,7 @@ public class TournamentService {
         this.lobbyManager = lobbyManager;
         this.connectionManager = connectionManager;
         this.handEngine = handEngine;
+        this.handProgressManager = handProgressManager;
         this.stateStore = stateStore;
         this.eventPublisher = eventPublisher;
         this.maxActivePlayers = maxActivePlayers;
@@ -231,7 +234,11 @@ public class TournamentService {
             }
 
             player.afk = false;
-            tournament.tableMessage = stateAccess.combineMessages(player.nickname + " returned to play.", tournament.tableMessage);
+            if (tournament.status == TournamentStatus.IN_HAND) {
+                handProgressManager.resumePausedHandIfPossible(tournament, player);
+            } else {
+                tournament.tableMessage = stateAccess.combineMessages(player.nickname + " returned to play.", tournament.tableMessage);
+            }
             saveTournamentState(tournament);
             return eventFactory.createBroadcast(
                     "playerReturned",

@@ -6,6 +6,7 @@ import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.PotView;
 import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPotView;
+import com.texasholdem.tournament.domain.TournamentPauseReason;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import org.springframework.stereotype.Component;
 
@@ -62,6 +63,9 @@ final class TournamentStatePersistenceMapper {
                 tournament.smallBlindSeat,
                 tournament.bigBlindSeat,
                 tournament.actingSeat,
+                tournament.paused,
+                tournament.pauseReason,
+                tournament.levelPausedRemainingSeconds,
                 tournament.actionDeadlineAtEpochMilli,
                 tournament.handResultEndsAtEpochMilli,
                 tournament.finishedCleanupAtEpochMilli,
@@ -116,6 +120,11 @@ final class TournamentStatePersistenceMapper {
         tournament.smallBlindSeat = payload.smallBlindSeat();
         tournament.bigBlindSeat = payload.bigBlindSeat();
         tournament.actingSeat = payload.actingSeat();
+        tournament.paused = payload.paused() != null && payload.paused();
+        tournament.pauseReason = payload.pauseReason();
+        tournament.levelPausedRemainingSeconds = payload.levelPausedRemainingSeconds() == null
+                ? 0
+                : payload.levelPausedRemainingSeconds();
         tournament.actionDeadlineAtEpochMilli = payload.actionDeadlineAtEpochMilli() == null
                 ? 0
                 : payload.actionDeadlineAtEpochMilli();
@@ -197,6 +206,9 @@ final class TournamentStatePersistenceMapper {
             Integer smallBlindSeat,
             Integer bigBlindSeat,
             Integer actingSeat,
+            Boolean paused,
+            TournamentPauseReason pauseReason,
+            Long levelPausedRemainingSeconds,
             Long actionDeadlineAtEpochMilli,
             long handResultEndsAtEpochMilli,
             Long finishedCleanupAtEpochMilli,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
+import type { TournamentPauseReason, TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
 import { buildActionPanelViewModel } from "@/features/table/model/action-panel";
 import {
   formatAmountDisplay,
@@ -18,6 +18,8 @@ type ActionPanelProps = {
   message: string;
   tournamentStatus: TournamentStatus;
   currentPlayer: TournamentPlayer | null;
+  paused: boolean;
+  pauseReason: TournamentPauseReason | null;
   actionDeadlineAtEpochMilli: number;
   actionTimeoutSeconds: number;
   stackDisplayMode: StackDisplayMode;
@@ -163,8 +165,9 @@ function isValidTargetCommitment(amount: number | null, currentPlayer: Tournamen
 function buildCompactStatusLabel({
   currentPlayer,
   tournamentStatus,
+  paused,
   canPublish,
-}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "canPublish">) {
+}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "paused" | "canPublish">) {
   if (!currentPlayer) {
     return "Observer";
   }
@@ -175,6 +178,10 @@ function buildCompactStatusLabel({
 
   if (currentPlayer.afk) {
     return "AFK";
+  }
+
+  if (paused) {
+    return "Paused";
   }
 
   if (!canPublish) {
@@ -204,6 +211,8 @@ function getStatusTone(label: string) {
       return "border-sky-300/25 bg-sky-400/10 text-sky-50";
     case "AFK":
       return "border-rose-300/30 bg-rose-400/12 text-rose-50";
+    case "Paused":
+      return "border-amber-300/30 bg-amber-400/12 text-amber-50";
     case "Ready":
       return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50";
     case "Result":
@@ -428,9 +437,11 @@ function formatActionTimerLabel(secondsRemaining: number) {
 function buildIdleMessage({
   currentPlayer,
   tournamentStatus,
+  paused,
+  pauseReason,
   canPublish,
   message,
-}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "canPublish" | "message">) {
+}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "paused" | "pauseReason" | "canPublish" | "message">) {
   if (!currentPlayer) {
     return "Join a seat to play from this browser.";
   }
@@ -441,6 +452,12 @@ function buildIdleMessage({
 
   if (currentPlayer.afk) {
     return "Return to play to stop automatic check or fold actions on your turns.";
+  }
+
+  if (paused) {
+    return pauseReason === "ALL_PLAYERS_AFK"
+      ? "All active players are AFK. The hand will resume when the current actor returns to play."
+      : "The hand is paused.";
   }
 
   if (!canPublish) {
@@ -468,6 +485,8 @@ export function ActionPanel({
   message,
   tournamentStatus,
   currentPlayer,
+  paused,
+  pauseReason,
   actionDeadlineAtEpochMilli,
   actionTimeoutSeconds,
   stackDisplayMode,
@@ -498,12 +517,13 @@ export function ActionPanel({
     actions,
     currentPlayer,
     tournamentStatus,
+    paused,
     canPublish,
   });
   const primaryAction = getPrimaryAction(directActions);
   const canFold = directActions.includes("FOLD");
   const allInAction = directActions.includes("ALL_IN") ? "ALL_IN" : null;
-  const compactStatusLabel = buildCompactStatusLabel({ currentPlayer, tournamentStatus, canPublish });
+  const compactStatusLabel = buildCompactStatusLabel({ currentPlayer, tournamentStatus, paused, canPublish });
   const committed = currentPlayer?.roundContribution ?? 0;
   const presetTargets = buildPresetTargets({ currentPlayer, minimumRaiseTo, potSize, bigBlind });
   const parsedTargetAmount = parseAmountInputValue({
@@ -514,12 +534,19 @@ export function ActionPanel({
   const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
   const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
   const shouldShowInHandControls =
-    tournamentStatus === "IN_HAND" && !currentPlayer?.afk && (canAct || !!allInAction || !!sizeAction || !!primaryAction);
+    tournamentStatus === "IN_HAND" &&
+    !paused &&
+    !currentPlayer?.afk &&
+    (canAct || !!allInAction || !!sizeAction || !!primaryAction);
   const shouldShowUtilityControls =
     showReturnToPlay || (tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect));
-  const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, canPublish, message });
+  const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, paused, pauseReason, canPublish, message });
   const shouldShowActionTimer =
-    tournamentStatus === "IN_HAND" && actionDeadlineAtEpochMilli > 0 && actionTimeoutSeconds > 0 && !currentPlayer?.afk;
+    tournamentStatus === "IN_HAND" &&
+    !paused &&
+    actionDeadlineAtEpochMilli > 0 &&
+    actionTimeoutSeconds > 0 &&
+    !currentPlayer?.afk;
   const totalActionWindowMs = actionTimeoutSeconds * 1_000;
   const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
   const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
@@ -691,6 +718,20 @@ export function ActionPanel({
             </button>
           ) : null}
         </div>
+
+        {paused ? (
+          <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">Hand paused</span>
+              <span className="text-xs font-semibold text-amber-50">All players AFK</span>
+            </div>
+            <p className="mt-1.5 text-xs text-amber-50/80">
+              {pauseReason === "ALL_PLAYERS_AFK"
+                ? "Return to Play to resume once the current actor is back."
+                : "Waiting for play to resume."}
+            </p>
+          </div>
+        ) : null}
 
         {shouldShowActionTimer ? (
           <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">

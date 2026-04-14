@@ -119,6 +119,7 @@ final class TournamentHandProgressManager {
 
     // Activates one acting seat, recalculates actions, and resolves disconnected actors.
     private void activateSeat(TournamentState tournament, Integer seatIndex, String tableMessage) {
+        stateAccess.resumePausedHand(tournament);
         tournament.actingSeat = seatIndex;
         stateAccess.setActingPlayer(tournament, seatIndex);
         tournament.availableActions = seatIndex == null
@@ -156,6 +157,12 @@ final class TournamentHandProgressManager {
                 return;
             }
 
+            if (stateAccess.allActivePlayersAreAfk(tournament)) {
+                stateAccess.pauseForAllPlayersAfk(tournament);
+                tournament.tableMessage = "All remaining players are AFK. Return to Play to resume.";
+                return;
+            }
+
             var automaticAction = tournament.availableActions.contains("CHECK") ? "CHECK" : "FOLD";
             applyAutomaticActionAndAdvance(
                     tournament,
@@ -169,7 +176,10 @@ final class TournamentHandProgressManager {
     }
 
     private void assignActionDeadline(TournamentState tournament) {
-        if (tournament.status != TournamentStatus.IN_HAND || tournament.actingSeat == null || actionTimeoutMillis <= 0) {
+        if (tournament.status != TournamentStatus.IN_HAND
+                || tournament.paused
+                || tournament.actingSeat == null
+                || actionTimeoutMillis <= 0) {
             tournament.actionDeadlineAtEpochMilli = 0;
             return;
         }
@@ -181,6 +191,33 @@ final class TournamentHandProgressManager {
         }
 
         tournament.actionDeadlineAtEpochMilli = System.currentTimeMillis() + actionTimeoutMillis;
+    }
+
+    // Restores one paused hand once the current actor has manually returned.
+    void resumePausedHandIfPossible(TournamentState tournament, TournamentPlayerState player) {
+        if (!tournament.paused) {
+            tournament.tableMessage = stateAccess.combineMessages(player.nickname + " returned to play.", tournament.tableMessage);
+            return;
+        }
+
+        if (tournament.actingSeat == null) {
+            tournament.tableMessage = stateAccess.combineMessages(
+                    player.nickname + " returned to play.",
+                    "The hand is still waiting for a live actor."
+            );
+            return;
+        }
+
+        var actingPlayer = stateAccess.requireSeatPlayer(tournament, tournament.actingSeat);
+        if (!stateAccess.canManuallyAct(actingPlayer)) {
+            tournament.tableMessage = stateAccess.combineMessages(
+                    player.nickname + " returned to play.",
+                    actingPlayer.nickname + " must return to play before the hand can resume."
+            );
+            return;
+        }
+
+        activateSeat(tournament, tournament.actingSeat, player.nickname + " returned to play. Action resumed.");
     }
 
     private TournamentActionResult applyAutomaticActionAndAdvance(

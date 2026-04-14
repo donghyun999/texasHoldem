@@ -2,6 +2,8 @@ export type TournamentStatus = "WAITING" | "IN_HAND" | "HAND_RESULT" | "FINISHED
 
 export type SnapshotAudience = "PUBLIC" | "VIEWER";
 
+export type TournamentPauseReason = "ALL_PLAYERS_AFK";
+
 export type PlayerStatus =
   | "LOBBY"
   | "SEATED"
@@ -79,6 +81,8 @@ export type TournamentSnapshot = {
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
   actingSeat: number | null;
+  paused: boolean;
+  pauseReason: TournamentPauseReason | null;
   actionDeadlineAtEpochMilli: number;
   actionTimeoutSeconds: number;
   players: TournamentPlayer[];
