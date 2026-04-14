@@ -4,7 +4,6 @@ import { buildActionPanelViewModel } from "@/features/table/model/action-panel";
 import {
   formatAmountDisplay,
   formatAmountInputValue,
-  formatStackDisplay,
   parseAmountInputValue,
   type StackDisplayMode,
 } from "@/features/table/model/stack-display";
@@ -160,66 +159,6 @@ function isValidTargetCommitment(amount: number | null, currentPlayer: Tournamen
   const committed = currentPlayer?.roundContribution ?? 0;
   const maxCommitment = getMaxCommitment(currentPlayer);
   return amount > committed && amount >= minimumRaiseTo && amount <= maxCommitment;
-}
-
-function buildCompactStatusLabel({
-  currentPlayer,
-  tournamentStatus,
-  paused,
-  canPublish,
-}: Pick<ActionPanelProps, "currentPlayer" | "tournamentStatus" | "paused" | "canPublish">) {
-  if (!currentPlayer) {
-    return "Observer";
-  }
-
-  if (!currentPlayer.connected) {
-    return "Reconnect";
-  }
-
-  if (currentPlayer.afk) {
-    return "AFK";
-  }
-
-  if (paused) {
-    return "Paused";
-  }
-
-  if (!canPublish) {
-    return "Syncing";
-  }
-
-  if (currentPlayer.acting) {
-    return "Your turn";
-  }
-
-  if (tournamentStatus === "WAITING") {
-    return currentPlayer.status === "READY" ? "Ready" : "Waiting";
-  }
-
-  if (tournamentStatus === "HAND_RESULT") {
-    return "Result";
-  }
-
-  return "Waiting";
-}
-
-function getStatusTone(label: string) {
-  switch (label) {
-    case "Your turn":
-      return "border-amber-300/30 bg-amber-400/12 text-amber-50";
-    case "Reconnect":
-      return "border-sky-300/25 bg-sky-400/10 text-sky-50";
-    case "AFK":
-      return "border-rose-300/30 bg-rose-400/12 text-rose-50";
-    case "Paused":
-      return "border-amber-300/30 bg-amber-400/12 text-amber-50";
-    case "Ready":
-      return "border-emerald-300/25 bg-emerald-400/10 text-emerald-50";
-    case "Result":
-      return "border-violet-300/25 bg-violet-400/10 text-violet-50";
-    default:
-      return "border-white/10 bg-white/5 text-zinc-100";
-  }
 }
 
 function getPrimaryActionLabel({
@@ -417,6 +356,55 @@ function buildSizingDisplayAmount({
   });
 }
 
+function buildSliderCommitment({
+  parsedTargetAmount,
+  currentPlayer,
+  minimumRaiseTo,
+}: {
+  parsedTargetAmount: number | null;
+  currentPlayer: TournamentPlayer | null;
+  minimumRaiseTo: number;
+}) {
+  if (!currentPlayer) {
+    return null;
+  }
+
+  const minCommitment = Math.max(currentPlayer.roundContribution + 1, minimumRaiseTo);
+  const maxCommitment = getMaxCommitment(currentPlayer);
+  if (maxCommitment < minCommitment) {
+    return null;
+  }
+
+  if (parsedTargetAmount === null) {
+    return buildSuggestedCommitment({ currentPlayer, minimumRaiseTo });
+  }
+
+  return Math.min(Math.max(parsedTargetAmount, minCommitment), maxCommitment);
+}
+
+function buildSliderDeltaLabel({
+  sliderCommitment,
+  currentPlayer,
+  bigBlind,
+  stackDisplayMode,
+}: {
+  sliderCommitment: number | null;
+  currentPlayer: TournamentPlayer | null;
+  bigBlind: number;
+  stackDisplayMode: StackDisplayMode;
+}) {
+  if (sliderCommitment === null || !currentPlayer) {
+    return null;
+  }
+
+  const delta = Math.max(0, sliderCommitment - currentPlayer.roundContribution);
+  if (delta <= 0) {
+    return null;
+  }
+
+  return `+${formatAmountDisplay({ amount: delta, bigBlind, mode: stackDisplayMode })}`;
+}
+
 function getButtonClass(kind: "fold" | "primary" | "size" | "utility") {
   switch (kind) {
     case "fold":
@@ -523,7 +511,6 @@ export function ActionPanel({
   const primaryAction = getPrimaryAction(directActions);
   const canFold = directActions.includes("FOLD");
   const allInAction = directActions.includes("ALL_IN") ? "ALL_IN" : null;
-  const compactStatusLabel = buildCompactStatusLabel({ currentPlayer, tournamentStatus, paused, canPublish });
   const committed = currentPlayer?.roundContribution ?? 0;
   const presetTargets = buildPresetTargets({ currentPlayer, minimumRaiseTo, potSize, bigBlind });
   const parsedTargetAmount = parseAmountInputValue({
@@ -546,7 +533,8 @@ export function ActionPanel({
     !paused &&
     actionDeadlineAtEpochMilli > 0 &&
     actionTimeoutSeconds > 0 &&
-    !currentPlayer?.afk;
+    !!currentPlayer?.acting &&
+    !currentPlayer.afk;
   const totalActionWindowMs = actionTimeoutSeconds * 1_000;
   const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
   const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
@@ -573,6 +561,17 @@ export function ActionPanel({
   const sizingDisplayAmount = buildSizingDisplayAmount({
     rawAmount: targetAmount,
     parsedTargetAmount,
+    bigBlind,
+    stackDisplayMode,
+  });
+  const sliderCommitment = buildSliderCommitment({
+    parsedTargetAmount,
+    currentPlayer,
+    minimumRaiseTo,
+  });
+  const sliderDeltaLabel = buildSliderDeltaLabel({
+    sliderCommitment,
+    currentPlayer,
     bigBlind,
     stackDisplayMode,
   });
@@ -671,6 +670,16 @@ export function ActionPanel({
     );
   };
 
+  const handleSliderChange = (value: number) => {
+    setTargetAmount(
+      formatAmountInputValue({
+        amount: value,
+        bigBlind,
+        mode: stackDisplayMode,
+      }),
+    );
+  };
+
   const submitSizedAction = () => {
     if (!sizeAction || parsedTargetAmount === null || !hasValidTargetAmount) {
       return;
@@ -682,45 +691,9 @@ export function ActionPanel({
 
   return (
     <>
-      <div className="relative rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] p-3 shadow-2xl shadow-black/35 backdrop-blur-md sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getStatusTone(compactStatusLabel)}`}
-            >
-              {compactStatusLabel}
-            </span>
-            {currentPlayer ? (
-              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-100">
-                {formatStackDisplay({
-                  stack: currentPlayer.stack,
-                  bigBlind,
-                  mode: stackDisplayMode,
-                })}{" "}
-                behind
-              </span>
-            ) : null}
-            {shouldShowCallAmount ? (
-              <span className="rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-medium text-sky-50">
-                To call {formatAmountDisplay({ amount: chipsToCall, bigBlind, mode: stackDisplayMode })}
-              </span>
-            ) : null}
-          </div>
-
-          {shouldShowInHandControls && allInAction ? (
-            <button
-              type="button"
-              onClick={() => onAction(allInAction)}
-              disabled={!canPublish || !canAct}
-              className="rounded-full border border-amber-300/30 bg-amber-400/12 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-50 transition hover:bg-amber-400/22 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              All in
-            </button>
-          ) : null}
-        </div>
-
+      <div className="relative rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] p-2.5 shadow-2xl shadow-black/35 backdrop-blur-md sm:p-3">
         {paused ? (
-          <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
+          <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">Hand paused</span>
               <span className="text-xs font-semibold text-amber-50">All players AFK</span>
@@ -734,14 +707,14 @@ export function ActionPanel({
         ) : null}
 
         {shouldShowActionTimer ? (
-          <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">
+          <div className={`${paused ? "mt-2" : ""} rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
                 {actionTimerLabel}
               </span>
-              <span className="text-xs font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
+              <span className="text-[11px] font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
                 style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
@@ -751,12 +724,12 @@ export function ActionPanel({
         ) : null}
 
         {shouldShowInHandControls ? (
-          <div className="relative mt-3 grid grid-cols-3 gap-2">
+          <div className="relative mt-2.5 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => onAction("FOLD")}
               disabled={!canPublish || !canAct || !canFold}
-              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
+              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
             >
               <span>Fold</span>
             </button>
@@ -768,7 +741,7 @@ export function ActionPanel({
                 }
               }}
               disabled={!canPublish || !canAct || !primaryAction}
-              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
+              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
             >
               <span>{getPrimaryActionLabel({ action: primaryAction, chipsToCall, bigBlind, stackDisplayMode })}</span>
             </button>
@@ -789,7 +762,7 @@ export function ActionPanel({
                     : undefined
               }
               disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
-              className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
             >
               <span>{sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}</span>
               {sizeAction && sizeButtonCaption ? (
@@ -802,7 +775,7 @@ export function ActionPanel({
             </button>
 
             {isSizingOpen && sizeAction ? (
-              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-50 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45 sm:left-auto sm:right-0 sm:w-[16.5rem]">
+              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-50 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45 sm:left-auto sm:right-0 sm:w-[20rem]">
                 <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
                   <div className="min-w-0">
                     <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
@@ -828,71 +801,108 @@ export function ActionPanel({
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-1 border-b border-white/10 px-3 py-1.5 text-[10px] text-zinc-200 sm:px-2.5 sm:py-1.5">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-                    Pot {formatAmountDisplay({ amount: potSize, bigBlind, mode: stackDisplayMode })}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-                    Min {formatAmountDisplay({ amount: minimumTarget, bigBlind, mode: stackDisplayMode })}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
-                    Max {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 px-3 py-2 sm:px-2.5 sm:py-2">
-                  {presetTargets.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => handlePresetSelect(preset.value)}
-                      disabled={!preset.enabled}
-                      className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-1 py-1.5 text-center text-[10px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 sm:min-h-9"
-                    >
-                      <span className="block truncate">{preset.label}</span>
-                      <span className="mt-0.5 block text-[11px] font-semibold leading-none text-white sm:text-[13px]">
-                        {formatAmountDisplay({ amount: preset.value, bigBlind, mode: stackDisplayMode })}
+                <div className="grid grid-cols-[minmax(0,1fr)_3.25rem] gap-0">
+                  <div>
+                    <div className="flex flex-wrap gap-1 border-b border-white/10 px-3 py-1.5 text-[10px] text-zinc-200 sm:px-2.5 sm:py-1.5">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                        Pot {formatAmountDisplay({ amount: potSize, bigBlind, mode: stackDisplayMode })}
                       </span>
-                    </button>
-                  ))}
-                </div>
+                      <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-2 py-1 text-fuchsia-50">
+                        To{" "}
+                        {sliderCommitment
+                          ? formatAmountDisplay({ amount: sliderCommitment, bigBlind, mode: stackDisplayMode })
+                          : "--"}
+                      </span>
+                      {sliderDeltaLabel ? (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{sliderDeltaLabel}</span>
+                      ) : null}
+                    </div>
 
-                <div className="grid grid-cols-3 gap-1.5 p-2.5 sm:p-2">
-                  {keypadRows.flat().map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleCalculatorKey(key)}
-                      className={`min-h-10 rounded-xl border border-white/10 bg-black/30 px-2 py-2 text-base font-semibold text-white transition hover:bg-white/10 sm:min-h-9 sm:text-sm ${
-                        stackDisplayMode === "bb" && key === "<-" ? "col-span-3" : ""
-                      }`}
-                    >
-                      {key}
-                    </button>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 px-3 py-2 sm:px-2.5 sm:py-2">
+                      {presetTargets.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => handlePresetSelect(preset.value)}
+                          disabled={!preset.enabled}
+                          className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-1 py-1.5 text-center text-[10px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 sm:min-h-9"
+                        >
+                          <span className="block truncate">{preset.label}</span>
+                          <span className="mt-0.5 block text-[11px] font-semibold leading-none text-white sm:text-[13px]">
+                            {formatAmountDisplay({ amount: preset.value, bigBlind, mode: stackDisplayMode })}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
 
-                <div className="border-t border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
-                  <button
-                    type="button"
-                    onClick={submitSizedAction}
-                    disabled={!canSubmitSizedAction || !hasValidTargetAmount}
-                    className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
-                  >
-                    {buildSizedSubmitLabel({ action: sizeAction, amount: parsedTargetAmount, bigBlind, stackDisplayMode })}
-                  </button>
+                    <div className="grid grid-cols-3 gap-1.5 p-2.5 sm:p-2">
+                      {keypadRows.flat().map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => handleCalculatorKey(key)}
+                          className={`min-h-10 rounded-xl border border-white/10 bg-black/30 px-2 py-2 text-base font-semibold text-white transition hover:bg-white/10 sm:min-h-9 sm:text-sm ${
+                            stackDisplayMode === "bb" && key === "<-" ? "col-span-3" : ""
+                          }`}
+                        >
+                          {key}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
+                      <button
+                        type="button"
+                        onClick={submitSizedAction}
+                        disabled={!canSubmitSizedAction || !hasValidTargetAmount}
+                        className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
+                      >
+                        {buildSizedSubmitLabel({ action: sizeAction, amount: parsedTargetAmount, bigBlind, stackDisplayMode })}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-l border-white/10 bg-[linear-gradient(180deg,_rgba(17,24,39,0.44),_rgba(5,8,7,0.14))] px-2 py-2">
+                    <div className="flex h-full flex-col items-center justify-between gap-2">
+                      <div className="text-center">
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">Max</p>
+                        <p className="mt-1 text-[10px] font-semibold text-zinc-100">
+                          {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
+                        </p>
+                      </div>
+                      <div className="flex min-h-[11.5rem] items-center justify-center">
+                        <input
+                          type="range"
+                          min={minimumTarget}
+                          max={Math.max(minimumTarget, maxCommitment)}
+                          step={1}
+                          value={sliderCommitment ?? minimumTarget}
+                          onChange={(event) => handleSliderChange(Number(event.target.value))}
+                          disabled={sliderCommitment === null}
+                          className="action-panel-vertical-slider"
+                          aria-label={`${getSizedActionLabel(sizeAction)} slider`}
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">Min</p>
+                        <p className="mt-1 text-[10px] font-semibold text-zinc-100">
+                          {formatAmountDisplay({ amount: minimumTarget, bigBlind, mode: stackDisplayMode })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : null}
           </div>
         ) : shouldShowUtilityControls ? (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
             {canToggleReady ? (
               <button
                 type="button"
                 onClick={() => onReadyChange(!isReady)}
                 disabled={!canPublish}
-                className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
+                className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
                 {isReady ? "Cancel Ready" : "Mark Ready"}
               </button>
@@ -902,7 +912,7 @@ export function ActionPanel({
                 type="button"
                 onClick={onStart}
                 disabled={!canPublish}
-                className="min-h-11 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-10 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Start Tournament
               </button>
@@ -911,7 +921,7 @@ export function ActionPanel({
               <button
                 type="button"
                 onClick={onDisconnect}
-                className={`min-h-11 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
+                className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
                 {tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect"}
               </button>
@@ -921,7 +931,7 @@ export function ActionPanel({
                 type="button"
                 onClick={onReconnect}
                 disabled={!canPublish}
-                className="min-h-11 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2.5 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-10 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reconnect
               </button>
@@ -931,7 +941,7 @@ export function ActionPanel({
                 type="button"
                 onClick={onReturnToPlay}
                 disabled={!canPublish}
-                className="min-h-11 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2.5 text-sm font-medium text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-10 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Return to Play
               </button>

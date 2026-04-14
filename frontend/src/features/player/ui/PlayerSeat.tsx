@@ -14,6 +14,18 @@ type PlayerSeatProps = {
   currentGuestId?: string;
   selfHoleCards?: string[];
   revealedHoleCards?: string[];
+  showActionTimer?: boolean;
+  actionTimerProgress?: number;
+  actionFlash?: {
+    id: string;
+    label: string;
+    tone: "neutral" | "aggressive" | "danger" | "success";
+  } | null;
+  dealPulseId?: string | null;
+  foldPulseId?: string | null;
+  actorFocusPulseId?: string | null;
+  winner?: boolean;
+  winnerPulseId?: string | null;
   className?: string;
 };
 
@@ -124,6 +136,31 @@ function ActingDot({ hero = false }: { hero?: boolean }) {
   );
 }
 
+function getSeatActionTimerTone(progress: number) {
+  if (progress <= 0.25) {
+    return { barClass: "bg-rose-400" };
+  }
+
+  if (progress <= 0.5) {
+    return { barClass: "bg-amber-300" };
+  }
+
+  return { barClass: "bg-emerald-300" };
+}
+
+function getSeatActionFlashTone(tone: "neutral" | "aggressive" | "danger" | "success") {
+  switch (tone) {
+    case "aggressive":
+      return "border-fuchsia-200/30 bg-fuchsia-300/20 text-fuchsia-50";
+    case "danger":
+      return "border-rose-200/30 bg-rose-300/20 text-rose-50";
+    case "success":
+      return "border-amber-200/30 bg-amber-300/20 text-amber-50";
+    default:
+      return "border-sky-200/25 bg-sky-300/15 text-sky-50";
+  }
+}
+
 function SeatCardFan({
   cards,
   hero,
@@ -199,6 +236,14 @@ export function PlayerSeat({
   currentGuestId,
   selfHoleCards = [],
   revealedHoleCards = [],
+  showActionTimer = false,
+  actionTimerProgress = 0,
+  actionFlash = null,
+  dealPulseId = null,
+  foldPulseId = null,
+  actorFocusPulseId = null,
+  winner = false,
+  winnerPulseId = null,
   className = "",
 }: PlayerSeatProps) {
   const isHeroSeat = tablePositionIndex === 4;
@@ -239,10 +284,23 @@ export function PlayerSeat({
   const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
   const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
   const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";
+  const actionTimerTone = getSeatActionTimerTone(actionTimerProgress);
+  const winnerTone = winner ? "ring-1 ring-amber-200/45 shadow-[0_0_24px_rgba(251,191,36,0.16)]" : "";
+  const cardAnimationClass = dealPulseId ? "seat-card-deal-in" : foldPulseId ? "seat-card-fold-out" : "";
 
   if (!isHeroSeat) {
     return (
-      <div className={`relative flex w-18 min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}>
+      <div
+        className={`relative flex w-[4.25rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
+      >
+        {actionFlash ? (
+          <div
+            key={actionFlash.id}
+            className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[4.25rem] -translate-x-1/2 -translate-y-[116%] truncate whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-[5.5rem] sm:px-2 sm:py-1 sm:text-[8px] ${getSeatActionFlashTone(actionFlash.tone)}`}
+          >
+            {actionFlash.label}
+          </div>
+        ) : null}
         <div className="relative">
           {isDealerSeat ? <DealerButton /> : null}
           {player.acting ? (
@@ -250,8 +308,12 @@ export function PlayerSeat({
               <ActingDot />
             </div>
           ) : null}
-          <div className={`rounded-[1.3rem] bg-black/20 px-1.5 py-1 ${actingTone}`}>
-            <SeatCardFan cards={cards} hero={false} muted={shouldMuteCards} />
+          <div className={`relative rounded-[1.3rem] bg-black/20 px-1.5 py-1 ${actingTone} ${winnerTone}`}>
+            {actorFocusPulseId ? <span key={actorFocusPulseId} className="seat-actor-focus-ring" /> : null}
+            {winnerPulseId ? <span key={winnerPulseId} className="seat-winner-burst" /> : null}
+            <div className={cardAnimationClass}>
+              <SeatCardFan cards={cards} hero={false} muted={shouldMuteCards} />
+            </div>
           </div>
         </div>
         <div className="mt-1 flex min-h-4 flex-wrap items-center justify-center gap-1">
@@ -263,18 +325,45 @@ export function PlayerSeat({
         <div className="mt-1 w-full">
           <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} />
         </div>
+        {showActionTimer ? (
+          <div className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full">
+            <div className="h-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone.barClass}`}
+                style={{ width: `${Math.max(0, Math.min(100, actionTimerProgress * 100))}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}>
-      <div className="mb-1.5 flex min-h-4 flex-wrap items-center justify-center gap-1">
+      {actionFlash ? (
+        <div
+          key={actionFlash.id}
+          className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[6.5rem] -translate-x-1/2 -translate-y-[114%] truncate whitespace-nowrap rounded-full border px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-none sm:px-2.5 sm:text-[9px] ${getSeatActionFlashTone(actionFlash.tone)}`}
+        >
+          {actionFlash.label}
+        </div>
+      ) : null}
+      <div className="mb-1 flex min-h-4 flex-wrap items-center justify-center gap-1">
         {compactBadges.map((badge) => (
           <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
         ))}
         {statusBadge ? <SeatTag label={statusBadge} /> : null}
         {player.acting ? <SeatTag label="TURN" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
+      </div>
+      <div className="mb-1.5 w-full max-w-[9rem] sm:max-w-[10rem]">
+        <CompactMeta
+          nickname={player.nickname}
+          metaLabel={metaLabel}
+          metaTone={isSelfSeat ? "text-cyan-50" : metaTone}
+          hero
+          highlight={isSelfSeat}
+        />
       </div>
       <div className="relative">
         {isDealerSeat ? <DealerButton hero /> : null}
@@ -284,21 +373,16 @@ export function PlayerSeat({
           </div>
         ) : null}
         <div
-          className={`rounded-[1.8rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_rgba(0,0,0,0.14)_52%)] px-2 py-2 shadow-xl shadow-black/30 ${
+          className={`relative rounded-[1.8rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_rgba(0,0,0,0.14)_52%)] px-2 py-2 shadow-xl shadow-black/30 ${
             isSelfSeat ? "ring-2 ring-cyan-200/45 shadow-cyan-950/35" : ""
-          } ${actingTone}`}
+          } ${actingTone} ${winnerTone}`}
         >
-          <SeatCardFan cards={cards} hero muted={shouldMuteCards} />
+          {actorFocusPulseId ? <span key={actorFocusPulseId} className="seat-actor-focus-ring" /> : null}
+          {winnerPulseId ? <span key={winnerPulseId} className="seat-winner-burst" /> : null}
+          <div className={cardAnimationClass}>
+            <SeatCardFan cards={cards} hero muted={shouldMuteCards} />
+          </div>
         </div>
-      </div>
-      <div className="mt-1.5 w-full max-w-[9.5rem] sm:max-w-[11rem]">
-        <CompactMeta
-          nickname={player.nickname}
-          metaLabel={metaLabel}
-          metaTone={isSelfSeat ? "text-cyan-50" : metaTone}
-          hero
-          highlight={isSelfSeat}
-        />
       </div>
     </div>
   );
