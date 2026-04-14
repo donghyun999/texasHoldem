@@ -43,7 +43,7 @@ function buildWaitingLeaveSnapshot(snapshot: TournamentSnapshot, guestId: string
   return {
     ...snapshot,
     players: snapshot.players.filter((player) => player.guestId !== guestId),
-    tableMessage: `${leavingPlayer.nickname} left the waiting room.`,
+    tableMessage: `${leavingPlayer.nickname}님이 대기실에서 나갔습니다.`,
   };
 }
 

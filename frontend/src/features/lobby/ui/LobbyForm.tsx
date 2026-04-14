@@ -21,15 +21,30 @@ type LobbyFormProps = {
 const visibilityOptions: Array<{ value: TournamentVisibility; label: string; description: string }> = [
   {
     value: "PUBLIC",
-    label: "Open Table",
-    description: "Shows up in the lobby list so anyone can grab a seat before the game starts.",
+    label: "공개 테이블",
+    description: "로비 리스트에 표시되며, 게임 시작 전 누구나 바로 착석할 수 있습니다.",
   },
   {
     value: "PRIVATE",
-    label: "Locked Table",
-    description: "Still appears in the lobby list, but players need the password to join.",
+    label: "잠금 테이블",
+    description: "로비 리스트에는 보이지만, 입장하려면 비밀번호가 필요합니다.",
   },
 ];
+
+function toDisplayStatus(status: TournamentStatus) {
+  switch (status) {
+    case "WAITING":
+      return "대기 중";
+    case "IN_HAND":
+      return "핸드 진행 중";
+    case "HAND_RESULT":
+      return "핸드 결과";
+    case "FINISHED":
+      return "종료됨";
+    default:
+      return status;
+  }
+}
 
 // Collects player-facing inputs for creating one open or locked table.
 export function LobbyForm({
@@ -51,18 +66,18 @@ export function LobbyForm({
 }: LobbyFormProps) {
   return (
     <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
-      <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">Host a Table</p>
-      <h3 className="mt-3 text-2xl font-semibold text-white">Create a New Game</h3>
+      <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">테이블 만들기</p>
+      <h3 className="mt-3 text-2xl font-semibold text-white">새 게임 생성</h3>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Pick a nickname, name your table, and decide whether anyone can sit down or a password is required.
+        닉네임과 테이블 제목을 정하고, 누구나 바로 입장할지 비밀번호가 필요한 잠금방으로 만들지 선택하세요.
       </p>
 
       {activeTournamentRoomName ? (
         <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-200/10 px-4 py-4 text-sm text-amber-50">
-          <p className="font-semibold">You already have a table in progress</p>
+          <p className="font-semibold">이미 참여 중인 테이블이 있습니다</p>
           <p className="mt-2">
-            Return to <span className="font-semibold">{activeTournamentRoomName}</span>
-            {activeTournamentStatus ? ` (${activeTournamentStatus.replaceAll("_", " ")})` : ""}.
+            <span className="font-semibold">{activeTournamentRoomName}</span>
+            {activeTournamentStatus ? ` (${toDisplayStatus(activeTournamentStatus)})` : ""} 테이블로 돌아가세요.
           </p>
           {onResumeTournament ? (
             <button
@@ -70,7 +85,7 @@ export function LobbyForm({
               onClick={onResumeTournament}
               className="mt-3 rounded-2xl bg-amber-300 px-4 py-3 font-semibold text-slate-950 transition hover:bg-amber-200"
             >
-              Return to Table
+              테이블로 돌아가기
             </button>
           ) : null}
         </div>
@@ -78,20 +93,20 @@ export function LobbyForm({
 
       <div className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-2 block text-sm text-zinc-300">Nickname</span>
+          <span className="mb-2 block text-sm text-zinc-300">닉네임</span>
           <input
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
-            placeholder="player_one"
+            placeholder="플레이어 이름"
             className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
           />
         </label>
 
         <div className="rounded-[1.6rem] border border-white/10 bg-black/20 p-4">
           <div>
-            <p className="text-sm font-semibold text-white">Table Setup</p>
+            <p className="text-sm font-semibold text-white">테이블 설정</p>
             <p className="mt-1 text-xs leading-5 text-zinc-400">
-              Room codes are generated automatically. Players will see the title and, if locked, a password prompt.
+              방 코드는 자동 생성됩니다. 플레이어는 테이블 제목을 보고, 잠금 테이블이라면 비밀번호를 입력해 입장합니다.
             </p>
           </div>
 
@@ -116,7 +131,7 @@ export function LobbyForm({
                         selected ? "bg-emerald-300 text-slate-950" : "bg-white/10 text-zinc-300"
                       }`}
                     >
-                      {option.value === "PUBLIC" ? "OPEN" : "LOCKED"}
+                      {option.value === "PUBLIC" ? "공개" : "잠금"}
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-zinc-400">{option.description}</p>
@@ -126,23 +141,23 @@ export function LobbyForm({
           </div>
 
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm text-zinc-300">Table Title</span>
+            <span className="mb-2 block text-sm text-zinc-300">테이블 제목</span>
             <input
               value={createRoomName}
               onChange={(event) => onCreateRoomNameChange(event.target.value)}
-              placeholder="Friday Night Sit & Go"
+              placeholder="금요 홀덤 싯앤고"
               className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
             />
           </label>
 
           {roomVisibility === "PRIVATE" ? (
             <label className="mt-4 block">
-              <span className="mb-2 block text-sm text-zinc-300">Password</span>
+              <span className="mb-2 block text-sm text-zinc-300">비밀번호</span>
               <input
                 type="password"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="Choose a password for this table"
+                placeholder="테이블 비밀번호를 입력하세요"
                 className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
               />
             </label>
@@ -154,7 +169,7 @@ export function LobbyForm({
             disabled={createDisabled}
             className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Create {roomVisibility === "PUBLIC" ? "Open" : "Locked"} Table
+            {roomVisibility === "PUBLIC" ? "공개" : "잠금"} 테이블 만들기
           </button>
         </div>
 

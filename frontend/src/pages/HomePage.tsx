@@ -103,24 +103,24 @@ export function HomePage() {
   const controlsDisabled =
     !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
   const busyLabel = createMutation.isPending
-    ? "Creating your table..."
+    ? "테이블을 만드는 중..."
     : joinMutation.isPending
-      ? "Joining table..."
+      ? "테이블에 입장하는 중..."
       : isCheckingActiveTournament
-        ? "Checking for an active table..."
+        ? "참여 중인 테이블을 확인하는 중..."
         : null;
   const createError =
     (validationError?.scope === "create" ? validationError.message : null) ||
-    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create table.")) ||
+    (createMutation.error && toErrorMessage(createMutation.error, "테이블 생성에 실패했습니다.")) ||
     null;
   const joinError =
     (validationError?.scope === "join" ? validationError.message : null) ||
-    (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join table.")) ||
+    (joinMutation.error && toErrorMessage(joinMutation.error, "테이블 입장에 실패했습니다.")) ||
     null;
   const passwordJoinError = lastJoinUsedPassword ? joinError : null;
   const waitingListError =
     (waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
-      ? toErrorMessage(waitingRoomListQuery.error, "Failed to load waiting tables.")
+      ? toErrorMessage(waitingRoomListQuery.error, "대기 중인 테이블을 불러오지 못했습니다.")
       : null) ||
     (passwordJoinError ? null : joinError);
 
@@ -161,10 +161,10 @@ export function HomePage() {
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
     if (isCheckingActiveTournament) {
-      throw new Error("Checking whether this guest is already seated at another table.");
+      throw new Error("이미 다른 테이블에 참여 중인지 확인하고 있습니다.");
     }
     if (activeTournament) {
-      throw new Error("You are already seated at another active table.");
+      throw new Error("이미 다른 진행 중인 테이블에 참여하고 있습니다.");
     }
     if (!nickname.trim()) {
       throw new Error(nicknameRequiredMessage);
@@ -178,16 +178,16 @@ export function HomePage() {
     clearJoinErrors();
 
     if (!createRoomName.trim()) {
-      setValidationError({ scope: "create", message: "Enter a table title before creating a table." });
+      setValidationError({ scope: "create", message: "테이블을 만들기 전에 제목을 입력하세요." });
       return;
     }
     if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
-      setValidationError({ scope: "create", message: "Set a password before creating a locked table." });
+      setValidationError({ scope: "create", message: "잠금 테이블을 만들려면 비밀번호를 입력하세요." });
       return;
     }
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before creating a table.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블을 만들기 전에 닉네임을 입력하세요.");
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
@@ -196,7 +196,7 @@ export function HomePage() {
         password: roomVisibility === "PRIVATE" ? createPassword.trim() : undefined,
       });
     } catch (error) {
-      setValidationError({ scope: "create", message: toErrorMessage(error, "Failed to create guest session.") });
+      setValidationError({ scope: "create", message: toErrorMessage(error, "게스트 세션 생성에 실패했습니다.") });
     }
   }
 
@@ -206,7 +206,7 @@ export function HomePage() {
     setLastJoinUsedPassword(typeof password === "string");
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("Enter a nickname before joining a table.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블에 입장하기 전에 닉네임을 입력하세요.");
       joinMutation.mutate({
         code,
         guestId: resolvedGuestId,
@@ -214,7 +214,7 @@ export function HomePage() {
         password,
       });
     } catch (error) {
-      setValidationError({ scope: "join", message: toErrorMessage(error, "Failed to create guest session.") });
+      setValidationError({ scope: "join", message: toErrorMessage(error, "게스트 세션 생성에 실패했습니다.") });
     }
   }
 
@@ -232,18 +232,18 @@ export function HomePage() {
     <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
       <div className="space-y-6">
         <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
-          <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">토너먼트 MVP</p>
           <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-            Browse every waiting table, then join instantly or unlock a seat with a password.
+            대기 중인 테이블을 둘러보고, 바로 입장하거나 비밀번호로 잠금 좌석을 해제하세요.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            Open and locked tables now share the same lobby list. Hosts set a title, the server handles room codes, and
-            locked tables prompt for a password before entry.
+            공개방과 잠금방이 같은 로비 리스트에 함께 표시됩니다. 방장은 제목만 정하면 되고 room code는 서버가 관리하며,
+            잠금방은 입장 전에 비밀번호를 입력합니다.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <MetricCard label="Backend" value={statusQuery.data?.status ?? "OFFLINE"} />
-            <MetricCard label="Blinds" value={`L${previewSnapshot.currentLevel.level}`} />
-            <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} />
+            <MetricCard label="서버" value={statusQuery.data?.status ?? "오프라인"} />
+            <MetricCard label="블라인드" value={`L${previewSnapshot.currentLevel.level}`} />
+            <MetricCard label="좌석" value={`${previewSnapshot.players.length} / 6`} />
           </div>
         </div>
 

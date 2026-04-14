@@ -1,7 +1,7 @@
 import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 
 // Builds a deterministic tournament snapshot for local UI work.
-export function createDemoTournamentSnapshot(code: string, roomName = "Friday Night Sit & Go"): TournamentSnapshot {
+export function createDemoTournamentSnapshot(code: string, roomName = "금요 홀덤 싯앤고"): TournamentSnapshot {
   return {
     code: code.toUpperCase(),
     roomName,
@@ -47,7 +47,7 @@ export function createDemoTournamentSnapshot(code: string, roomName = "Friday Ni
     players: [
       {
         guestId: "guest-player",
-        nickname: "Player One",
+        nickname: "플레이어1",
         seatIndex: 0,
         status: "FOLDED",
         stack: 825,
@@ -130,7 +130,7 @@ export function createDemoTournamentSnapshot(code: string, roomName = "Friday Ni
     availableActions: ["FOLD", "CALL", "RAISE", "ALL_IN"],
     chipsToCall: 50,
     minimumRaiseTo: 100,
-    tableMessage: "Noah is facing action for 50 more chips. Side pot is active.",
+    tableMessage: "Noah의 차례입니다. 50칩을 더 콜해야 하며 사이드 팟이 열려 있습니다.",
     selfHoleCards: ["QS", "QH"],
   };
 }

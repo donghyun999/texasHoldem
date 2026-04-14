@@ -40,22 +40,21 @@ export function PublicTournamentList({
     <div className="rounded-[2rem] border border-white/10 bg-black/20 p-6 shadow-2xl shadow-black/20">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/70">Lobby</p>
-          <h3 className="mt-2 text-2xl font-semibold text-white">Pick a Table</h3>
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-300/70">로비</p>
+          <h3 className="mt-2 text-2xl font-semibold text-white">테이블 선택</h3>
         </div>
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-200">
-          Open seats only
+          빈자리 있는 방만 표시
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Every table below is still waiting for players. Locked tables stay visible in the lobby but need a password
-        before you can sit down.
+        아래 목록은 모두 아직 플레이어를 기다리는 방입니다. 잠금 테이블도 로비에 표시되지만, 착석하려면 비밀번호가 필요합니다.
       </p>
 
       {loading ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-zinc-300">
-          Loading tables...
+          테이블 불러오는 중...
         </div>
       ) : null}
 
@@ -67,7 +66,7 @@ export function PublicTournamentList({
 
       {!loading && rooms.length === 0 ? (
         <div className="mt-5 rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-zinc-400">
-          No waiting tables are open right now.
+          지금 입장 가능한 대기 테이블이 없습니다.
         </div>
       ) : null}
 
@@ -93,17 +92,17 @@ export function PublicTournamentList({
                             : "bg-emerald-300 text-slate-950"
                         }`}
                       >
-                        {locked ? "Locked" : "Open"}
+                        {locked ? "잠금" : "공개"}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-zinc-300">Host: {room.ownerNickname || "Unknown"}</p>
+                    <p className="mt-2 text-sm text-zinc-300">방장: {room.ownerNickname || "알 수 없음"}</p>
                     <p className="mt-1 text-xs text-zinc-400">
-                      Seats {room.currentPlayers} / {room.maxPlayers}
+                      좌석 {room.currentPlayers} / {room.maxPlayers}
                     </p>
                     <p className="mt-2 text-xs text-zinc-400">
                       {locked
-                        ? "Locked table. Select it here, then enter the password to take a seat."
-                        : "Open table. Join immediately while seats are still available."}
+                        ? "잠금 테이블입니다. 여기서 선택한 뒤 비밀번호를 입력하면 착석할 수 있습니다."
+                        : "공개 테이블입니다. 자리가 남아 있으면 바로 입장할 수 있습니다."}
                     </p>
                   </div>
 
@@ -113,7 +112,7 @@ export function PublicTournamentList({
                     disabled={disabled}
                     className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {locked ? "Enter Password" : "Join Table"}
+                    {locked ? "비밀번호 입력" : "입장하기"}
                   </button>
                 </div>
 
@@ -127,9 +126,9 @@ export function PublicTournamentList({
                       }
                       onJoin(room.code, passwordDraft);
                     }}
-                  >
+                    >
                     <label className="block">
-                      <span className="mb-2 block text-sm text-zinc-300">{room.roomName} password</span>
+                      <span className="mb-2 block text-sm text-zinc-300">{room.roomName} 비밀번호</span>
                       <input
                         type="password"
                         value={passwordDraft}
@@ -137,13 +136,13 @@ export function PublicTournamentList({
                           onPasswordInteraction?.();
                           setPasswordDraft(event.target.value);
                         }}
-                        placeholder="Enter the table password"
+                        placeholder="테이블 비밀번호를 입력하세요"
                         autoFocus
                         className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-amber-300"
                       />
                     </label>
                     <p className="mt-2 text-xs text-zinc-400">
-                      Hosts should share the table title and password. Room codes stay internal.
+                      초대할 때는 테이블 제목과 비밀번호를 공유하세요. 방 코드는 내부 식별자로만 사용됩니다.
                     </p>
                     {passwordErrorMessage ? (
                       <p className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-100">
@@ -156,14 +155,14 @@ export function PublicTournamentList({
                         disabled={disabled || !passwordDraft.trim()}
                         className="flex-1 rounded-2xl bg-amber-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Join Locked Table
+                        잠금 테이블 입장
                       </button>
                       <button
                         type="button"
                         onClick={closePasswordPrompt}
                         className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                       >
-                        Cancel
+                        취소
                       </button>
                     </div>
                   </form>
