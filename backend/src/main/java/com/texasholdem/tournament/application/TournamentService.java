@@ -222,22 +222,22 @@ public class TournamentService {
         cleanupStaleTournaments();
         var normalizedRoomName = identityFactory.normalizeRoomName(roomName);
         if (normalizedRoomName.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "방 이름을 입력하세요.");
         }
 
         var tournamentCode = stateStore.findActiveTournamentCodeByRoomName(normalizedRoomName);
         if (tournamentCode == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "잠금 테이블을 찾을 수 없습니다.");
         }
 
         ensureGuestNotInAnotherTournament(guestId, tournamentCode);
         ensureCapacityForNewGuest();
         return withLockedTournament("joinPrivateTournament", tournamentCode, tournament -> {
             if (tournament.visibility != TournamentVisibility.PRIVATE || tournament.status != TournamentStatus.WAITING) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "잠금 테이블을 찾을 수 없습니다.");
             }
             if (!resolveRoomName(tournament.roomName, tournament.code).equalsIgnoreCase(normalizedRoomName)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "잠금 테이블을 찾을 수 없습니다.");
             }
             validateJoinPassword(tournament, roomPassword);
             lobbyManager.joinTournament(tournament, guestId, nickname);
@@ -480,7 +480,7 @@ public class TournamentService {
     private TournamentState requireTournament(String code) {
         var tournament = refreshTournament(normalizeCode(code));
         if (tournament == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "토너먼트를 찾을 수 없습니다.");
         }
         return tournament;
     }
@@ -499,7 +499,7 @@ public class TournamentService {
         if (allowedCode != null && activeTournamentCode.equalsIgnoreCase(allowedCode.trim())) {
             return;
         }
-        throw new ResponseStatusException(HttpStatus.CONFLICT, "Guest is already participating in another tournament");
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 다른 토너먼트에 참여 중입니다.");
     }
 
     // Rejects room-title collisions while another non-finished tournament is already using the same name.
@@ -511,7 +511,7 @@ public class TournamentService {
         if (allowedCode != null && activeTournamentCode.equalsIgnoreCase(allowedCode.trim())) {
             return;
         }
-        throw new ResponseStatusException(HttpStatus.CONFLICT, "Room name is already in use");
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 방 이름입니다.");
     }
 
     // Rejects new tournament entries once the configured active-player cap is reached.
@@ -524,7 +524,7 @@ public class TournamentService {
         }
         throw new ResponseStatusException(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "Tournament service is at capacity. Please try again later."
+                "토너먼트 서버 수용 인원이 가득 찼습니다. 잠시 후 다시 시도하세요."
         );
     }
 
@@ -552,7 +552,7 @@ public class TournamentService {
     private String requirePrivateRoomPassword(String roomPassword) {
         var normalizedRoomPassword = identityFactory.normalizeRoomPassword(roomPassword);
         if (normalizedRoomPassword.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Private rooms require a password");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잠금 테이블은 비밀번호가 필요합니다.");
         }
         return identityFactory.hashRoomPassword(normalizedRoomPassword);
     }
@@ -562,7 +562,7 @@ public class TournamentService {
             return;
         }
         if (!passwordMatches(tournament, roomPassword)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password does not match");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
         }
     }
 

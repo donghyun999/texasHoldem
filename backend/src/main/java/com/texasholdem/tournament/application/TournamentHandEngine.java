@@ -30,6 +30,18 @@ final class TournamentHandEngine {
         this.handProgressManager = handProgressManager;
     }
 
+    private String describeAction(String action) {
+        return switch (action) {
+            case "CHECK" -> "Check";
+            case "CALL" -> "Call";
+            case "BET" -> "Bet";
+            case "RAISE" -> "Raise";
+            case "ALL_IN" -> "All in";
+            case "FOLD" -> "Fold";
+            default -> action;
+        };
+    }
+
     // Opens a new hand from the current surviving participant set.
     void openNextHand(TournamentState tournament, String prefixMessage) {
         handSetupManager.preparePlayersForNextHand(tournament);

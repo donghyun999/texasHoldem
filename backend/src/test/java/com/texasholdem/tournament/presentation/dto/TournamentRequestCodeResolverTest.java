@@ -22,6 +22,6 @@ class TournamentRequestCodeResolverTest {
     void rejectsMismatchedBodyAndPathCodes() {
         assertThatThrownBy(() -> TournamentRequestCodeResolver.resolve("AAA111", "BBB222"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament code mismatch");
+                .hasMessageContaining("토너먼트 코드가 일치하지 않습니다.");
     }
 }

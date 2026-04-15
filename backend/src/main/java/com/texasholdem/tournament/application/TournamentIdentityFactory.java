@@ -59,11 +59,11 @@ final class TournamentIdentityFactory {
         if (!normalizedRequestedCode.matches("[A-Z0-9]{3,10}")) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Tournament code must be 3 to 10 letters or digits"
+                    "토너먼트 코드는 3~10자의 영문 대문자 또는 숫자여야 합니다."
             );
         }
         if (alreadyExists.test(normalizedRequestedCode)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament code already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 사용 중인 토너먼트 코드입니다.");
         }
         return normalizedRequestedCode;
     }

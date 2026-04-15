@@ -44,7 +44,7 @@ final class TournamentBettingActionManager {
     // Validates a zero-cost action when the player has matched the current bet.
     private int applyCheck(TournamentState tournament, TournamentPlayerState player) {
         if (TournamentBetSizing.chipsToCall(tournament, player) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player must call, raise, or fold");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose call, raise, or fold.");
         }
         player.awaitingAction = false;
         player.raiseRightsAvailable = false;
@@ -55,7 +55,7 @@ final class TournamentBettingActionManager {
     private int applyCall(TournamentState tournament, TournamentPlayerState player) {
         var chipsToCall = TournamentBetSizing.chipsToCall(tournament, player);
         if (chipsToCall <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nothing to call");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nothing to call.");
         }
         var paid = contribute(player, chipsToCall);
         player.awaitingAction = false;
@@ -69,33 +69,33 @@ final class TournamentBettingActionManager {
     // Raises the round bet to a target contribution and reopens action for others.
     private int applyWager(TournamentState tournament, TournamentPlayerState player, String action, Integer amount) {
         if ("BET".equals(action) && tournament.currentBet > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bet is only available before any wager in the round");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bet is only available before the round has a wager.");
         }
         if ("RAISE".equals(action) && tournament.currentBet == 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise requires an existing bet");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise is only available after a wager exists.");
         }
         if (!player.raiseRightsAvailable) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise is not reopened for this player");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player does not currently have raise rights.");
         }
 
         var targetContribution = resolveRaiseTarget(tournament, amount);
         var minimumTargetContribution = TournamentBetSizing.minimumTotalContributionForFullRaise(rules, tournament);
         if (targetContribution <= tournament.currentBet) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise must increase the current bet");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise must be above the current bet.");
         }
         if (targetContribution < minimumTargetContribution) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Raise must reach at least " + minimumTargetContribution
+                    "Raise must be at least " + minimumTargetContribution + "."
             );
         }
 
         var additionalChips = targetContribution - player.roundContribution;
         if (additionalChips <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise target is already satisfied");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player already satisfies that raise target.");
         }
         if (additionalChips > player.stack) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise exceeds the remaining stack");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Raise amount exceeds the remaining stack.");
         }
 
         var previousBet = tournament.currentBet;
@@ -114,7 +114,7 @@ final class TournamentBettingActionManager {
     // Pushes the remaining stack and reopens action only when the shove increases the bet.
     private int applyAllIn(TournamentState tournament, TournamentPlayerState player) {
         if (player.stack <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player has no chips left");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No chips remaining.");
         }
 
         var previousBet = tournament.currentBet;

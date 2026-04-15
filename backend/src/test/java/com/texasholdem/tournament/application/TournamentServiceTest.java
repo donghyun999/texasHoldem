@@ -74,7 +74,7 @@ class TournamentServiceTest {
         assertThat(service.findActiveTournament("guest-1")).isNull();
         assertThatThrownBy(() -> service.getTournament(snapshot.code()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament not found");
+                .hasMessageContaining("토너먼트를 찾을 수 없습니다.");
     }
 
     // Verifies that caller-supplied codes are reserved and reusable by join requests.
@@ -138,7 +138,7 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.createTournament("guest-2", "OtherOwner", "Crew Table", null, TournamentVisibility.PUBLIC))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Room name is already in use");
+                .hasMessageContaining("이미 사용 중인 방 이름입니다.");
     }
 
     // Verifies that locked-table passwords are not stored in plain text inside the mutable tournament state.
@@ -183,10 +183,10 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-2", "Player2"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Password does not match");
+                .hasMessageContaining("비밀번호가 일치하지 않습니다.");
         assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-2", "Player2", "wrong"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Password does not match");
+                .hasMessageContaining("비밀번호가 일치하지 않습니다.");
     }
 
     // Verifies that full public waiting rooms stay out of the joinable home list.
@@ -244,7 +244,7 @@ class TournamentServiceTest {
         assertThat(service.listPublicWaitingTournaments()).isEmpty();
         assertThatThrownBy(() -> service.getTournament("PUB1"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament not found");
+                .hasMessageContaining("토너먼트를 찾을 수 없습니다.");
     }
 
     // Verifies that a REST join can fan out one fresh snapshot to waiting-room subscribers immediately.
@@ -260,7 +260,7 @@ class TournamentServiceTest {
         assertThat(broadcast.primaryEvent().payload()).containsEntry("reason", "playerJoined");
         assertThat(joinedSnapshot.code()).isEqualTo("JOIN1");
         assertThat(joinedSnapshot.players()).hasSize(2);
-        assertThat(joinedSnapshot.tableMessage()).contains("Player2 joined the tournament.");
+        assertThat(joinedSnapshot.tableMessage()).contains("Player2 님이 테이블에 입장했습니다.");
     }
 
     // Verifies that new creates and joins are rejected once the active-player cap is reached.
@@ -272,10 +272,10 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.createTournament("guest-3", "LateOwner"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("at capacity");
+                .hasMessageContaining("수용 인원이 가득 찼습니다");
         assertThatThrownBy(() -> service.joinTournament(firstCode, "guest-3", "LatePlayer"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("at capacity");
+                .hasMessageContaining("수용 인원이 가득 찼습니다");
     }
 
     // Verifies that stale waiting tournaments are removed before the capacity cap blocks new creates.
@@ -415,7 +415,7 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.createTournament("guest-2", "Player2", "111"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament code already exists");
+                .hasMessageContaining("이미 사용 중인 토너먼트 코드입니다.");
     }
 
     // Verifies that a finished tournament code can be claimed again for a brand-new tournament.
@@ -472,7 +472,7 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.getTournament(code))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament not found");
+                .hasMessageContaining("토너먼트를 찾을 수 없습니다.");
     }
 
     // Verifies that finished tournaments are deleted automatically after the short retention window.
@@ -496,7 +496,7 @@ class TournamentServiceTest {
         assertThat(service.cleanupFinishedTournament(code, expiredCleanupDeadline)).isTrue();
         assertThatThrownBy(() -> service.getTournament(code))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Tournament not found");
+                .hasMessageContaining("토너먼트를 찾을 수 없습니다.");
     }
 
     // Verifies that a short-stack shove creates a main pot and side pot from contribution tiers.
@@ -609,7 +609,7 @@ class TournamentServiceTest {
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").afk()).isTrue();
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").connected()).isTrue();
         assertThat(requireSnapshotPlayer(snapshot, "guest-1").status()).isEqualTo(PlayerStatus.FOLDED);
-        assertThat(snapshot.tableMessage()).contains("won 20");
+        assertThat(snapshot.tableMessage()).contains("won 20.");
     }
 
     // Verifies that AFK players keep auto-checking until they explicitly return to manual play.
@@ -1054,10 +1054,10 @@ class TournamentServiceTest {
 
         assertThatThrownBy(() -> service.createTournament("guest-1", "OwnerAgain"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("already participating");
+                .hasMessageContaining("이미 다른 토너먼트에 참여 중입니다.");
         assertThatThrownBy(() -> service.joinTournament(secondCode, "guest-1", "Owner"))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("already participating");
+                .hasMessageContaining("이미 다른 토너먼트에 참여 중입니다.");
 
         assertThat(service.getTournament(firstCode).players())
                 .extracting(player -> player.guestId())
@@ -1094,7 +1094,7 @@ class TournamentServiceTest {
         var handResultSnapshot = service.applyAction(code, "guest-2", "FOLD", null).primaryEvent().snapshot();
 
         assertThat(handResultSnapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
-        assertThat(handResultSnapshot.tableMessage()).contains("won 20");
+        assertThat(handResultSnapshot.tableMessage()).contains("won 20.");
 
         service.disconnectPlayer(code, "guest-2");
         var reconnectSnapshot = service.reconnectPlayer(code, "guest-2").primaryEvent().snapshot();
@@ -1102,7 +1102,7 @@ class TournamentServiceTest {
         assertThat(reconnectSnapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
         assertThat(requireSnapshotPlayer(reconnectSnapshot, "guest-2").connected()).isTrue();
         assertThat(reconnectSnapshot.tableMessage()).contains("Player2 reconnected.");
-        assertThat(reconnectSnapshot.tableMessage()).contains("won 20");
+        assertThat(reconnectSnapshot.tableMessage()).contains("won 20.");
     }
 
     // Verifies that a disconnected in-hand player stays offline after reload and can reconnect from persisted state.

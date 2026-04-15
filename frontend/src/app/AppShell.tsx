@@ -8,9 +8,9 @@ export function AppShell() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div>
             <p className="text-xs uppercase tracking-[0.32em] text-emerald-300/70">
-              Texas Holdem
+              텍사스 홀덤
             </p>
-            <h1 className="text-xl font-semibold text-white">Single-Table Tournament MVP</h1>
+            <h1 className="text-xl font-semibold text-white">싱글 테이블 토너먼트 MVP</h1>
           </div>
           <nav className="flex gap-2 text-sm">
             <NavLink
@@ -21,7 +21,7 @@ export function AppShell() {
                 }`
               }
             >
-              Lobby
+              로비
             </NavLink>
             <NavLink
               to="/tournaments/DEMO1"
@@ -31,7 +31,7 @@ export function AppShell() {
                 }`
               }
             >
-              Tournament
+              토너먼트
             </NavLink>
           </nav>
         </div>

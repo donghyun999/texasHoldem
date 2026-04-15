@@ -59,7 +59,7 @@ export function HomePage() {
     retry: false,
     refetchInterval: 5_000,
   });
-  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "Friday Night Sit & Go");
+  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "금요일 나이트 싯앤고");
   const createMutation = useMutation({
     mutationFn: ({
       guestId,
@@ -237,7 +237,7 @@ export function HomePage() {
             대기 중인 테이블을 둘러보고, 바로 입장하거나 비밀번호로 잠금 좌석을 해제하세요.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            공개방과 잠금방이 같은 로비 리스트에 함께 표시됩니다. 방장은 제목만 정하면 되고 room code는 서버가 관리하며,
+            공개방과 잠금방이 같은 로비 리스트에 함께 표시됩니다. 방장은 제목만 정하면 되고 방 코드는 서버가 관리하며,
             잠금방은 입장 전에 비밀번호를 입력합니다.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">

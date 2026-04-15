@@ -56,6 +56,6 @@ final class TournamentOwnershipManager {
         if (delegatedOwner == null) {
             return "";
         }
-        return delegatedOwner.nickname + " is now the owner.";
+        return delegatedOwner.nickname + " 님이 이제 방장입니다.";
     }
 }

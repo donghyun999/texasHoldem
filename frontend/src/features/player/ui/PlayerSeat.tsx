@@ -67,11 +67,11 @@ function getSeatPresenceTone(player: TournamentPlayer) {
 
 function getSeatBadgeTone(badge: string) {
   switch (badge) {
-    case "나":
+    case "ME":
       return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
-    case "자리비움":
+    case "AFK":
       return "border-rose-200/30 bg-rose-300/15 text-rose-50";
-    case "방장":
+    case "HOST":
       return "border-white/15 bg-white/10 text-white";
     case "SB":
       return "border-sky-300/25 bg-sky-300/15 text-sky-50";
@@ -84,18 +84,18 @@ function getSeatBadgeTone(badge: string) {
 
 function getStatusBadge(player: TournamentPlayer) {
   if (!player.connected) {
-    return "오프";
+    return "Off";
   }
 
   if (player.afk) {
-    return "자리비움";
+    return "AFK";
   }
 
   switch (player.status) {
     case "ALL_IN":
       return "AI";
     case "BUSTED_OUT":
-      return "탈락";
+      return "Out";
     default:
       return null;
   }
@@ -107,8 +107,8 @@ function DealerButton({ hero = false }: { hero?: boolean }) {
       className={`absolute right-0 top-0 z-20 grid place-items-center rounded-full border border-black/20 bg-white font-black text-black shadow-lg shadow-black/30 ${
         hero ? "h-5 w-5 text-[9px] sm:h-6 sm:w-6 sm:text-[10px]" : "h-4.5 w-4.5 text-[8px] sm:h-5 sm:w-5 sm:text-[9px]"
       }`}
-      aria-label="딜러 버튼"
-      title="딜러"
+      aria-label="Dealer button"
+      title="Dealer"
     >
       D
     </div>
@@ -255,14 +255,14 @@ export function PlayerSeat({
           isHeroSeat ? "h-10 w-24 sm:h-12 sm:w-28" : "h-8 w-14 sm:h-10 sm:w-16"
         } ${className}`}
       >
-        <p className={`${isHeroSeat ? "text-[9px] sm:text-[10px]" : "text-[8px] sm:text-[9px]"}`}>좌석 {seatIndex + 1}</p>
+        <p className={`${isHeroSeat ? "text-[9px] sm:text-[10px]" : "text-[8px] sm:text-[9px]"}`}>Seat {seatIndex + 1}</p>
       </div>
     );
   }
 
   const seatBadges = [
-    player.guestId === currentGuestId ? "나" : null,
-    player.owner ? "방장" : null,
+    player.guestId === currentGuestId ? "ME" : null,
+    player.owner ? "HOST" : null,
     smallBlindSeat === player.seatIndex ? "SB" : null,
     bigBlindSeat === player.seatIndex ? "BB" : null,
   ].filter(isSeatBadge);
@@ -274,7 +274,7 @@ export function PlayerSeat({
   const statusBadge = getStatusBadge(player);
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
-  const compactBadges = seatBadges.filter((badge) => badge !== "방장");
+  const compactBadges = seatBadges.filter((badge) => badge !== "HOST");
   const metaLabel = formatStackDisplay({
     stack: player.stack,
     bigBlind: currentBigBlind,
@@ -354,7 +354,7 @@ export function PlayerSeat({
           <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
         ))}
         {statusBadge ? <SeatTag label={statusBadge} /> : null}
-        {player.acting ? <SeatTag label="턴" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
+        {player.acting ? <SeatTag label="Acting" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
       </div>
       <div className="mb-1.5 w-full max-w-[9rem] sm:max-w-[10rem]">
         <CompactMeta

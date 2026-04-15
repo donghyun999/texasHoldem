@@ -913,38 +913,38 @@ export function ActionPanel({
                 onClick={onStart}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Start Game
-              </button>
-            ) : null}
+            >
+              Start Game
+            </button>
+          ) : null}
             {showDisconnect ? (
               <button
                 type="button"
                 onClick={onDisconnect}
                 className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
-              >
-                {tournamentStatus === "WAITING" ? "Leave Table" : "Disconnect"}
-              </button>
-            ) : null}
+            >
+              {tournamentStatus === "WAITING" ? "Leave Table" : "Disconnect"}
+            </button>
+          ) : null}
             {showReconnect ? (
               <button
                 type="button"
                 onClick={onReconnect}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Reconnect
-              </button>
-            ) : null}
+            >
+              Reconnect
+            </button>
+          ) : null}
             {showReturnToPlay ? (
               <button
                 type="button"
                 onClick={onReturnToPlay}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Return to Play
-              </button>
+            >
+              Return to Play
+            </button>
             ) : null}
           </div>
         ) : (

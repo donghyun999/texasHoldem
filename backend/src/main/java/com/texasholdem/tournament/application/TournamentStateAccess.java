@@ -24,7 +24,7 @@ final class TournamentStateAccess {
     // Rejects mutations that are only valid in the waiting room.
     void requireWaiting(TournamentState tournament) {
         if (tournament.status != TournamentStatus.WAITING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is not accepting waiting-room changes");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "현재 대기방 변경을 할 수 없습니다.");
         }
     }
 
@@ -32,7 +32,7 @@ final class TournamentStateAccess {
     TournamentPlayerState requirePlayer(TournamentState tournament, String guestId) {
         var player = findPlayer(tournament, guestId);
         if (player == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Player is not part of this tournament");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "이 토너먼트에 속한 플레이어가 아닙니다.");
         }
         return player;
     }
@@ -50,7 +50,7 @@ final class TournamentStateAccess {
         return tournament.players.stream()
                 .filter(candidate -> candidate.seatIndex == seatIndex)
                 .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seat player not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 좌석의 플레이어를 찾을 수 없습니다."));
     }
 
     // Finds the lowest unused seat index in the six-seat layout.
@@ -62,7 +62,7 @@ final class TournamentStateAccess {
                 return seat;
             }
         }
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No seat is available");
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "빈 좌석이 없습니다.");
     }
 
     // Exposes the seat cap so read models can stay aligned with live tournament rules.

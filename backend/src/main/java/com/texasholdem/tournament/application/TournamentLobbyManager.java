@@ -44,8 +44,8 @@ final class TournamentLobbyManager {
         tournament.visibility = visibility;
         tournament.players.add(TournamentPlayerState.owner(guestId, identityFactory.normalizeNickname(nickname), 0));
         tournament.tableMessage = visibility == TournamentVisibility.PUBLIC
-                ? roomName + " is open for players in the lobby."
-                : roomName + " is ready. Share the room name and password to invite players.";
+                ? roomName + " 테이블이 로비에서 입장 가능합니다."
+                : roomName + " 테이블이 준비됐습니다. 방 이름과 비밀번호를 공유해 초대하세요.";
         return tournament;
     }
 
@@ -53,17 +53,17 @@ final class TournamentLobbyManager {
     void joinTournament(TournamentState tournament, String guestId, String nickname) {
         stateAccess.requireWaiting(tournament);
         if (tournament.players.size() >= rules.maxSeats()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is full");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "테이블이 가득 찼습니다.");
         }
         if (stateAccess.findPlayer(tournament, guestId) != null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Guest is already seated");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 이 테이블에 입장해 있습니다.");
         }
 
         var normalizedNickname = identityFactory.normalizeNickname(nickname);
         var nicknameTaken = tournament.players.stream()
                 .anyMatch(player -> player.nickname.equalsIgnoreCase(normalizedNickname));
         if (nicknameTaken) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nickname is already taken");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 사용 중인 닉네임입니다.");
         }
 
         tournament.players.add(new TournamentPlayerState(
@@ -71,7 +71,7 @@ final class TournamentLobbyManager {
                 normalizedNickname,
                 stateAccess.nextSeatIndex(tournament.players)
         ));
-        tournament.tableMessage = normalizedNickname + " joined the tournament.";
+        tournament.tableMessage = normalizedNickname + " 님이 테이블에 입장했습니다.";
     }
 
     // Toggles the ready flag for one seated player before the tournament starts.
@@ -79,14 +79,14 @@ final class TournamentLobbyManager {
         stateAccess.requireWaiting(tournament);
         var player = stateAccess.requirePlayer(tournament, guestId);
         player.status = ready ? PlayerStatus.READY : PlayerStatus.SEATED;
-        tournament.tableMessage = player.nickname + (ready ? " is ready." : " is not ready.");
+        tournament.tableMessage = player.nickname + (ready ? " 님이 준비 완료했습니다." : " 님이 준비를 해제했습니다.");
     }
 
     // Verifies that the caller currently owns tournament start authority.
     void requireOwner(TournamentState tournament, String guestId) {
         var owner = stateAccess.requirePlayer(tournament, guestId);
         if (!owner.owner) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can start the tournament");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "방장만 게임을 시작할 수 있습니다.");
         }
     }
 
@@ -100,7 +100,7 @@ final class TournamentLobbyManager {
                 .sorted(Comparator.comparingInt(player -> player.seatIndex))
                 .toList();
         if (readyPlayers.size() < 2) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least two ready players are required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "준비 완료한 플레이어가 최소 2명 필요합니다.");
         }
 
         for (var player : tournament.players) {

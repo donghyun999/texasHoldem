@@ -13,11 +13,11 @@ final class TournamentRequestCodeResolver {
         var normalizedRequestCode = normalize(requestCode);
         var normalizedFallbackCode = normalize(fallbackCode);
         if (normalizedRequestCode.isBlank() && normalizedFallbackCode.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토너먼트 코드가 필요합니다.");
         }
         if (!normalizedRequestCode.isBlank() && !normalizedFallbackCode.isBlank()
                 && !normalizedRequestCode.equals(normalizedFallbackCode)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code mismatch");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토너먼트 코드가 일치하지 않습니다.");
         }
         return normalizedRequestCode.isBlank() ? normalizedFallbackCode : normalizedRequestCode;
     }
