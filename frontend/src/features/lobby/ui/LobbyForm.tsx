@@ -22,7 +22,7 @@ const visibilityOptions: Array<{ value: TournamentVisibility; label: string; des
   {
     value: "PUBLIC",
     label: "공개 테이블",
-    description: "로비 목록에 표시되며, 게임 시작 전까지 누구나 바로 입장할 수 있습니다.",
+    description: "로비 목록에 표시되며, 비밀번호 없이 바로 입장할 수 있습니다.",
   },
   {
     value: "PRIVATE",
@@ -70,7 +70,8 @@ export function LobbyForm({
       <h3 className="mt-3 text-2xl font-semibold text-white">새 게임 생성</h3>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         닉네임과 테이블 제목을 정하고, 누구나 바로 입장 가능한 공개방 또는 비밀번호가 필요한 잠금방 중 하나를
-        선택해 주세요.
+        선택해 주세요. 플레이어에게는 테이블 제목과 비밀번호만 공유하면 되고, 방 코드는 서버가 내부적으로
+        관리합니다.
       </p>
 
       {activeTournamentRoomName ? (
@@ -140,6 +141,17 @@ export function LobbyForm({
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
+            <p className="font-semibold text-white">
+              {roomVisibility === "PRIVATE" ? "잠금방 공유 안내" : "공개방 공유 안내"}
+            </p>
+            <p className="mt-2 leading-6 text-zinc-300">
+              {roomVisibility === "PRIVATE"
+                ? "플레이어에게는 테이블 제목과 비밀번호만 전달하세요. 로비에는 방이 보이지만, 입장할 때 비밀번호가 필요합니다."
+                : "테이블 제목만 공유하면 로비에서 바로 찾을 수 있습니다. 방 코드는 내부 식별자로만 사용됩니다."}
+            </p>
           </div>
 
           <label className="mt-4 block">

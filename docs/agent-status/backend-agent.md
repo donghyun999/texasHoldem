@@ -3,15 +3,15 @@
 - 마지막 갱신 시각:
   - `2026-04-15 Asia/Seoul`
 - 상태:
-  - `idle`
+  - `done`
 - 현재 작업:
-  - 아직 미정
+  - handoff 완료
 - 현재 브랜치:
-  - 없음
+  - `main`
 - 현재 worktree:
-  - 없음
+  - `C:\Users\user\texasHoldem`
 - 현재 worktree 상태:
-  - `not-created`
+  - `exists`
 - 현재 소유 범위:
   - `backend/src/main/java/**`
   - `backend/src/test/java/**`
@@ -22,13 +22,13 @@
   - `frontend/**`
   - 다른 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - `TournamentService.java` 중심 작업은 backend writer 1명만 맡는다
+  - backend handoff를 수집했고, `TournamentService.java` 중심 작업은 backend writer 1명만 맡는 원칙을 유지한다
 - 다음 액션:
-  - 실제 task 할당 시 브랜치와 worktree를 먼저 확정
-  - 관련 backend 범위만 좁혀서 작업
-  - snapshot / event 계약 영향과 관련 backend 테스트를 확인
+  - 후속 backend task가 생기면 현재 facade / command-flow 경계를 기준으로 범위를 다시 배정한다
+  - 필요 시 retained field 정리나 추가 command handler 분리를 별도 task로 수행한다
+  - snapshot / event 계약 영향이 생기면 frontend와 다시 경계를 맞춘다
 - 막힌 점:
-  - 아직 실제 backend 작업 범위가 배정되지 않음
+  - 현재 backend handoff와 targeted test는 완료됐다
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`

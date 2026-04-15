@@ -83,6 +83,23 @@ export function WaitingRoomInvitePanel({
         </div>
       </div>
 
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">공유할 제목</p>
+          <p className="mt-2 text-sm font-semibold text-white">{snapshot.roomName}</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">공유할 비밀번호</p>
+          <p className="mt-2 text-sm font-semibold text-white">
+            {snapshot.visibility === "PUBLIC" ? "필요 없음" : hasEmbeddedPassword ? "링크에 포함됨" : "별도 전달 필요"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">방 코드</p>
+          <p className="mt-2 text-sm font-semibold text-white">내부 식별자</p>
+        </div>
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"

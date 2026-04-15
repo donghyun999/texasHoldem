@@ -3,9 +3,9 @@
 - 마지막 갱신 시각:
   - `2026-04-15 Asia/Seoul`
 - 상태:
-  - `idle`
+  - `done`
 - 현재 작업:
-  - 멀티 에이전트 상태 복구 문서 구조 정리
+  - 우선순위 1~4 handoff 반영 및 세션 종료 정리
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -29,13 +29,16 @@
   - `frontend/**`
   - 구현 역할 에이전트가 소유 중인 hotspot 파일
 - 마지막 결정:
-  - 상태 복구를 최우선으로 두고 `agent-status` 구조를 강화한다
+  - 액션패널 사이징 UX는 유지한 채 우선순위 1~4를 반영했고, frontend build와 targeted backend test를 통과했다
 - 다음 액션:
-  - `agent-status` 문서를 최신성 정보와 실제 worktree 상태 기준으로 유지
-  - 실제 구현 작업 시작 시 역할별 task-owner를 먼저 기록
-  - 필요할 때만 실제 `git worktree`를 생성
+  - 다음 세션 시작 시 `AGENTS.md`, 운영 문서, `docs/agent-status/orchestrator.md`를 먼저 읽는다
+  - 실제 후속 task가 생기면 역할별 task-owner와 `agent-status`를 먼저 갱신한다
+  - 필요 시 reconnect recovery와 최종 브라우저 smoke 범위를 다시 배정한다
 - 막힌 점:
-  - 아직 실제 구현 task가 배정되지 않음
+  - 현재 미통합 변경은 남아 있지만 handoff와 검증 요약은 정리된 상태다
+- 남은 리스크:
+  - `use-tournament-realtime-snapshot`는 여전히 websocket/session lifecycle 소유자라 후속 분리 여지가 남아 있다
+  - backend facade는 얇아졌지만 호환성 때문에 일부 retained field가 남아 있어 추가 정리는 별도 작업으로 다뤄야 한다
 - 세션 재개 시 먼저 볼 파일:
   - `AGENTS.md`
   - `docs/multi-agent-cli-operations.md`

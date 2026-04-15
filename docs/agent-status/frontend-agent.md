@@ -3,15 +3,15 @@
 - 마지막 갱신 시각:
   - `2026-04-15 Asia/Seoul`
 - 상태:
-  - `idle`
+  - `done`
 - 현재 작업:
-  - 아직 미정
+  - handoff 완료
 - 현재 브랜치:
-  - 없음
+  - `main`
 - 현재 worktree:
-  - 없음
+  - `C:\Users\user\texasHoldem`
 - 현재 worktree 상태:
-  - `not-created`
+  - `exists`
 - 현재 소유 범위:
   - `frontend/src/**`
   - 필요 시 `frontend/index.html`
@@ -22,13 +22,13 @@
   - `backend/**`
   - 다른 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - `TablePage.tsx`, `use-tournament-realtime-snapshot.ts`, `TournamentTable.tsx` 중심 작업은 frontend writer 1명만 맡는다
+  - frontend handoff를 수집했고, `TablePage.tsx`, `use-tournament-realtime-snapshot.ts`, `TournamentTable.tsx` 중심 작업은 frontend writer 1명만 맡는 원칙을 유지한다
 - 다음 액션:
-  - 실제 task 할당 시 브랜치와 worktree를 먼저 확정
-  - lobby / table / realtime 중 범위를 좁혀 작업
-  - snapshot 타입 영향과 build 또는 관련 UI 검증을 확인
+  - 후속 frontend task가 생기면 현재 lobby / realtime / table 경계를 기준으로 범위를 다시 배정한다
+  - 필요 시 websocket lifecycle과 cache hydration을 더 세밀하게 분리한다
+  - 필요 시 로비 문구와 상태별 테이블 정보 구조를 추가 polish한다
 - 막힌 점:
-  - 아직 실제 frontend 작업 범위가 배정되지 않음
+  - 현재 frontend handoff와 build는 완료됐다
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `frontend/src/pages/HomePage.tsx`

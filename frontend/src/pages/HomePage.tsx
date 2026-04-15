@@ -249,6 +249,11 @@ export function HomePage() {
             <MetricCard label="블라인드" value={`L${previewSnapshot.currentLevel.level}`} />
             <MetricCard label="좌석" value={`${previewSnapshot.players.length} / 6`} />
           </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <GuidanceCard label="공개방" value="로비 목록에서 바로 입장합니다." />
+            <GuidanceCard label="잠금방" value="목록에 보이지만 비밀번호가 있어야 입장합니다." />
+            <GuidanceCard label="방 코드" value="플레이어에게는 공유하지 않는 내부 식별자입니다." />
+          </div>
         </div>
 
         <PublicTournamentList
@@ -301,6 +306,15 @@ function MetricCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
       <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">{label}</p>
       <p className="mt-3 text-lg font-medium text-white">{value}</p>
+    </div>
+  );
+}
+
+function GuidanceCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+      <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-200/70">{label}</p>
+      <p className="mt-3 text-sm leading-6 text-zinc-200">{value}</p>
     </div>
   );
 }

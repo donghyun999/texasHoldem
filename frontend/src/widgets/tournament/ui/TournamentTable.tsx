@@ -312,6 +312,53 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
   };
 }
 
+type TableCenterCopy = {
+  stageLabel: string;
+  headline: string;
+  detail: string;
+};
+
+function buildCenterCopy(
+  snapshot: TournamentSnapshot,
+  streetLabel: string,
+  actingPlayer: TournamentPlayer | null,
+  resultSummary: { headline: string; detail: string; amountLabel: string } | null,
+): TableCenterCopy {
+  if (snapshot.status === "WAITING") {
+    return {
+      stageLabel: "Waiting room",
+      headline: snapshot.paused ? "Table paused" : "Waiting for ready players",
+      detail: snapshot.paused
+        ? snapshot.tableMessage
+        : "Players can join and ready up before the next hand starts.",
+    };
+  }
+
+  if (snapshot.status === "IN_HAND") {
+    return {
+      stageLabel: streetLabel,
+      headline: snapshot.paused ? "Hand paused" : actingPlayer ? `${actingPlayer.nickname} acting` : "Hand in progress",
+      detail: snapshot.paused
+        ? snapshot.tableMessage
+        : snapshot.tableMessage || "Pot and action updates are live while the hand is running.",
+    };
+  }
+
+  if (snapshot.status === "HAND_RESULT") {
+    return {
+      stageLabel: "Hand result",
+      headline: resultSummary?.headline ?? "Showdown",
+      detail: snapshot.tableMessage || "Showdown resolved.",
+    };
+  }
+
+  return {
+    stageLabel: "Tournament finished",
+    headline: resultSummary?.headline ?? "Final results",
+    detail: resultSummary?.detail ?? (snapshot.tableMessage || "The tournament is over."),
+  };
+}
+
 function buildSidePotSummary(snapshot: TournamentSnapshot) {
   return snapshot.sidePots.map((pot, index) => ({
     id: pot.id,
@@ -690,13 +737,7 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
-  const centerStatusLabel = resultSummary
-    ? "Hand settled"
-    : snapshot.paused
-      ? "Hand paused"
-      : actingPlayer
-        ? `${actingPlayer.nickname} acting`
-        : snapshot.status.replaceAll("_", " ");
+  const centerCopy = buildCenterCopy(snapshot, streetLabel, actingPlayer, resultSummary);
 
   const createUiEffectId = (prefix: string) => {
     const id = `${prefix}-${snapshot.handNumber}-${snapshot.stateVersion}-${uiEffectIdRef.current}`;
@@ -1148,18 +1189,26 @@ export function TournamentTable({
       >
         <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:gap-2 sm:px-3 sm:text-xs">
           <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-100">
-            {streetLabel}
+            {centerCopy.stageLabel}
           </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{centerStatusLabel}</span>
+          {snapshot.paused ? (
+            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-amber-100">
+              Paused
+            </span>
+          ) : null}
         </div>
+        <p className="mt-2 text-sm font-semibold text-white sm:text-base">{centerCopy.headline}</p>
+        <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-5 text-zinc-300 sm:max-w-[18rem] sm:text-xs">
+          {centerCopy.detail}
+        </p>
         {snapshot.paused ? (
-          <div className="mx-auto mt-2 max-w-[16rem] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
+          <div className="mx-auto mt-3 max-w-[16rem] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All Players AFK</p>
             <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
           </div>
         ) : null}
         {resultSummary ? (
-          <div className="mx-auto mt-2 max-w-[14rem] rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.56),_rgba(12,12,12,0.86))] px-3 py-2 shadow-xl shadow-black/30">
+          <div className="mx-auto mt-3 max-w-[14rem] rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.56),_rgba(12,12,12,0.86))] px-3 py-2 shadow-xl shadow-black/30">
             <div className="flex items-center justify-center gap-2">
               <p className="text-sm font-semibold text-white">{resultSummary.headline}</p>
               <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-2 py-1 text-[10px] font-semibold text-amber-100">
@@ -1214,7 +1263,7 @@ export function TournamentTable({
           </div>
         ) : (
           <p className="mx-auto mt-4 max-w-xs rounded-lg border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
-            Waiting for ready players.
+            {centerCopy.detail}
           </p>
         )}
       </div>

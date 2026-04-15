@@ -50,7 +50,7 @@ export function PublicTournamentList({
 
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         아래 목록은 모두 아직 플레이어를 기다리는 방입니다. 잠금 테이블도 로비에서 보이지만, 입장하려면 비밀번호가
-        필요합니다.
+        필요합니다. 테이블 코드는 내부 식별자라서 따로 공유하지 않아도 됩니다.
       </p>
 
       {loading ? (
@@ -100,6 +100,22 @@ export function PublicTournamentList({
                     <p className="mt-1 text-xs text-zinc-400">
                       좌석 {room.currentPlayers} / {room.maxPlayers}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                          locked
+                            ? "border border-amber-300/25 bg-amber-300/10 text-amber-100"
+                            : "border border-emerald-300/25 bg-emerald-300/10 text-emerald-50"
+                        }`}
+                      >
+                        {locked ? "로비 노출" : "즉시 입장"}
+                      </span>
+                      <span
+                        className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-200"
+                      >
+                        {locked ? "비밀번호 필요" : "방 코드 공유 불필요"}
+                      </span>
+                    </div>
                     <p className="mt-2 text-xs text-zinc-400">
                       {locked
                         ? "잠금 테이블입니다. 들어가기 전에 비밀번호를 입력하면 바로 입장할 수 있습니다."
