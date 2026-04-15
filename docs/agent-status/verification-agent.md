@@ -1,0 +1,33 @@
+# verification-agent 상태
+
+- 현재 작업:
+  - 아직 미정
+- 현재 브랜치:
+  - 미정
+- 현재 worktree:
+  - `C:\Users\user\texasHoldem-wt-verify`
+- 현재 소유 범위:
+  - 기본은 read-only
+  - 필요 시 `scripts/**`
+  - 필요 시 테스트 harness 파일
+- 지금 수정 가능한 파일:
+  - 기본적으로 없음
+  - 오케스트레이터가 명시적으로 허용한 검증 스크립트만 가능
+- 지금 수정하면 안 되는 파일:
+  - `backend/src/main/java/**`
+  - `frontend/src/**`
+  - 구현 에이전트가 소유한 hotspot 파일
+- 마지막 결정:
+  - `test-results/` 산출물은 모두 ignore 유지
+- 다음 액션:
+  - 실제 task 할당 시 가장 좁은 검증 명령 집합을 선정
+  - backend test / frontend build / smoke 중 필요한 것만 실행
+  - 실패 시 요약과 리스크를 짧게 정리
+- 막힌 점:
+  - 아직 실제 검증 대상 task가 배정되지 않음
+- 세션 재개 시 먼저 볼 파일:
+  - `backend/build.gradle`
+  - `frontend/package.json`
+  - `scripts/railway-six-player-smoke.cjs`
+  - `scripts/railway-six-player-continuous.cjs`
+  - `docs/status.md`

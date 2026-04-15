@@ -1,142 +1,142 @@
-# Status
+# 상태 요약
 
-## Purpose
+## 목적
 
-- This document is a maintained summary of current project status
-- Update this file by replacing or refining outdated summaries
-- Do not use this file as an append-only session log
+- 이 문서는 현재 프로젝트 상태를 유지형 요약으로 관리한다
+- 오래된 요약은 덮어쓰거나 정제해서 갱신한다
+- append-only 세션 로그처럼 사용하지 않는다
 
-## Current phase
+## 현재 단계
 
-- Tournament MVP implementation
-- Local development target uses native PostgreSQL
-- Final deployment target should remain Docker-ready
-- Railway staging is deployed without changing the local PostgreSQL workflow, and the latest frontend asset/result UX has been smoke-verified, including a 6-player deployed frontend pass focused on seat 5 hole-card rendering
+- 토너먼트 MVP 구현 단계
+- 로컬 개발 목표는 네이티브 PostgreSQL 사용
+- 최종 배포 목표는 Docker 전환 가능 상태 유지
+- Railway staging은 로컬 PostgreSQL 워크플로우를 깨지 않은 채 배포되어 있고, 최신 frontend asset/result UX는 smoke 검증되었다. 배포 frontend 기준 6인 플레이 검증도 seat 5 hole-card 렌더링 중심으로 통과했다
 
-## Completed
+## 완료된 작업
 
-- Guest-based tournament create, join, ready, and owner-start flow
-- Lobby create flow now centers on nickname, room title, and table visibility instead of a user-entered room code
-- Guest-level active-tournament detection and resume path on the home screen
-- Shared tournament snapshot contract across backend REST, WebSocket, and frontend UI
-- Snapshot identity now includes `handNumber`, `stateVersion`, and public/viewer audience metadata so clients can distinguish stale/public snapshots from viewer-personalized card state
-- Blind-level progression on hand boundaries
-- In-hand action flow with fold, check, call, raise, and all-in handling
-- Betting-rule alignment for minimum raise sizing and short all-in raise-reopen behavior
-- Follow-up validation for betting rules across preflop, postflop, snapshot `availableActions`, and persisted reloads
-- Reconnect validation for disconnected folded/all-in players across persisted reload and reconnect recovery
-- Reconnect hardening for expired `HAND_RESULT` recovery and table-message continuity
-- Main pot and side pot calculation
-- Showdown settlement, bust-out handling, and tournament finish flow
-- Richer showdown/result payload detail and frontend result-panel summaries
-- Showdown hand-class labels now flow from backend settlement into result snapshots and frontend rendering
-- Hand-local elimination summary preserved in snapshots and result payloads for reconnect-safe result rendering
-- Result UX now keeps the detailed showdown panel below the table while showing only a compact winner / payout / hand-label summary badge above the table
-- Shuffled deck-based hole-card dealing and board runout with persisted in-hand card recovery
-- Result-state auto-advance after 5 seconds
-- Final-hand result hold before `FINISHED`, including expired reconnect/reload normalization
-- Basic reconnect and persistence flow
-- WebSocket origin allowlist now follows the shared environment-driven local frontend origin configuration
-- Table creation now keeps server-generated internal room codes while exposing player-facing room titles in the lobby and table UI
-- Home lobby list now shows both open and locked waiting rooms, and locked entries require a password prompt before join
-- Locked-table passwords are now stored as hashes instead of plain text in the mutable tournament state
-- Waiting-room owners now get an invite guidance panel that points players back to the lobby flow instead of a direct table deep link
-- REST mirror endpoints for ready, start, disconnect, and reconnect now accept the tournament code from the URL path, so fallback disconnect and waiting-room leave flow no longer fail validation
-- Frontend disconnect fallback now applies returned snapshots locally and keeps active-tournament cache aligned after waiting-room leave
-- Table-entry disconnect cleanup now ignores the initial React `StrictMode` effect cleanup, so owner create/join flow no longer auto-removes the table immediately after navigation
-- Table-page WebSocket lifecycle no longer re-creates the STOMP client on every render, so the realtime session now stays connected in browser play instead of falling back to a looping `LIVE SNAPSHOT` state
-- Explicit in-hand disconnect from the browser no longer auto-reconnects immediately on the same page, so manual reconnect flow is now testable and consistent with the UI
-- Waiting-room join now fan-outs a fresh `tournamentSnapshot`, so already seated browsers refresh the participant list immediately when a new player enters
-- Lobby room list now keeps a stable creation-based order, excludes full waiting rooms, and is re-synced from table snapshots so leave/start transitions do not wait for the next home poll to clear stale cache
-- Browser refresh no longer auto-sends the fallback disconnect for in-hand seats, so reloading the active actor restores the latest snapshot instead of forcing an immediate fold
-- Table REST snapshot now accepts an optional viewing `guestId` and returns `selfHoleCards`, so the current player can see their own hand without exposing opponents' cards
-- Frontend realtime snapshot merging now preserves last-known self hole cards only within the same `handNumber` and ignores older same-hand `stateVersion` updates
-- Finished tournaments now clean themselves up after the result screen window, either 20 seconds after `FINISHED` or earlier when the last connected player leaves
-- Persisted stale tournaments now clean themselves up from `updated_at` TTL rules before active-tournament lookup and capacity-sensitive create/join flows, so abandoned waiting or in-hand rows no longer block new MVP testing sessions
-- Railway deployment profile and service manifests now separate MVP hosting concerns from the local `local` profile workflow
-- Railway public-domain smoke verification has been completed through create, join, ready, start, all-in, call, and showdown, including showdown hand-label rendering
-- Railway 6-player browser smoke verification has been completed against the deployed frontend URL; two full-table runs found no reproduction of the reported seat 5 missing-card or wrong-card issue
-- Deployment-targeted Railway smoke scripts now live under `scripts/`, share a common config helper, and the continuous runner requires explicit opt-in env flags before it will start
-- In-hand AFK flow now soft-pauses the table when all remaining active players are AFK, freezing turn/blind timers until the current actor returns to play
+- 게스트 기반 토너먼트 생성, 참가, ready, owner-start 흐름
+- 로비 생성 흐름이 사용자 입력 룸 코드 대신 닉네임, 방 제목, 테이블 공개 여부 중심으로 바뀜
+- 홈 화면에서 현재 게스트의 active tournament 감지 및 resume 경로 제공
+- backend REST, WebSocket, frontend UI 간 공통 tournament snapshot 계약 정리
+- snapshot 식별자에 `handNumber`, `stateVersion`, public/viewer audience 메타데이터를 포함해 stale/public snapshot과 viewer 개인화 카드 상태를 구분 가능하게 함
+- hand 경계 기준 blind level progression
+- fold, check, call, raise, all-in을 포함한 in-hand action 흐름
+- minimum raise sizing과 short all-in raise-reopen 동작을 포함한 betting rule 정렬
+- preflop, postflop, snapshot `availableActions`, persisted reload를 아우르는 betting rule 후속 검증
+- persisted reload 및 reconnect recovery를 포함한 disconnected folded/all-in player reconnect 검증
+- 만료된 `HAND_RESULT` recovery와 table message 연속성 중심의 reconnect 보강
+- 메인 팟 및 사이드 팟 계산
+- showdown 정산, 탈락 처리, 토너먼트 종료 흐름
+- richer showdown/result payload와 frontend result panel 요약
+- backend 정산 결과에서 showdown hand-class label을 만들어 result snapshot과 frontend 렌더링까지 전달
+- reconnect-safe result rendering을 위해 hand 단위 탈락 요약을 snapshot과 result payload에 보존
+- 테이블 상단에는 compact winner / payout / hand-label badge만 유지하고, 상세 showdown panel은 테이블 하단에 두는 result UX 정리
+- 셔플된 deck 기반 hole-card 배분과 board runout 및 persisted in-hand card recovery
+- 5초 후 result-state auto-advance
+- `FINISHED` 전 final-hand result 유지 시간 처리 및 expired reconnect/reload normalization
+- 기본 reconnect 및 persistence 흐름
+- WebSocket origin allowlist를 환경 기반 local frontend origin 설정과 통합
+- 사용자에게는 room title만 노출하고 내부 room code는 서버 생성으로 유지
+- 홈 로비 목록에 공개방과 잠금방을 모두 표시하고, 잠금방은 참가 전 비밀번호를 요구
+- 잠금방 비밀번호를 mutable tournament state에 평문 대신 hash로 저장
+- 대기방 오너에게 direct table deep link 대신 로비 복귀 안내 패널 제공
+- ready, start, disconnect, reconnect용 REST mirror endpoint가 URL path의 tournament code를 받도록 수정해 fallback disconnect와 waiting-room leave validation 실패 제거
+- frontend disconnect fallback이 반환 snapshot을 로컬에 적용하고 active-tournament cache를 waiting-room leave 이후에도 맞춰 유지
+- 초기 React `StrictMode` cleanup에서 테이블 진입 직후 auto-remove되던 문제를 방지하도록 table-entry disconnect cleanup 수정
+- table-page WebSocket lifecycle이 매 render마다 STOMP client를 재생성하지 않도록 바꿔 `LIVE SNAPSHOT` 루프 fallback 문제 제거
+- 브라우저에서 명시적으로 in-hand disconnect 했을 때 같은 페이지에서 즉시 auto-reconnect 되지 않도록 수정해 manual reconnect 흐름을 테스트 가능하게 만듦
+- waiting-room join이 새로운 `tournamentSnapshot`을 fan-out 하도록 바꿔 기존 seated browser의 참가자 목록이 즉시 갱신되게 함
+- 로비 room list를 생성 순서 기준으로 안정화하고 full waiting room을 제외하며, table snapshot 기반 재동기화로 stale cache 정리를 빠르게 함
+- 브라우저 refresh가 in-hand seat에 fallback disconnect를 자동 전송하지 않도록 바꿔, active actor reload가 즉시 fold로 이어지지 않고 최신 snapshot을 복원하게 함
+- table REST snapshot이 optional `guestId`를 받아 `selfHoleCards`를 반환하도록 바꿔 현재 플레이어만 자기 손패를 볼 수 있게 함
+- frontend realtime snapshot merge가 같은 `handNumber` 안에서만 마지막 self hole card를 유지하고, 이전 `stateVersion` 업데이트는 무시하도록 조정
+- 종료된 토너먼트는 결과 화면 이후 자동 정리되며, `FINISHED` 후 20초 또는 마지막 연결 플레이어 이탈 시 더 빠르게 삭제되도록 처리
+- persisted stale tournament를 `updated_at` TTL 규칙으로 active-tournament lookup 및 capacity-sensitive create/join 전에 정리해 abandoned row가 새 세션을 막지 않도록 함
+- Railway deployment profile과 service manifest를 local `local` 프로필 흐름과 분리
+- Railway 공개 도메인에서 create, join, ready, start, all-in, call, showdown, showdown hand-label 렌더링까지 smoke 검증 완료
+- 배포 frontend URL 기준 Railway 6인 브라우저 smoke 검증 완료, 두 번의 full-table run에서 seat 5 missing-card / wrong-card 이슈 재현 없음
+- Railway용 smoke script를 `scripts/` 아래로 정리하고 공통 config helper를 공유하도록 개선했으며, continuous runner는 explicit opt-in env flag가 있어야 시작되도록 변경
+- 남은 active player가 모두 AFK일 때 hand를 soft-pause하여 turn/blind timer를 멈추고, 현재 actor가 return-to-play 할 때까지 기다리도록 구현
 
-## In progress / focus
+## 현재 집중 영역
 
-- Keep the MVP working against local PostgreSQL
-- Preserve a clean path to final Docker-based deployment
-- Harden reconnect and persistence behavior
-- Review remaining lobby UX polish around locked-table affordances and post-create sharing guidance
-- Keep backend betting state, snapshot actions, and persisted hand state aligned with the tournament spec
-- Keep the snapshot identity contract aligned across backend REST, public WebSocket events, and frontend derived table state
-- Finish MVP closeout by separating true must-fix items from explicit out-of-scope items
-- Keep local and Railway behavior aligned as result UX and reconnect handling are finalized
+- MVP가 로컬 PostgreSQL 기준으로 계속 정상 동작하도록 유지
+- 최종 Docker 배포로 넘어갈 수 있는 경로를 깨끗하게 유지
+- reconnect 및 persistence 동작 보강
+- 잠금방 affordance와 생성 후 공유 안내 중심의 남은 로비 UX 다듬기
+- backend betting state, snapshot action, persisted hand state를 spec과 계속 정렬
+- backend REST, public WebSocket event, frontend derived table state 사이의 snapshot identity 계약 정렬 유지
+- 진짜 must-fix와 명시적 out-of-scope를 분리해 MVP closeout 정리
+- result UX와 reconnect handling을 마무리하는 동안 local과 Railway 동작 차이를 줄이기
 
-## Next work
+## 다음 작업
 
-- Tighten the lobby UX around locked-room messaging, password entry, and host sharing guidance
-- Final reconnect and persistence hardening review for any newly found edge case
-- Final browser smoke test across create, join, leave, resume, and reconnect flows
-- Repeat the Railway smoke pass only after the next meaningful gameplay or UI change
-- Final MVP closeout review for features that should stay explicitly out of scope
-- Continue organizing runtime configuration so local and Docker profiles stay easy to switch
-- Validate the new cross-instance tournament command lock under multi-browser / staged deployment smoke conditions
+- 잠금방 메시지, 비밀번호 입력, 호스트 공유 안내 중심의 로비 UX 정리
+- 새로 발견되는 edge case가 있는지 reconnect 및 persistence 최종 점검
+- create, join, leave, resume, reconnect 흐름을 아우르는 최종 브라우저 smoke test
+- 다음 의미 있는 gameplay/UI 변경 이후에만 Railway smoke 재실행
+- 어떤 기능이 MVP 범위 밖인지에 대한 최종 closeout review
+- local / Docker 프로필 전환이 쉽도록 런타임 설정 정리 계속
+- multi-browser / staged deployment smoke 조건에서 cross-instance tournament command lock 검증
 
-## Current assessment
+## 현재 평가
 
-- The recent betting-rule change is currently consistent in backend action flow, persisted hand state, and snapshot-driven client behavior
-- No additional frontend or websocket contract changes are currently required for minimum-raise or short all-in raise-reopen handling
-- Current reconnect flow is consistent with the MVP scope for seat-level recovery, including persisted offline state and reconnect after reload
-- Home-screen UX now surfaces when the current guest is already seated in another active tournament instead of only failing after a create/join request
-- Guest ID and direct room-code input UX are no longer required on the primary lobby path; the player-facing flow now centers on nickname, room title, table visibility, and locked-table password when needed
-- Reconnect now normalizes stale expired `HAND_RESULT` state before reconnect/disconnect snapshots are published, so recovery lands on the real current hand
-- Final-hand results now stay visible for the full 5-second window before `FINISHED`, and expired recovery normalizes both next-hand and final-finish branches
-- Result handling now exposes richer websocket payload summaries while keeping the snapshot-driven client contract
-- Result snapshots now include server-evaluated showdown hand labels, so the UI can name revealed hands without client-side re-evaluation
-- Result snapshots now preserve hand-local bust context, so split-pot / side-pot result screens no longer have to infer eliminations from cumulative tournament state
-- The current table UX now matches the intended deployed behavior: a compact in-table result summary badge remains above the felt, and the full settled-pot detail stays below the table instead of using a full-table overlay
-- Hand setup now consumes cards from a shuffled 52-card deck while preserving board and hole-card consistency across persisted reloads
-- Local PostgreSQL development flow remains unchanged, and the changes do not add Docker-host-specific assumptions
-- Local browser dev hosts now share one origin allowlist for REST and WebSocket entry, so `127.0.0.1:5173` no longer fails the STOMP handshake by configuration
-- The most recent smoke check found and fixed a validation mismatch between REST mirror endpoints and frontend fallback disconnect behavior
-- The most recent smoke check also found and fixed an unintended auto-disconnect on initial table entry in frontend dev `StrictMode`
-- The latest browser verification also confirmed stable `LIVE WS` state through create, join, ready, start, waiting-room leave, disconnect, and reconnect flows
-- Waiting-room participant lists now refresh immediately on join because REST join mirrors one websocket snapshot broadcast to existing subscribers
-- Waiting-room list semantics are now tighter: the home list only represents still-joinable `WAITING` rooms with open seats, including locked tables, and table-driven cache sync removes stale entries immediately on leave/start/finish
-- Room codes remain internal stable identifiers for routing and server APIs even though the primary lobby UX no longer asks players to type them
-- Locked-table passwords are no longer recoverable from stored tournament state because the backend persists only hashed values
-- The current owner invite UX intentionally uses a waiting-room guidance panel and copied lobby note rather than a direct table invite link, because seating still starts from the lobby list
-- Reload recovery now preserves the current in-hand seat instead of converting the refresh into an automatic disconnect/fold path
-- The main remaining work is MVP boundary confirmation and any newly discovered reconnect edge case, not a known blocker in waiting-room leave or basic browser websocket stability
-- The main remaining lobby follow-up is UX polish, not a known correctness gap in locked-room visibility or password enforcement
-- Active-player capacity now has a stale-row safety valve based on persisted `updated_at`, so old abandoned tournaments should stop accumulating into repeated `503 at capacity` failures during local MVP testing
-- Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
-- The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`
-- The table state contract now has explicit hand and state identifiers; this reduces reliance on frontend status/board heuristics when public WebSocket snapshots race personalized REST snapshots
-- Tournament command handling now reloads the latest persisted table state under one PostgreSQL-backed per-table lock before applying code-scoped mutations or timer transitions, reducing stale-cache overwrite risk when backend instances scale beyond one JVM
-- The current Railway smoke harness remains maintainable as an MVP regression tool, but it is still deliberately coupled to current UI labels, local storage, and snapshot contract details rather than a broader Playwright test framework
-- Current AFK policy now distinguishes between partial AFK and full-table AFK: individual AFK seats still auto-check/fold, but a hand pauses instead of auto-burning forward once every active player is AFK
+- 최근 betting-rule 변경은 backend action flow, persisted hand state, snapshot-driven client 동작에서 일관성을 유지하고 있다
+- minimum-raise 또는 short all-in raise-reopen 처리와 관련해 추가 frontend 또는 websocket 계약 변경은 현재 필요하지 않다
+- 현재 reconnect 흐름은 persisted offline state와 reload 후 reconnect를 포함해 MVP 범위에서 seat-level recovery에 부합한다
+- 홈 화면은 이제 create/join 실패 후에야 알 수 있던 active tournament 참가 상태를 미리 보여준다
+- 플레이어가 guest ID나 direct room code를 직접 입력할 필요가 없는 방향으로 UX가 정리되었고, 닉네임, 방 제목, 공개 여부, 잠금방 비밀번호가 핵심 흐름이 되었다
+- reconnect는 stale expired `HAND_RESULT` 상태를 snapshot publish 전에 normalize 하므로 실제 현재 hand 기준 recovery가 된다
+- final-hand result는 `FINISHED` 전 5초 동안 유지되며, expired recovery는 next-hand / final-finish 두 가지 분기를 올바르게 normalize 한다
+- result 처리는 richer websocket payload 요약을 제공하면서도 snapshot-driven client 계약을 유지한다
+- result snapshot에 server-evaluated showdown hand label이 포함되므로 클라이언트는 revealed hand를 재평가하지 않아도 된다
+- result snapshot이 hand-local bust context를 보존하므로 split-pot / side-pot 결과 화면에서 cumulative state만 보고 탈락을 추론할 필요가 없다
+- 현재 테이블 UX는 의도한 배포 동작과 맞는다. compact result summary badge는 felt 위에 유지되고, full settled-pot detail은 full-table overlay 대신 테이블 아래에 유지된다
+- hand setup은 shuffled 52-card deck을 사용하며, persisted reload 이후에도 board와 hole card 일관성을 유지한다
+- 로컬 PostgreSQL 개발 흐름은 바뀌지 않았고, 변경 사항은 Docker host 고정 가정을 추가하지 않았다
+- 로컬 브라우저 개발 호스트는 이제 REST와 WebSocket에 하나의 origin allowlist를 공유하므로 `127.0.0.1:5173`에서 STOMP handshake가 설정 때문에 실패하지 않는다
+- 최근 smoke check로 REST mirror endpoint와 frontend fallback disconnect 간 validation mismatch를 찾아 수정했다
+- 같은 smoke check에서 frontend dev `StrictMode` 초기 table entry 시 auto-disconnect 버그도 수정했다
+- 최신 브라우저 검증에서는 create, join, ready, start, waiting-room leave, disconnect, reconnect 전반에서 `LIVE WS` 상태가 안정적으로 유지되는 것이 확인되었다
+- waiting-room participant list는 REST join이 websocket snapshot broadcast를 fan-out 하므로 즉시 갱신된다
+- waiting-room list 의미도 더 엄격해졌다. 홈 목록은 좌석이 남은 `WAITING` room만 나타내고, leave/start/finish 시 table-driven cache sync가 stale entry를 즉시 제거한다
+- room code는 플레이어 입력 UX에서 사라졌지만 라우팅과 서버 API에서는 여전히 내부 안정 식별자다
+- 잠금방 비밀번호는 backend가 hash만 저장하므로 stored tournament state만으로는 복원할 수 없다
+- 현재 owner invite UX는 direct table invite link 대신 waiting-room guidance panel과 copied lobby note를 의도적으로 사용한다. seating은 여전히 로비 목록에서 시작하기 때문이다
+- reload recovery는 현재 in-hand seat를 자동 disconnect/fold 경로로 바꾸지 않고 그대로 복원한다
+- 현재 남은 핵심 작업은 waiting-room leave나 기본 websocket 안정성 문제라기보다 MVP boundary 확정과 새 reconnect edge case 여부 점검이다
+- 로비 쪽 남은 과제는 correctness gap보다는 UX polish다
+- active-player capacity는 persisted `updated_at` 기반 stale-row safety valve를 가지므로 abandoned tournament가 반복적인 `503 at capacity` 실패를 일으킬 가능성이 줄었다
+- Railway용 배포 설정은 local profile과 분리되어 있고, 현재 public frontend 배포는 expected showdown/result 동작까지 수동 검증이 끝났다
+- 최신 배포 6인 브라우저 smoke에서는 seat 5 self-hole-card 렌더링 이슈가 재현되지 않았고, 상세 내용은 `docs/railway-six-player-smoke.md`에 기록되어 있다
+- table state 계약은 명시적 hand/state 식별자를 가지므로 public WebSocket snapshot과 personalized REST snapshot이 경합할 때 frontend의 상태/board heuristic 의존을 줄인다
+- tournament command는 현재 PostgreSQL 기반 per-table lock 아래에서 최신 persisted table state를 reload한 뒤 mutation 또는 timer transition을 적용하므로, backend instance가 1 JVM을 넘을 때 stale-cache overwrite 리스크를 줄인다
+- Railway smoke harness는 MVP 회귀 도구로 유지 가능하지만, 여전히 일반 Playwright 프레임워크가 아니라 현재 UI 라벨, local storage, snapshot 계약 세부사항에 의도적으로 결합되어 있다
+- AFK 정책은 partial AFK와 full-table AFK를 구분한다. 개별 AFK seat는 auto-check/fold 되지만, 모든 active player가 AFK이면 hand는 자동 소진되지 않고 pause 된다
 
-## MVP closeout boundary
+## MVP 마무리 범위
 
-### Keep in scope
+### 유지할 범위
 
-- Snapshot-driven result rendering for board cards, settled pot payouts, split pots, side pots, and hand-local eliminations
-- Server-evaluated showdown hand-class labels preserved in result snapshots and result payloads
-- Reconnect / reload recovery that lands on the correct live hand, `HAND_RESULT`, or `FINISHED` snapshot after stale-result normalization
-- Persistence behavior that remains compatible with local PostgreSQL development and a later Docker profile split
+- board card, settled pot payout, split pot, side pot, hand-local elimination을 포함한 snapshot-driven result rendering
+- server-evaluated showdown hand-class label을 result snapshot과 result payload에 보존
+- stale-result normalization 이후 올바른 live hand, `HAND_RESULT`, `FINISHED` snapshot으로 복귀하는 reconnect / reload recovery
+- 로컬 PostgreSQL 개발 흐름과 이후 Docker 프로필 분리를 모두 고려한 persistence 동작
 
-### Leave out of scope for this MVP
+### 이번 MVP에서 제외할 범위
 
-- Card-by-card showdown reveal sequencing or staged reveal animation contracts
-- Replay, hand history, or event-timeline reconstruction
-- Final standings ladder beyond the winner and the latest settled snapshot
+- card-by-card showdown reveal sequencing 또는 staged reveal animation 계약
+- replay, hand history, event timeline 재구성
+- 우승자와 최신 정산 snapshot을 넘는 final standings ladder
 
-## Remaining gaps
+## 남은 갭
 
-- Reconnect recovery is still snapshot-level and does not attempt richer in-hand session restoration beyond seat ownership and latest snapshot
-- Create / capacity / room-name races still rely on existing MVP constraints; the new shared lock only serializes commands once a specific tournament code is known
-- Showdown reveal sequencing, replay metadata, and final standings history remain intentionally out of scope for this MVP
+- reconnect recovery는 여전히 snapshot 수준이며, seat ownership과 최신 snapshot을 넘는 richer in-hand session restoration은 시도하지 않는다
+- create / capacity / room-name 경쟁 상태는 여전히 기존 MVP 제약에 의존하며, 새로운 shared lock은 특정 tournament code가 정해진 뒤의 command만 직렬화한다
+- showdown reveal sequencing, replay metadata, final standings history는 의도적으로 MVP 범위 밖이다
 
-## Notes
+## 메모
 
-- Prefer updating this summary when the project meaningfully changes
-- If old status details are no longer useful, rewrite them instead of stacking more history
+- 프로젝트 상태가 의미 있게 바뀌면 이 요약을 갱신한다
+- 오래된 상태 정보가 더 이상 유효하지 않다면 이력을 누적하지 말고 다시 써서 정리한다

@@ -1,0 +1,31 @@
+# backend-agent 상태
+
+- 현재 작업:
+  - 아직 미정
+- 현재 브랜치:
+  - 미정
+- 현재 worktree:
+  - `C:\Users\user\texasHoldem-wt-backend`
+- 현재 소유 범위:
+  - `backend/src/main/java/**`
+  - `backend/src/test/java/**`
+  - 필요 시 `backend/src/main/resources/**`
+- 지금 수정 가능한 파일:
+  - backend 전용 파일만
+- 지금 수정하면 안 되는 파일:
+  - `frontend/**`
+  - 다른 에이전트가 소유한 hotspot 파일
+- 마지막 결정:
+  - `TournamentService.java` 중심 작업은 backend writer 1명만 맡는다
+- 다음 액션:
+  - 실제 task 할당 시 관련 backend 범위만 좁혀서 작업
+  - snapshot / event 계약 영향 확인
+  - 관련 backend 테스트 확인
+- 막힌 점:
+  - 아직 실제 backend 작업 범위가 배정되지 않음
+- 세션 재개 시 먼저 볼 파일:
+  - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`
+  - `backend/src/main/java/com/texasholdem/tournament/application/TournamentHandEngine.java`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
+  - `backend/src/main/java/com/texasholdem/websocket/TournamentMessageController.java`
+  - `docs/state-flow.md`

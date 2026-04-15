@@ -1,0 +1,31 @@
+# frontend-agent 상태
+
+- 현재 작업:
+  - 아직 미정
+- 현재 브랜치:
+  - 미정
+- 현재 worktree:
+  - `C:\Users\user\texasHoldem-wt-frontend`
+- 현재 소유 범위:
+  - `frontend/src/**`
+  - 필요 시 `frontend/index.html`
+  - 필요 시 `frontend/package.json`
+- 지금 수정 가능한 파일:
+  - frontend 전용 파일만
+- 지금 수정하면 안 되는 파일:
+  - `backend/**`
+  - 다른 에이전트가 소유한 hotspot 파일
+- 마지막 결정:
+  - `TablePage.tsx`, `use-tournament-realtime-snapshot.ts`, `TournamentTable.tsx` 중심 작업은 frontend writer 1명만 맡는다
+- 다음 액션:
+  - 실제 task 할당 시 lobby / table / realtime 중 범위를 좁혀 작업
+  - snapshot 타입 영향 확인
+  - build 또는 관련 UI 검증 수행
+- 막힌 점:
+  - 아직 실제 frontend 작업 범위가 배정되지 않음
+- 세션 재개 시 먼저 볼 파일:
+  - `frontend/src/pages/HomePage.tsx`
+  - `frontend/src/pages/TablePage.tsx`
+  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`
+  - `frontend/src/widgets/tournament/ui/TournamentTable.tsx`
+  - `frontend/src/entities/tournament/model/types.ts`

@@ -1,0 +1,28 @@
+# orchestrator 상태
+
+- 현재 작업:
+  - 아직 미정
+- 현재 브랜치:
+  - 미정
+- 현재 worktree:
+  - `C:\Users\user\texasHoldem`
+- 현재 소유 범위:
+  - 작업 분해, 소유권 배정, 통합, 최종 검토
+- 지금 수정 가능한 파일:
+  - 통합 단계에서 필요한 파일만
+- 지금 수정하면 안 되는 파일:
+  - backend / frontend 작성 에이전트가 현재 소유 중인 hotspot 파일
+- 마지막 결정:
+  - 멀티 에이전트 운영 문서 및 worktree 운영 문서 추가
+- 다음 액션:
+  - 실제 작업 시작 시 backend / frontend / verification 범위 배정
+  - 필요 시 git worktree 생성
+  - 각 agent-status 파일 갱신
+- 막힌 점:
+  - 아직 실제 task 이름과 브랜치 전략이 확정되지 않음
+- 세션 재개 시 먼저 볼 파일:
+  - `AGENTS.md`
+  - `docs/multi-agent-cli-operations.md`
+  - `docs/agent-roles.md`
+  - `docs/worktree-and-session-setup.md`
+  - `docs/status.md`
