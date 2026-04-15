@@ -60,7 +60,7 @@ export function HomePage() {
     retry: false,
     refetchInterval: 5_000,
   });
-  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "금요일 나이트 싯앤고");
+  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "금요일 저녁 하이롤러");
   const createMutation = useMutation({
     mutationFn: ({
       guestId,
@@ -107,11 +107,11 @@ export function HomePage() {
   const controlsDisabled =
     !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
   const busyLabel = createMutation.isPending
-    ? "테이블을 만드는 중..."
+    ? "테이블을 만드는 중입니다..."
     : joinMutation.isPending
-      ? "테이블에 입장하는 중..."
+      ? "테이블에 입장하는 중입니다..."
       : isCheckingActiveTournament
-        ? "참여 중인 테이블을 확인하는 중..."
+        ? "이미 참가 중인 테이블이 있는지 확인하는 중입니다..."
         : null;
   const createError =
     (validationError?.scope === "create" ? validationError.message : null) ||
@@ -165,10 +165,10 @@ export function HomePage() {
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
     if (isCheckingActiveTournament) {
-      throw new Error("이미 다른 테이블에 참여 중인지 확인하고 있습니다.");
+      throw new Error("이미 다른 테이블에 참가 중인지 확인하고 있습니다.");
     }
     if (activeTournament) {
-      throw new Error("이미 다른 진행 중인 테이블에 참여하고 있습니다.");
+      throw new Error("이미 다른 진행 중인 테이블에 참가하고 있습니다.");
     }
     if (!nickname.trim()) {
       throw new Error(nicknameRequiredMessage);
@@ -182,16 +182,16 @@ export function HomePage() {
     clearJoinErrors();
 
     if (!createRoomName.trim()) {
-      setValidationError({ scope: "create", message: "테이블을 만들기 전에 제목을 입력하세요." });
+      setValidationError({ scope: "create", message: "테이블을 만들기 전에 제목을 입력해 주세요." });
       return;
     }
     if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
-      setValidationError({ scope: "create", message: "잠금 테이블을 만들려면 비밀번호를 입력하세요." });
+      setValidationError({ scope: "create", message: "잠금 테이블을 만들려면 비밀번호를 입력해 주세요." });
       return;
     }
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("테이블을 만들기 전에 닉네임을 입력하세요.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블을 만들기 전에 닉네임을 입력해 주세요.");
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
@@ -210,7 +210,7 @@ export function HomePage() {
     setLastJoinUsedPassword(typeof password === "string");
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("테이블에 입장하기 전에 닉네임을 입력하세요.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블에 입장하기 전에 닉네임을 입력해 주세요.");
       joinMutation.mutate({
         code,
         guestId: resolvedGuestId,
@@ -238,10 +238,10 @@ export function HomePage() {
         <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
           <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">토너먼트 MVP</p>
           <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-            대기 중인 테이블을 둘러보고, 바로 입장하거나 비밀번호로 잠금 좌석을 해제하세요.
+            대기 중인 테이블을 살펴보고, 바로 입장하거나 비밀번호로 잠금 좌석을 해제해 보세요.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            공개방과 잠금방이 같은 로비 리스트에 함께 표시됩니다. 방장은 제목만 정하면 되고 방 코드는 서버가 관리하며,
+            공개방과 잠금방이 같은 로비 목록에 함께 표시됩니다. 방장은 제목만 정하면 되고 내부 코드는 서버가 관리합니다.
             잠금방은 입장 전에 비밀번호를 입력합니다.
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">

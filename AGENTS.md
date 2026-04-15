@@ -35,3 +35,10 @@
 - `docs/worktree-and-session-setup.md`는 Windows CLI worktree 레이아웃과 세션 시작 절차를 정의한다
 - `docs/agent-status/`는 세션 복귀를 위한 에이전트별 동적 상태 문서를 담는다
 - `infra/`는 Docker Compose 및 배포 지향 인프라 파일의 위치다
+
+## 멀티 에이전트 강제 원칙
+
+- `main-orchestrator`는 코드 구현을 직접 하지 않는다
+- backend 수정은 `backend-agent`, frontend 수정은 `frontend-agent`, 검증은 `verification-agent`가 맡는다
+- 작업 규모가 작아도 메인 에이전트 단독 구현으로 되돌아가지 않는다
+- 오케스트레이터는 분해, 배정, 상태 문서 갱신, handoff 수집, 최종 통합만 담당한다

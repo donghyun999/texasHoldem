@@ -22,12 +22,12 @@ const visibilityOptions: Array<{ value: TournamentVisibility; label: string; des
   {
     value: "PUBLIC",
     label: "공개 테이블",
-    description: "로비 리스트에 표시되며, 게임 시작 전 누구나 바로 착석할 수 있습니다.",
+    description: "로비 목록에 표시되며, 게임 시작 전까지 누구나 바로 입장할 수 있습니다.",
   },
   {
     value: "PRIVATE",
     label: "잠금 테이블",
-    description: "로비 리스트에는 보이지만, 입장하려면 비밀번호가 필요합니다.",
+    description: "로비 목록에 보이지만 입장하려면 비밀번호가 필요합니다.",
   },
 ];
 
@@ -40,7 +40,7 @@ function toDisplayStatus(status: TournamentStatus) {
     case "HAND_RESULT":
       return "핸드 결과";
     case "FINISHED":
-      return "종료됨";
+      return "종료";
     default:
       return status;
   }
@@ -69,12 +69,13 @@ export function LobbyForm({
       <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">테이블 만들기</p>
       <h3 className="mt-3 text-2xl font-semibold text-white">새 게임 생성</h3>
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        닉네임과 테이블 제목을 정하고, 누구나 바로 입장할지 비밀번호가 필요한 잠금방으로 만들지 선택하세요.
+        닉네임과 테이블 제목을 정하고, 누구나 바로 입장 가능한 공개방 또는 비밀번호가 필요한 잠금방 중 하나를
+        선택해 주세요.
       </p>
 
       {activeTournamentRoomName ? (
         <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-200/10 px-4 py-4 text-sm text-amber-50">
-          <p className="font-semibold">이미 참여 중인 테이블이 있습니다</p>
+          <p className="font-semibold">이미 참가 중인 테이블이 있습니다</p>
           <p className="mt-2">
             <span className="font-semibold">{activeTournamentRoomName}</span>
             {activeTournamentStatus ? ` (${toDisplayStatus(activeTournamentStatus)})` : ""} 테이블로 돌아가세요.
@@ -106,7 +107,8 @@ export function LobbyForm({
           <div>
             <p className="text-sm font-semibold text-white">테이블 설정</p>
             <p className="mt-1 text-xs leading-5 text-zinc-400">
-              방 코드는 자동 생성됩니다. 플레이어는 테이블 제목을 보고, 잠금 테이블이라면 비밀번호를 입력해 입장합니다.
+              방 코드는 자동 생성됩니다. 플레이어는 테이블 제목을 보고, 잠금 테이블이라면 비밀번호를 입력해
+              입장합니다.
             </p>
           </div>
 
@@ -145,7 +147,7 @@ export function LobbyForm({
             <input
               value={createRoomName}
               onChange={(event) => onCreateRoomNameChange(event.target.value)}
-              placeholder="금요 홀덤 싯앤고"
+              placeholder="금요일 저녁 하이롤러"
               className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
             />
           </label>
@@ -157,7 +159,7 @@ export function LobbyForm({
                 type="password"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="테이블 비밀번호를 입력하세요"
+                placeholder="테이블 비밀번호를 입력해 주세요"
                 className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
               />
             </label>

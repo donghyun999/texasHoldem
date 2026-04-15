@@ -331,10 +331,10 @@ public class TournamentService {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var player = stateAccess.requirePlayer(tournament, guestId);
             if (!player.connected) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player must reconnect before returning to play");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "플레이어는 먼저 다시 연결되어야 합니다.");
             }
             if (!player.afk) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player is already active");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "플레이어는 이미 활성 상태입니다.");
             }
 
             player.afk = false;
@@ -364,7 +364,7 @@ public class TournamentService {
             lobbyManager.requireOwner(tournament, guestId);
             if (tournament.status == TournamentStatus.HAND_RESULT) {
                 if (stateAccess.countRemainingParticipants(tournament) <= 1) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament is waiting to finish");
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "토너먼트가 종료 처리 중입니다.");
                 }
                 handEngine.openNextHand(tournament, "Next hand started.");
                 saveTournamentState(tournament);

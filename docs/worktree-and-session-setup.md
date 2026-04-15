@@ -61,6 +61,7 @@ codex
 - 소유권 배정
 - 결과 검토
 - 통합, 커밋, push
+- 세션 동안 생성한 서브 에이전트 생명주기 관리
 
 ### Terminal 2: backend agent
 
@@ -160,6 +161,30 @@ Return format: files changed, behavior summary, validation result, risks
 5. 오케스트레이터가 각 `worktree`의 diff를 검토한다
 6. 오케스트레이터가 메인 체크아웃에 merge 또는 cherry-pick 한다
 7. 오케스트레이터가 최종 검증 후 commit, push를 수행한다
+
+## 세션 중 에이전트 운영 방식
+
+- `backend-agent`, `frontend-agent`, `verification-agent`는 오케스트레이터 세션 동안 재사용한다.
+- 같은 역할의 새 작업은 새 에이전트를 만들지 말고 기존 에이전트에 이어서 전달한다.
+- 역할별 활성 에이전트는 세션당 1개를 기본값으로 둔다.
+- 컨텍스트 오염이나 역할 전환 때문에 교체가 필요할 때만 새 에이전트를 만들고, 기존 것은 종료한다.
+
+## 세션 종료 시 에이전트 정리
+
+세션을 마치기 전에 오케스트레이터는 다음을 수행한다.
+
+1. 각 서브 에이전트의 handoff를 수집한다.
+2. `docs/agent-status/orchestrator.md`와 관련 상태 문서를 갱신한다.
+3. 현재 세션에서 사용한 `backend-agent`, `frontend-agent`, `verification-agent`를 명시적으로 종료한다.
+4. 그 뒤에 필요하면 `worktree`를 정리한다.
+
+상태 문서를 갱신할 때는 실제로 없는 `worktree`를 경로처럼 적지 않는다.
+- 생성 전이면 `worktree 상태: not-created`
+- 생성 후 존재하면 `worktree 상태: exists`
+
+즉, `worktree` 정리와 서브 에이전트 종료는 별개다.
+- 서브 에이전트는 세션 종료 시 닫는다.
+- `worktree`는 작업이 완전히 통합된 뒤 제거한다.
 
 ## 통합 방법
 

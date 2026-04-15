@@ -1,11 +1,17 @@
 # frontend-agent 상태
 
+- 마지막 갱신 시각:
+  - `2026-04-15 Asia/Seoul`
+- 상태:
+  - `idle`
 - 현재 작업:
   - 아직 미정
 - 현재 브랜치:
-  - 미정
+  - 없음
 - 현재 worktree:
-  - `C:\Users\user\texasHoldem-wt-frontend`
+  - 없음
+- 현재 worktree 상태:
+  - `not-created`
 - 현재 소유 범위:
   - `frontend/src/**`
   - 필요 시 `frontend/index.html`
@@ -18,12 +24,13 @@
 - 마지막 결정:
   - `TablePage.tsx`, `use-tournament-realtime-snapshot.ts`, `TournamentTable.tsx` 중심 작업은 frontend writer 1명만 맡는다
 - 다음 액션:
-  - 실제 task 할당 시 lobby / table / realtime 중 범위를 좁혀 작업
-  - snapshot 타입 영향 확인
-  - build 또는 관련 UI 검증 수행
+  - 실제 task 할당 시 브랜치와 worktree를 먼저 확정
+  - lobby / table / realtime 중 범위를 좁혀 작업
+  - snapshot 타입 영향과 build 또는 관련 UI 검증을 확인
 - 막힌 점:
   - 아직 실제 frontend 작업 범위가 배정되지 않음
 - 세션 재개 시 먼저 볼 파일:
+  - `docs/agent-status/orchestrator.md`
   - `frontend/src/pages/HomePage.tsx`
   - `frontend/src/pages/TablePage.tsx`
   - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`

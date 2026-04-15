@@ -60,9 +60,9 @@ export function WaitingRoomInvitePanel({
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         {snapshot.visibility === "PRIVATE"
           ? hasEmbeddedPassword
-            ? "이 링크는 테이블 화면으로 바로 이동하고, 비밀번호까지 포함해 즉시 입장을 시도할 수 있습니다."
-            : "이 링크는 테이블 화면으로 바로 이동합니다. 다만 비밀번호를 링크에 포함하지 못했으니, 입장 전 직접 입력해야 합니다."
-          : "이 링크를 열면 로비를 거치지 않고 바로 이 테이블 화면으로 이동해 즉시 입장할 수 있습니다."}
+            ? "이 링크는 테이블 화면으로 바로 이동하며, 비밀번호도 포함되어 있어 즉시 입장을 시도할 수 있습니다."
+            : "이 링크는 테이블 화면으로 바로 이동합니다. 다만 비밀번호는 포함되지 않아 입장 전에 직접 입력해야 합니다."
+          : "이 링크를 열면 로비를 거치지 않고 바로 테이블 화면으로 이동해 즉시 입장할 수 있습니다."}
       </p>
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3">
@@ -96,7 +96,7 @@ export function WaitingRoomInvitePanel({
             ? "초대 링크를 복사했습니다."
             : copyState === "failed"
               ? "클립보드 복사에 실패했습니다. 링크를 직접 전달해 주세요."
-              : "받는 사람은 링크를 열고 바로 이 테이블에서 입장할 수 있습니다."}
+              : "받는 사람은 링크를 열고 바로 이 테이블에 입장할 수 있습니다."}
         </p>
       </div>
     </div>

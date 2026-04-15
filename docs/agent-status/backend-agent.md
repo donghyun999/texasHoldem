@@ -1,11 +1,17 @@
 # backend-agent 상태
 
+- 마지막 갱신 시각:
+  - `2026-04-15 Asia/Seoul`
+- 상태:
+  - `idle`
 - 현재 작업:
   - 아직 미정
 - 현재 브랜치:
-  - 미정
+  - 없음
 - 현재 worktree:
-  - `C:\Users\user\texasHoldem-wt-backend`
+  - 없음
+- 현재 worktree 상태:
+  - `not-created`
 - 현재 소유 범위:
   - `backend/src/main/java/**`
   - `backend/src/test/java/**`
@@ -18,12 +24,13 @@
 - 마지막 결정:
   - `TournamentService.java` 중심 작업은 backend writer 1명만 맡는다
 - 다음 액션:
-  - 실제 task 할당 시 관련 backend 범위만 좁혀서 작업
-  - snapshot / event 계약 영향 확인
-  - 관련 backend 테스트 확인
+  - 실제 task 할당 시 브랜치와 worktree를 먼저 확정
+  - 관련 backend 범위만 좁혀서 작업
+  - snapshot / event 계약 영향과 관련 backend 테스트를 확인
 - 막힌 점:
   - 아직 실제 backend 작업 범위가 배정되지 않음
 - 세션 재개 시 먼저 볼 파일:
+  - `docs/agent-status/orchestrator.md`
   - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`
   - `backend/src/main/java/com/texasholdem/tournament/application/TournamentHandEngine.java`
   - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
