@@ -9,11 +9,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class InMemoryTournamentStateStore implements TournamentStateStore {
 
     private final Map<String, StoredPayload> payloads = new ConcurrentHashMap<>();
     private final TournamentStatePersistenceMapper mapper;
+    private final AtomicLong createdOrderSequence = new AtomicLong();
 
     // Keeps test persistence behavior aligned with the production JSON mapping path.
     InMemoryTournamentStateStore(TournamentStatePersistenceMapper mapper) {
@@ -32,7 +34,8 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
         payloads.compute(tournament.code, (code, existingPayload) -> new StoredPayload(
                 mapper.write(tournament),
                 existingPayload == null ? Instant.now().toEpochMilli() : existingPayload.createdAtEpochMilli(),
-                Instant.now().toEpochMilli()
+                Instant.now().toEpochMilli(),
+                existingPayload == null ? createdOrderSequence.incrementAndGet() : existingPayload.createdOrder()
         ));
     }
 
@@ -86,7 +89,10 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
         return payloads.values().stream()
-                .sorted(Comparator.comparingLong(StoredPayload::createdAtEpochMilli).reversed())
+                .sorted(Comparator
+                        .comparingLong(StoredPayload::createdAtEpochMilli)
+                        .thenComparingLong(StoredPayload::createdOrder)
+                        .reversed())
                 .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
@@ -177,7 +183,8 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
                 new StoredPayload(
                         storedPayload.payload(),
                         storedPayload.createdAtEpochMilli(),
-                        updatedAtEpochMilli
+                        updatedAtEpochMilli,
+                        storedPayload.createdOrder()
                 )
         );
     }
@@ -206,6 +213,11 @@ final class InMemoryTournamentStateStore implements TournamentStateStore {
         return tournament.roomName == null || tournament.roomName.isBlank() ? tournament.code : tournament.roomName;
     }
 
-    private record StoredPayload(String payload, long createdAtEpochMilli, long updatedAtEpochMilli) {
+    private record StoredPayload(
+            String payload,
+            long createdAtEpochMilli,
+            long updatedAtEpochMilli,
+            long createdOrder
+    ) {
     }
 }

@@ -11,6 +11,7 @@ type PlayerSeatProps = {
   bigBlindSeat: number | null;
   currentBigBlind: number;
   stackDisplayMode: StackDisplayMode;
+  showStackLabel?: boolean;
   currentGuestId?: string;
   selfHoleCards?: string[];
   revealedHoleCards?: string[];
@@ -216,9 +217,11 @@ function CompactMeta({
       <p className={`truncate font-semibold leading-none ${hero ? "text-[10px] sm:text-[11px]" : "text-[9px] sm:text-[10px]"} ${metaTone}`}>
         {nickname}
       </p>
-      <p className={`mt-0.5 leading-none text-zinc-100/90 ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}>
-        {metaLabel}
-      </p>
+      {metaLabel ? (
+        <p className={`mt-0.5 leading-none text-zinc-100/90 ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}>
+          {metaLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -233,6 +236,7 @@ export function PlayerSeat({
   bigBlindSeat,
   currentBigBlind,
   stackDisplayMode,
+  showStackLabel = true,
   currentGuestId,
   selfHoleCards = [],
   revealedHoleCards = [],
@@ -275,12 +279,14 @@ export function PlayerSeat({
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
   const compactBadges = seatBadges.filter((badge) => badge !== "HOST");
-  const metaLabel = formatStackDisplay({
-    stack: player.stack,
-    bigBlind: currentBigBlind,
-    mode: stackDisplayMode,
-    includeUnit: stackDisplayMode === "bb" || isHeroSeat,
-  });
+  const metaLabel = showStackLabel
+    ? formatStackDisplay({
+        stack: player.stack,
+        bigBlind: currentBigBlind,
+        mode: stackDisplayMode,
+        includeUnit: stackDisplayMode === "bb" || isHeroSeat,
+      })
+    : "";
   const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
   const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
   const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";

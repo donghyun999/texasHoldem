@@ -1242,6 +1242,7 @@ export function TournamentTable({
               bigBlindSeat={snapshot.bigBlindSeat}
               currentBigBlind={snapshot.currentLevel.bigBlind}
               stackDisplayMode={stackDisplayMode}
+              showStackLabel={snapshot.status !== "WAITING"}
               currentGuestId={currentGuestId}
               selfHoleCards={snapshot.selfHoleCards}
               revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? [] : []}

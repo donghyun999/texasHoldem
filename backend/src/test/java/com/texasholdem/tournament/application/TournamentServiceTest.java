@@ -1266,6 +1266,34 @@ class TournamentServiceTest {
         assertThat(reconnectSnapshot.tableMessage()).contains("Preflop action is open.");
     }
 
+    // Verifies that disconnecting from a persisted expired hand-result state first advances into the next hand.
+    @Test
+    void disconnectAdvancesExpiredHandResultAfterPersistenceReload() {
+        var service = createService();
+        var code = prepareTournament(service, 3);
+
+        service.applyAction(code, "guest-1", "FOLD", null);
+        var handResultSnapshot = service.applyAction(code, "guest-2", "FOLD", null).primaryEvent().snapshot();
+
+        assertThat(handResultSnapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
+
+        setHandResultDeadline(service, code, Instant.now().minusMillis(1).toEpochMilli());
+        persistCurrentTournamentState(service, code);
+        evictTournamentFromCache(service, code);
+
+        var disconnectBroadcast = service.disconnectPlayer(code, "guest-3");
+        var disconnectSnapshot = disconnectBroadcast.primaryEvent().snapshot();
+
+        assertThat(eventTypes(disconnectBroadcast)).containsExactly("handStarted", "playerDisconnected");
+        assertThat(disconnectSnapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
+        assertThat(disconnectSnapshot.boardCards()).isEmpty();
+        assertThat(disconnectSnapshot.showdownPots()).isEmpty();
+        assertThat(requireSnapshotPlayer(disconnectSnapshot, "guest-3").connected()).isFalse();
+        assertThat(requireSnapshotPlayer(disconnectSnapshot, "guest-3").status()).isEqualTo(PlayerStatus.FOLDED);
+        assertThat(disconnectSnapshot.tableMessage()).contains("Player3 disconnected");
+        assertThat(disconnectSnapshot.tableMessage()).contains("Preflop action is open.");
+    }
+
     // Verifies that reconnecting after an expired final result normalizes into FINISHED before seat recovery.
     @Test
     void reconnectFinalResultAfterExpiryNormalizesIntoFinishedTournament() {
@@ -1292,6 +1320,33 @@ class TournamentServiceTest {
         assertThat(requireSnapshotPlayer(reconnectSnapshot, "guest-2").connected()).isTrue();
         assertThat(reconnectSnapshot.tableMessage()).contains("Player2 wins the tournament.");
         assertThat(reconnectSnapshot.tableMessage()).contains("Player2 reconnected.");
+    }
+
+    // Verifies that disconnecting after an expired final result normalizes into FINISHED before seat cleanup.
+    @Test
+    void disconnectFinalResultAfterExpiryNormalizesIntoFinishedTournament() {
+        var service = createService();
+        var code = prepareTournament(service, 2);
+
+        service.applyAction(code, "guest-1", "ALL_IN", null);
+        var handResultSnapshot = service.applyAction(code, "guest-2", "CALL", null).primaryEvent().snapshot();
+
+        assertThat(handResultSnapshot.status()).isEqualTo(TournamentStatus.HAND_RESULT);
+
+        setHandResultDeadline(service, code, Instant.now().minusMillis(1).toEpochMilli());
+        persistCurrentTournamentState(service, code);
+        evictTournamentFromCache(service, code);
+
+        var disconnectBroadcast = service.disconnectPlayer(code, "guest-2");
+        var disconnectSnapshot = disconnectBroadcast.primaryEvent().snapshot();
+
+        assertThat(eventTypes(disconnectBroadcast)).containsExactly("tournamentFinished", "playerDisconnected");
+        assertThat(disconnectSnapshot.status()).isEqualTo(TournamentStatus.FINISHED);
+        assertThat(disconnectSnapshot.boardCards()).containsExactlyElementsOf(FIXED_BOARD_RUNOUT);
+        assertThat(disconnectSnapshot.showdownPots()).hasSize(1);
+        assertThat(requireSnapshotPlayer(disconnectSnapshot, "guest-2").connected()).isFalse();
+        assertThat(disconnectSnapshot.tableMessage()).contains("Player2 wins the tournament.");
+        assertThat(disconnectSnapshot.tableMessage()).contains("Player2 disconnected.");
     }
 
     // Verifies that a stale service cache reloads the latest persisted tournament before running one locked command.
