@@ -1136,6 +1136,7 @@ class TournamentServiceTest {
         );
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper(), rules));
+        var commandLock = new InMemoryTournamentCommandLock();
         var firstService = new TournamentService(
                 identityFactory,
                 snapshotFactory,
@@ -1145,6 +1146,7 @@ class TournamentServiceTest {
                 connectionManager,
                 handEngine,
                 handProgressManager,
+                commandLock,
                 stateStore,
                 event -> {
                 },
@@ -1152,7 +1154,8 @@ class TournamentServiceTest {
                 1_800,
                 7_200,
                 15,
-                86_400
+                86_400,
+                150
         );
 
         var code = prepareTournament(firstService, 3);
@@ -1172,6 +1175,7 @@ class TournamentServiceTest {
                 connectionManager,
                 handEngine,
                 handProgressManager,
+                commandLock,
                 stateStore,
                 event -> {
                 },
@@ -1179,7 +1183,8 @@ class TournamentServiceTest {
                 1_800,
                 7_200,
                 15,
-                86_400
+                86_400,
+                150
         );
 
         var restoredSnapshot = secondService.getTournament(code);
@@ -1289,6 +1294,94 @@ class TournamentServiceTest {
         assertThat(reconnectSnapshot.tableMessage()).contains("Player2 reconnected.");
     }
 
+    // Verifies that a stale service cache reloads the latest persisted tournament before running one locked command.
+    @Test
+    void refreshesLatestPersistedTournamentBeforeLockedCommandAcrossServiceInstances() {
+        var rules = new TournamentRules();
+        var identityFactory = new TournamentIdentityFactory();
+        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
+        var eventFactory = new TournamentEventFactory(snapshotFactory);
+        var stateAccess = new TournamentStateAccess(rules);
+        var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
+        var ownershipManager = new TournamentOwnershipManager();
+        var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var handSetupManager = new TournamentHandSetupManager(rules, stateAccess, new FixedTournamentDeckFactory());
+        var bettingActionManager = new TournamentBettingActionManager(rules);
+        var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
+        var handProgressManager = new TournamentHandProgressManager(
+                stateAccess,
+                potResolver,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager,
+                15
+        );
+        var handEngine = new TournamentHandEngine(
+                stateAccess,
+                handSetupManager,
+                bettingActionManager,
+                handResultManager,
+                handProgressManager
+        );
+        var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
+        var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper(), rules));
+        var commandLock = new InMemoryTournamentCommandLock();
+        var firstService = new TournamentService(
+                identityFactory,
+                snapshotFactory,
+                eventFactory,
+                stateAccess,
+                lobbyManager,
+                connectionManager,
+                handEngine,
+                handProgressManager,
+                commandLock,
+                stateStore,
+                event -> {
+                },
+                50,
+                1_800,
+                7_200,
+                15,
+                86_400,
+                150
+        );
+        var secondService = new TournamentService(
+                identityFactory,
+                snapshotFactory,
+                eventFactory,
+                stateAccess,
+                lobbyManager,
+                connectionManager,
+                handEngine,
+                handProgressManager,
+                commandLock,
+                stateStore,
+                event -> {
+                },
+                50,
+                1_800,
+                7_200,
+                15,
+                86_400,
+                150
+        );
+
+        var createdSnapshot = firstService.createTournament("guest-1", "Owner");
+        firstService.joinTournament(createdSnapshot.code(), "guest-2", "Player2");
+
+        secondService.getTournament(createdSnapshot.code());
+
+        firstService.changeReady(createdSnapshot.code(), "guest-1", true);
+        firstService.changeReady(createdSnapshot.code(), "guest-2", true);
+
+        var startedSnapshot = secondService.startTournament(createdSnapshot.code(), "guest-1").primaryEvent().snapshot();
+
+        assertThat(startedSnapshot.status()).isEqualTo(TournamentStatus.IN_HAND);
+        assertThat(requireSnapshotPlayer(startedSnapshot, "guest-1").status()).isEqualTo(PlayerStatus.ACTIVE);
+        assertThat(requireSnapshotPlayer(startedSnapshot, "guest-2").status()).isEqualTo(PlayerStatus.ACTIVE);
+    }
+
     // Verifies that a fresh service instance can restore tournament progress from persisted state.
     @Test
     void restoresPersistedTournamentStateAcrossServiceInstances() {
@@ -1320,6 +1413,7 @@ class TournamentServiceTest {
         );
         var connectionManager = new TournamentConnectionManager(stateAccess, ownershipManager, handEngine);
         var stateStore = new InMemoryTournamentStateStore(new TournamentStatePersistenceMapper(new ObjectMapper(), rules));
+        var commandLock = new InMemoryTournamentCommandLock();
         var firstService = new TournamentService(
                 identityFactory,
                 snapshotFactory,
@@ -1329,6 +1423,7 @@ class TournamentServiceTest {
                 connectionManager,
                 handEngine,
                 handProgressManager,
+                commandLock,
                 stateStore,
                 event -> {
                 },
@@ -1336,7 +1431,8 @@ class TournamentServiceTest {
                 1_800,
                 7_200,
                 15,
-                86_400
+                86_400,
+                150
         );
 
         var code = prepareTournament(firstService, 3);
@@ -1358,6 +1454,7 @@ class TournamentServiceTest {
                 connectionManager,
                 handEngine,
                 handProgressManager,
+                commandLock,
                 stateStore,
                 event -> {
                 },
@@ -1365,7 +1462,8 @@ class TournamentServiceTest {
                 1_800,
                 7_200,
                 15,
-                86_400
+                86_400,
+                150
         );
         var restoredSnapshot = secondService.getTournament(code);
 
@@ -1485,6 +1583,7 @@ class TournamentServiceTest {
                 connectionManager,
                 handEngine,
                 handProgressManager,
+                new InMemoryTournamentCommandLock(),
                 stateStore,
                 event -> {
                 },
@@ -1492,7 +1591,8 @@ class TournamentServiceTest {
                 waitingIdleTtlSeconds,
                 inHandIdleTtlSeconds,
                 15,
-                hardTtlSeconds
+                hardTtlSeconds,
+                150
         );
     }
 
@@ -1501,30 +1601,35 @@ class TournamentServiceTest {
         var tournament = requireTournamentState(service, code);
         var player = requirePlayerState(tournament, guestId);
         ReflectionTestUtils.setField(player, "stack", stack);
+        persistCurrentTournamentState(service, code);
     }
 
     // Overrides the active blind-level start timestamp so the next hand crosses a level boundary.
     private void setLevelActivatedAt(TournamentService service, String code, long epochSecond) {
         var tournament = requireTournamentState(service, code);
         ReflectionTestUtils.setField(tournament, "levelActivatedAtEpochSecond", epochSecond);
+        persistCurrentTournamentState(service, code);
     }
 
     // Overrides the result deadline so tests can force the hand-result timeout branch deterministically.
     private void setHandResultDeadline(TournamentService service, String code, long epochMilli) {
         var tournament = requireTournamentState(service, code);
         ReflectionTestUtils.setField(tournament, "handResultEndsAtEpochMilli", epochMilli);
+        persistCurrentTournamentState(service, code);
     }
 
     // Overrides the current action deadline so tests can force one turn timeout deterministically.
     private void setActionDeadline(TournamentService service, String code, long epochMilli) {
         var tournament = requireTournamentState(service, code);
         ReflectionTestUtils.setField(tournament, "actionDeadlineAtEpochMilli", epochMilli);
+        persistCurrentTournamentState(service, code);
     }
 
     // Overrides the finished cleanup deadline so tests can force the delayed delete branch deterministically.
     private void setFinishedCleanupDeadline(TournamentService service, String code, long epochMilli) {
         var tournament = requireTournamentState(service, code);
         ReflectionTestUtils.setField(tournament, "finishedCleanupAtEpochMilli", epochMilli);
+        persistCurrentTournamentState(service, code);
     }
 
     // Persists the currently mutated in-memory tournament so cache-eviction tests can reload the same state.

@@ -78,7 +78,7 @@
 - Repeat the Railway smoke pass only after the next meaningful gameplay or UI change
 - Final MVP closeout review for features that should stay explicitly out of scope
 - Continue organizing runtime configuration so local and Docker profiles stay easy to switch
-- Add a shared cross-instance tournament command lock before scaling the backend beyond one runtime instance
+- Validate the new cross-instance tournament command lock under multi-browser / staged deployment smoke conditions
 
 ## Current assessment
 
@@ -111,6 +111,7 @@
 - Railway-targeted deployment config now exists separately from the local profile, and the current public frontend deployment has already been manually verified against the expected showdown/result behavior
 - The latest deployed 6-player browser smoke pass did not reproduce the reported seat 5 self-hole-card rendering issue; details are recorded in `docs/railway-six-player-smoke.md`
 - The table state contract now has explicit hand and state identifiers; this reduces reliance on frontend status/board heuristics when public WebSocket snapshots race personalized REST snapshots
+- Tournament command handling now reloads the latest persisted table state under one PostgreSQL-backed per-table lock before applying code-scoped mutations or timer transitions, reducing stale-cache overwrite risk when backend instances scale beyond one JVM
 - The current Railway smoke harness remains maintainable as an MVP regression tool, but it is still deliberately coupled to current UI labels, local storage, and snapshot contract details rather than a broader Playwright test framework
 - Current AFK policy now distinguishes between partial AFK and full-table AFK: individual AFK seats still auto-check/fold, but a hand pauses instead of auto-burning forward once every active player is AFK
 
@@ -132,7 +133,7 @@
 ## Remaining gaps
 
 - Reconnect recovery is still snapshot-level and does not attempt richer in-hand session restoration beyond seat ownership and latest snapshot
-- Per-table mutation serialization is currently JVM-local; multi-instance backend deployment still requires a shared lock or command queue
+- Create / capacity / room-name races still rely on existing MVP constraints; the new shared lock only serializes commands once a specific tournament code is known
 - Showdown reveal sequencing, replay metadata, and final standings history remain intentionally out of scope for this MVP
 
 ## Notes

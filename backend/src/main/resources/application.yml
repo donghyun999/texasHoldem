@@ -36,6 +36,7 @@ app:
     in-hand-idle-ttl-seconds: ${APP_IN_HAND_IDLE_TTL_SECONDS:7200}
     action-timeout-seconds: ${APP_ACTION_TIMEOUT_SECONDS:20}
     hard-ttl-seconds: ${APP_TOURNAMENT_HARD_TTL_SECONDS:86400}
+    command-lock-slow-threshold-ms: ${APP_COMMAND_LOCK_SLOW_THRESHOLD_MS:150}
 
 logging:
   level:

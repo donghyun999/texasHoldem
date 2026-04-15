@@ -7,6 +7,8 @@ import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import com.texasholdem.tournament.domain.TournamentVisibility;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,9 +21,12 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 
 @Service
 public class TournamentService {
+
+    private static final Logger log = LoggerFactory.getLogger(TournamentService.class);
 
     private final ConcurrentMap<String, TournamentState> tournaments = new ConcurrentHashMap<>();
     private final TournamentIdentityFactory identityFactory;
@@ -32,12 +37,14 @@ public class TournamentService {
     private final TournamentConnectionManager connectionManager;
     private final TournamentHandEngine handEngine;
     private final TournamentHandProgressManager handProgressManager;
+    private final TournamentCommandLock commandLock;
     private final TournamentStateStore stateStore;
     private final ApplicationEventPublisher eventPublisher;
     private final int maxActivePlayers;
     private final long waitingIdleTtlMillis;
     private final long inHandIdleTtlMillis;
     private final long hardTtlMillis;
+    private final long commandLockSlowThresholdMillis;
 
     // Wires the tournament orchestrator to the focused lifecycle and hand collaborators.
     public TournamentService(
@@ -49,13 +56,15 @@ public class TournamentService {
             TournamentConnectionManager connectionManager,
             TournamentHandEngine handEngine,
             TournamentHandProgressManager handProgressManager,
+            TournamentCommandLock commandLock,
             TournamentStateStore stateStore,
             ApplicationEventPublisher eventPublisher,
             @Value("${app.tournament.max-active-players:50}") int maxActivePlayers,
             @Value("${app.tournament.waiting-idle-ttl-seconds:1800}") long waitingIdleTtlSeconds,
             @Value("${app.tournament.in-hand-idle-ttl-seconds:7200}") long inHandIdleTtlSeconds,
             @Value("${app.tournament.action-timeout-seconds:20}") long actionTimeoutSeconds,
-            @Value("${app.tournament.hard-ttl-seconds:86400}") long hardTtlSeconds
+            @Value("${app.tournament.hard-ttl-seconds:86400}") long hardTtlSeconds,
+            @Value("${app.tournament.command-lock-slow-threshold-ms:150}") long commandLockSlowThresholdMillis
     ) {
         this.identityFactory = identityFactory;
         this.snapshotFactory = snapshotFactory;
@@ -65,12 +74,14 @@ public class TournamentService {
         this.connectionManager = connectionManager;
         this.handEngine = handEngine;
         this.handProgressManager = handProgressManager;
+        this.commandLock = commandLock;
         this.stateStore = stateStore;
         this.eventPublisher = eventPublisher;
         this.maxActivePlayers = maxActivePlayers;
         this.waitingIdleTtlMillis = ttlToMillis(waitingIdleTtlSeconds);
         this.inHandIdleTtlMillis = ttlToMillis(inHandIdleTtlSeconds);
         this.hardTtlMillis = ttlToMillis(hardTtlSeconds);
+        this.commandLockSlowThresholdMillis = Math.max(0, commandLockSlowThresholdMillis);
     }
 
     // Issues a lightweight guest identity for the tournament flow.
@@ -181,12 +192,11 @@ public class TournamentService {
 
     // Returns the latest server-side snapshot for a tournament code and optional viewing guest.
     public TournamentSnapshot getTournament(String code, String viewerGuestId) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("getTournament", code, tournament -> {
             advanceExpiredHandResultIfNeeded(tournament, snapshotFactory.toSnapshot(tournament));
             publishStateChange(tournament);
             return snapshotFactory.toSnapshot(tournament, viewerGuestId);
-        }
+        });
     }
 
     // Seats a guest into the next available seat while the tournament is waiting.
@@ -199,13 +209,12 @@ public class TournamentService {
         cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, code);
         ensureCapacityForNewGuest();
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("joinTournament", code, tournament -> {
             validateJoinPassword(tournament, roomPassword);
             lobbyManager.joinTournament(tournament, guestId, nickname);
             saveTournamentState(tournament);
             return snapshotFactory.toSnapshot(tournament, guestId);
-        }
+        });
     }
 
     // Seats a guest into one private waiting room located by title and guarded by its password.
@@ -221,16 +230,20 @@ public class TournamentService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
         }
 
-        var tournament = requireTournament(tournamentCode);
-        synchronized (tournament) {
+        ensureGuestNotInAnotherTournament(guestId, tournamentCode);
+        ensureCapacityForNewGuest();
+        return withLockedTournament("joinPrivateTournament", tournamentCode, tournament -> {
             if (tournament.visibility != TournamentVisibility.PRIVATE || tournament.status != TournamentStatus.WAITING) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
             }
             if (!resolveRoomName(tournament.roomName, tournament.code).equalsIgnoreCase(normalizedRoomName)) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Private room not found");
             }
-        }
-        return joinTournament(tournamentCode, guestId, nickname, roomPassword);
+            validateJoinPassword(tournament, roomPassword);
+            lobbyManager.joinTournament(tournament, guestId, nickname);
+            saveTournamentState(tournament);
+            return snapshotFactory.toSnapshot(tournament, guestId);
+        });
     }
 
     // Seats a guest and returns the broadcast bundle so waiting-room subscribers can refresh immediately.
@@ -243,8 +256,7 @@ public class TournamentService {
         cleanupStaleTournaments();
         ensureGuestNotInAnotherTournament(guestId, code);
         ensureCapacityForNewGuest();
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("joinTournamentBroadcast", code, tournament -> {
             validateJoinPassword(tournament, roomPassword);
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             lobbyManager.joinTournament(tournament, guestId, nickname);
@@ -255,24 +267,22 @@ public class TournamentService {
                     Map.of("reason", "playerJoined"),
                     beforeSnapshot
             );
-        }
+        });
     }
 
     // Toggles the ready flag for a seated player before the tournament starts.
     public TournamentBroadcast changeReady(String code, String guestId, boolean ready) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("changeReady", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             lobbyManager.changeReady(tournament, guestId, ready);
             saveTournamentState(tournament);
             return eventFactory.createBroadcast("readyChanged", tournament, eventFactory.readyPayload(guestId, ready), beforeSnapshot);
-        }
+        });
     }
 
     // Applies explicit disconnect handling for waiting-room exits and active-hand fallbacks.
     public TournamentBroadcast disconnectPlayer(String code, String guestId) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("disconnectPlayer", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var expiredHandResultBroadcast = advanceExpiredHandResultForBroadcastIfNeeded(tournament, beforeSnapshot);
             var normalizedBeforeSnapshot = snapshotFactory.toSnapshot(tournament);
@@ -292,13 +302,12 @@ public class TournamentService {
                             normalizedBeforeSnapshot
                     )
             );
-        }
+        });
     }
 
     // Restores a disconnected player into the current tournament snapshot without changing chips.
     public TournamentBroadcast reconnectPlayer(String code, String guestId) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("reconnectPlayer", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var expiredHandResultBroadcast = advanceExpiredHandResultForBroadcastIfNeeded(tournament, beforeSnapshot);
             var normalizedBeforeSnapshot = snapshotFactory.toSnapshot(tournament);
@@ -313,13 +322,12 @@ public class TournamentService {
                             normalizedBeforeSnapshot
                     )
             );
-        }
+        });
     }
 
     // Restores an AFK player to manual control for future turns without changing chips or seat ownership.
     public TournamentBroadcast returnPlayerToPlay(String code, String guestId) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("returnPlayerToPlay", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var player = stateAccess.requirePlayer(tournament, guestId);
             if (!player.connected) {
@@ -342,13 +350,12 @@ public class TournamentService {
                     Map.of("guestId", guestId, "afk", false),
                     beforeSnapshot
             );
-        }
+        });
     }
 
     // Converts ready players into active participants and opens the first hand.
     public TournamentBroadcast startTournament(String code, String guestId) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("startTournament", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var expiredEvent = advanceExpiredHandResultIfNeeded(tournament, beforeSnapshot);
             if (expiredEvent != null) {
@@ -378,13 +385,12 @@ public class TournamentService {
                     eventFactory.participantsPayload(participants),
                     beforeSnapshot
             );
-        }
+        });
     }
 
     // Applies a betting action, updates contributions, and advances the hand state.
     public TournamentBroadcast applyAction(String code, String guestId, String action, Integer amount) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("applyAction", code, tournament -> {
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             var result = handEngine.applyAction(tournament, guestId, action, amount);
             saveTournamentState(tournament);
@@ -394,17 +400,12 @@ public class TournamentService {
                     eventFactory.actionPayload(guestId, result.action(), result.amount()),
                     beforeSnapshot
             );
-        }
+        });
     }
 
     // Auto-applies one AFK timeout action when the acting player misses the current decision window.
     TournamentBroadcast autoTimeoutActingPlayer(String code, long expectedDeadlineEpochMilli) {
-        var tournament = findTournament(code);
-        if (tournament == null) {
-            return null;
-        }
-
-        synchronized (tournament) {
+        return withLockedTournamentIfPresent("autoTimeoutActingPlayer", code, tournament -> {
             if (tournament.status != TournamentStatus.IN_HAND
                     || tournament.actionDeadlineAtEpochMilli != expectedDeadlineEpochMilli
                     || tournament.actionDeadlineAtEpochMilli == 0
@@ -442,13 +443,12 @@ public class TournamentService {
                     ),
                     beforeSnapshot
             );
-        }
+        });
     }
 
     // Advances one expired hand-result state into the next live hand for async transitions.
     TournamentBroadcast autoAdvanceHandResult(String code, long expectedDeadlineEpochMilli) {
-        var tournament = requireTournament(code);
-        synchronized (tournament) {
+        return withLockedTournament("autoAdvanceHandResult", code, tournament -> {
             if (tournament.status != TournamentStatus.HAND_RESULT
                     || tournament.handResultEndsAtEpochMilli != expectedDeadlineEpochMilli
                     || tournament.handResultEndsAtEpochMilli > Instant.now().toEpochMilli()) {
@@ -457,17 +457,12 @@ public class TournamentService {
 
             var beforeSnapshot = snapshotFactory.toSnapshot(tournament);
             return advanceResultState(tournament, beforeSnapshot);
-        }
+        });
     }
 
     // Deletes one finished tournament once its short result-retention window expires.
     boolean cleanupFinishedTournament(String code, long expectedDeadlineEpochMilli) {
-        var tournament = findTournament(code);
-        if (tournament == null) {
-            return false;
-        }
-
-        synchronized (tournament) {
+        return withLockedTournamentIfPresent("cleanupFinishedTournament", code, tournament -> {
             if (tournament.status != TournamentStatus.FINISHED
                     || tournament.finishedCleanupAtEpochMilli != expectedDeadlineEpochMilli
                     || tournament.finishedCleanupAtEpochMilli == 0
@@ -478,13 +473,12 @@ public class TournamentService {
             tournaments.remove(tournament.code, tournament);
             stateStore.delete(tournament.code);
             return true;
-        }
+        });
     }
 
     // Resolves a tournament code into its mutable state container.
     private TournamentState requireTournament(String code) {
-        var normalizedCode = code.trim().toUpperCase();
-        var tournament = tournaments.computeIfAbsent(normalizedCode, stateStore::load);
+        var tournament = refreshTournament(normalizeCode(code));
         if (tournament == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found");
         }
@@ -493,8 +487,7 @@ public class TournamentService {
 
     // Resolves a tournament code into its mutable state container when it still exists.
     private TournamentState findTournament(String code) {
-        var normalizedCode = code.trim().toUpperCase();
-        return tournaments.computeIfAbsent(normalizedCode, stateStore::load);
+        return refreshTournament(normalizeCode(code));
     }
 
     // Rejects cross-tournament creates and joins while the guest still occupies another live tournament.
@@ -537,12 +530,13 @@ public class TournamentService {
 
     // Treats finished tournaments as reusable so the same public code can host a later tournament.
     private boolean isTournamentCodeReserved(String code) {
-        var inMemoryTournament = tournaments.get(code);
+        var normalizedCode = normalizeCode(code);
+        var inMemoryTournament = tournaments.get(normalizedCode);
         if (inMemoryTournament != null) {
             return inMemoryTournament.status != TournamentStatus.FINISHED;
         }
 
-        var persistedTournament = stateStore.load(code);
+        var persistedTournament = stateStore.load(normalizedCode);
         return persistedTournament != null && persistedTournament.status != TournamentStatus.FINISHED;
     }
 
@@ -672,5 +666,89 @@ public class TournamentService {
 
     private long ttlToMillis(long ttlSeconds) {
         return ttlSeconds <= 0 ? 0 : ttlSeconds * 1_000L;
+    }
+
+    private String normalizeCode(String code) {
+        return code.trim().toUpperCase();
+    }
+
+    private TournamentState refreshTournament(String normalizedCode) {
+        var tournament = stateStore.load(normalizedCode);
+        if (tournament == null) {
+            tournaments.remove(normalizedCode);
+            return null;
+        }
+        tournaments.put(normalizedCode, tournament);
+        return tournament;
+    }
+
+    private <T> T withLockedTournament(String operationName, String code, Function<TournamentState, T> action) {
+        var normalizedCode = normalizeCode(code);
+        var waitStartedAt = System.nanoTime();
+        final long[] acquiredAtHolder = new long[1];
+        return commandLock.withLock(normalizedCode, () -> {
+            acquiredAtHolder[0] = System.nanoTime();
+            var tournament = requireTournament(normalizedCode);
+            synchronized (tournament) {
+                try {
+                    return action.apply(tournament);
+                } finally {
+                    logSlowTournamentCommand(operationName, normalizedCode, waitStartedAt, acquiredAtHolder[0]);
+                }
+            }
+        });
+    }
+
+    private <T> T withLockedTournamentIfPresent(String operationName, String code, Function<TournamentState, T> action) {
+        var normalizedCode = normalizeCode(code);
+        var waitStartedAt = System.nanoTime();
+        final long[] acquiredAtHolder = new long[1];
+        return commandLock.withLock(normalizedCode, () -> {
+            acquiredAtHolder[0] = System.nanoTime();
+            var tournament = findTournament(normalizedCode);
+            if (tournament == null) {
+                logSlowTournamentCommand(operationName, normalizedCode, waitStartedAt, acquiredAtHolder[0]);
+                return null;
+            }
+            synchronized (tournament) {
+                try {
+                    return action.apply(tournament);
+                } finally {
+                    logSlowTournamentCommand(operationName, normalizedCode, waitStartedAt, acquiredAtHolder[0]);
+                }
+            }
+        });
+    }
+
+    private void logSlowTournamentCommand(
+            String operationName,
+            String normalizedCode,
+            long waitStartedAt,
+            long acquiredAt
+    ) {
+        if (commandLockSlowThresholdMillis <= 0) {
+            return;
+        }
+
+        var finishedAt = System.nanoTime();
+        var waitedMs = nanosToMillis(acquiredAt - waitStartedAt);
+        var heldMs = nanosToMillis(finishedAt - acquiredAt);
+        var totalMs = waitedMs + heldMs;
+        if (totalMs < commandLockSlowThresholdMillis) {
+            return;
+        }
+
+        log.warn(
+                "Slow tournament command lock path: operation={}, code={}, waitedMs={}, heldMs={}, totalMs={}",
+                operationName,
+                normalizedCode,
+                waitedMs,
+                heldMs,
+                totalMs
+        );
+    }
+
+    private long nanosToMillis(long nanos) {
+        return nanos <= 0 ? 0 : nanos / 1_000_000L;
     }
 }
