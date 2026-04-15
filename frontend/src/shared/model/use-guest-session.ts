@@ -5,8 +5,12 @@ import { useUiStore } from "@/shared/model/ui-store";
 
 const guestSessionBootstrapQueryKey = ["guest-session-bootstrap"] as const;
 
-// Bootstraps one persisted guest session from the backend when the browser has none yet.
-export function useGuestSession() {
+type UseGuestSessionOptions = {
+  autoBootstrap?: boolean;
+};
+
+// Optionally bootstraps one persisted guest session from the backend when the browser has none yet.
+export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions = {}) {
   const queryClient = useQueryClient();
   const guestId = useUiStore((state) => state.guestId);
   const nickname = useUiStore((state) => state.nickname);
@@ -20,7 +24,7 @@ export function useGuestSession() {
   } as const;
   const guestSessionQuery = useQuery({
     ...guestSessionQueryOptions,
-    enabled: !guestId,
+    enabled: autoBootstrap && !guestId,
   });
 
   // Stores the backend-issued guest identity once the bootstrap request completes.
@@ -47,6 +51,6 @@ export function useGuestSession() {
     nickname,
     setNickname,
     ensureGuestSession,
-    isBootstrappingGuest: guestSessionQuery.isPending,
+    isBootstrappingGuest: autoBootstrap && guestSessionQuery.isPending,
   };
 }

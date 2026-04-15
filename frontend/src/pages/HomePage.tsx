@@ -9,6 +9,7 @@ import {
   publicTournamentListQueryKey,
 } from "@/entities/tournament/model/query-keys";
 import type { TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
+import { rememberCreatedRoomPassword } from "@/features/lobby/model/created-room-passwords";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
 import { PublicTournamentList } from "@/features/lobby/ui/PublicTournamentList";
 import {
@@ -75,6 +76,9 @@ export function HomePage() {
       password?: string;
     }) => createTournament(guestId, nickname, roomName, visibility, password),
     onSuccess: (snapshot, variables) => {
+      if (variables.visibility === "PRIVATE" && variables.password) {
+        rememberCreatedRoomPassword(snapshot.code, variables.password);
+      }
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
       handleTournamentEntry(snapshot, variables.guestId, {
         createdRoomPassword: variables.visibility === "PRIVATE" ? variables.password ?? null : null,
