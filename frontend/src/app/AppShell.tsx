@@ -11,8 +11,7 @@ export function AppShell() {
               W
             </div>
             <div>
-              <p className="social-kicker text-[11px] text-cyan-100/70">Social poker lobby</p>
-              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">Texas Hold&apos;em MVP</h1>
+              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">텍사스 홀덤 MVP</h1>
             </div>
           </div>
 
@@ -25,7 +24,7 @@ export function AppShell() {
                 }`
               }
             >
-              Lobby
+              로비
             </NavLink>
             <NavLink
               to="/tournaments/DEMO1"
@@ -35,7 +34,7 @@ export function AppShell() {
                 }`
               }
             >
-              Table
+              테이블
             </NavLink>
           </nav>
         </div>

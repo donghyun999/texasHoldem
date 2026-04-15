@@ -21,28 +21,28 @@ type LobbyFormProps = {
 const visibilityOptions: Array<{ value: TournamentVisibility; label: string; description: string; badge: string }> = [
   {
     value: "PUBLIC",
-    label: "Open table",
-    badge: "Open",
-    description: "Shows up in the lobby so anyone can jump in without a password.",
+    label: "공개 테이블",
+    badge: "공개",
+    description: "로비에 표시되어 누구나 비밀번호 없이 바로 들어올 수 있습니다.",
   },
   {
     value: "PRIVATE",
-    label: "Locked table",
-    badge: "Locked",
-    description: "Still visible in the lobby, but joining needs the password you share.",
+    label: "잠금 테이블",
+    badge: "잠금",
+    description: "로비에 계속 표시되지만, 참가하려면 공유한 비밀번호가 필요합니다.",
   },
 ];
 
 function toDisplayStatus(status: TournamentStatus) {
   switch (status) {
     case "WAITING":
-      return "Waiting";
+      return "대기 중";
     case "IN_HAND":
-      return "Hand active";
+      return "핸드 진행 중";
     case "HAND_RESULT":
-      return "Showdown";
+      return "쇼다운";
     case "FINISHED":
-      return "Finished";
+      return "종료";
     default:
       return status;
   }
@@ -69,32 +69,31 @@ export function LobbyForm({
     <div className="social-surface social-surface-strong rounded-[2rem] p-5 shadow-2xl shadow-black/20 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="social-kicker text-cyan-100/70">Create a room</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-white">Build your table</h3>
+          <p className="social-kicker text-cyan-100/70">테이블 생성</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-white">테이블을 만드세요</h3>
         </div>
         <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-          {roomVisibility === "PRIVATE" ? "Locked" : "Open"}
+          {roomVisibility === "PRIVATE" ? "잠금" : "공개"}
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        Pick a nickname, choose whether the room is open or locked, and create a table that is easy to share with
-        friends.
+        닉네임과 방 유형만 정하면 바로 만들 수 있습니다.
       </p>
 
       {activeTournamentRoomName ? (
         <div className="mt-5 rounded-[1.4rem] border border-cyan-300/20 bg-[linear-gradient(135deg,_rgba(34,197,94,0.12),_rgba(10,18,16,0.94))] p-4 text-sm text-cyan-50">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">Active session</p>
+          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">진행 중인 세션</p>
           <p className="mt-2 text-base font-bold text-white">
             {activeTournamentRoomName}
             {activeTournamentStatus ? ` · ${toDisplayStatus(activeTournamentStatus)}` : ""}
           </p>
           <p className="mt-2 leading-6 text-cyan-50/85">
-            You already have a live tournament. Jump back in from here instead of creating a new one.
+            이미 진행 중인 토너먼트가 있습니다. 새로 만들지 말고 여기서 바로 돌아가세요.
           </p>
           {onResumeTournament ? (
             <button type="button" onClick={onResumeTournament} className="social-cta-secondary mt-4 px-4 py-3 text-sm">
-              Resume table
+              테이블로 돌아가기
             </button>
           ) : null}
         </div>
@@ -102,11 +101,11 @@ export function LobbyForm({
 
       <div className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-zinc-200">Nickname</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-200">닉네임</span>
           <input
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
-            placeholder="Your player name"
+            placeholder="플레이어 이름"
             className="social-input"
           />
         </label>
@@ -114,9 +113,9 @@ export function LobbyForm({
         <div className="rounded-[1.55rem] border border-white/10 bg-black/20 p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-white">Room style</p>
+              <p className="text-sm font-semibold text-white">방 유형</p>
               <p className="mt-1 text-xs leading-5 text-zinc-400">
-                Open tables are public. Locked tables stay listed, but the password is required at join time.
+                공개 테이블은 모두에게 보입니다. 잠금 테이블은 목록에 남아 있지만, 참가 시 비밀번호가 필요합니다.
               </p>
             </div>
           </div>
@@ -154,42 +153,31 @@ export function LobbyForm({
             })}
           </div>
 
-          <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200">
-            <p className="font-semibold text-white">
-              {roomVisibility === "PRIVATE" ? "Private table share" : "Open table share"}
-            </p>
-            <p className="mt-2 leading-6 text-zinc-300">
-              {roomVisibility === "PRIVATE"
-                ? "Share the room title and password with friends. The room code stays internal."
-                : "Share the room title or code and friends can join straight from the lobby."}
-            </p>
-          </div>
-
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-medium text-zinc-200">Room name</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-200">방 이름</span>
             <input
               value={createRoomName}
               onChange={(event) => onCreateRoomNameChange(event.target.value)}
-              placeholder="Friday Night Table"
+              placeholder="금요일 밤 테이블"
               className="social-input"
             />
           </label>
 
           {roomVisibility === "PRIVATE" ? (
             <label className="mt-4 block">
-              <span className="mb-2 block text-sm font-medium text-zinc-200">Password</span>
+              <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
               <input
                 type="password"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="Set a room password"
+                placeholder="방 비밀번호를 설정하세요"
                 className="social-input"
               />
             </label>
           ) : null}
 
           <button type="button" onClick={onCreate} disabled={createDisabled} className="social-cta mt-4 w-full px-4 py-3">
-            {roomVisibility === "PUBLIC" ? "Create open table" : "Create locked table"}
+            {roomVisibility === "PUBLIC" ? "공개 테이블 만들기" : "잠금 테이블 만들기"}
           </button>
         </div>
 

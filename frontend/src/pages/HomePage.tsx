@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
 import { syncPublicTournamentListCache } from "@/entities/tournament/model/lobby-cache";
 import {
   buildActiveTournamentKey,
@@ -23,6 +22,22 @@ import { useGuestSession } from "@/shared/model/use-guest-session";
 
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function formatBackendStatus(status?: string | null) {
+  switch (status?.trim().toUpperCase()) {
+    case "UP":
+    case "OK":
+      return "정상";
+    case "DOWN":
+      return "오류";
+    case "DEGRADED":
+      return "성능 저하";
+    case "MAINTENANCE":
+      return "점검 중";
+    default:
+      return status?.trim() ? "알 수 없음" : "확인 중";
+  }
 }
 
 type ValidationError = {
@@ -62,7 +77,6 @@ export function HomePage() {
     refetchInterval: 5_000,
   });
 
-  const previewSnapshot = createDemoTournamentSnapshot("MVP01", createRoomName.trim() || "Quick Table");
   const activeTournament = activeTournamentQuery.data;
   const waitingRooms = waitingRoomListQuery.data ?? [];
   const liveOpenRooms = waitingRooms.filter((room) => room.visibility === "PUBLIC").length;
@@ -119,24 +133,24 @@ export function HomePage() {
 
   const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
   const busyLabel = createMutation.isPending
-    ? "Creating a table..."
+    ? "테이블을 만드는 중..."
     : joinMutation.isPending
-      ? "Joining the table..."
+      ? "테이블에 참가하는 중..."
       : isCheckingActiveTournament
-        ? "Checking whether you already have an active table..."
+        ? "이미 활성 테이블이 있는지 확인하는 중..."
         : null;
   const createError =
     (validationError?.scope === "create" ? validationError.message : null) ||
-    (createMutation.error && toErrorMessage(createMutation.error, "Table creation failed.")) ||
+    (createMutation.error && toErrorMessage(createMutation.error, "테이블 생성에 실패했습니다.")) ||
     null;
   const joinError =
     (validationError?.scope === "join" ? validationError.message : null) ||
-    (joinMutation.error && toErrorMessage(joinMutation.error, "Table join failed.")) ||
+    (joinMutation.error && toErrorMessage(joinMutation.error, "테이블 참가에 실패했습니다.")) ||
     null;
   const passwordJoinError = lastJoinUsedPassword ? joinError : null;
   const waitingListError =
     (waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
-      ? toErrorMessage(waitingRoomListQuery.error, "Could not load the waiting room list.")
+      ? toErrorMessage(waitingRoomListQuery.error, "대기실 목록을 불러오지 못했습니다.")
       : null) || (passwordJoinError ? null : joinError);
 
   function clearCreateErrors() {
@@ -176,10 +190,10 @@ export function HomePage() {
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
     if (isCheckingActiveTournament) {
-      throw new Error("Checking whether another session is already active.");
+      throw new Error("이미 다른 세션이 활성화되어 있는지 확인하는 중입니다.");
     }
     if (activeTournament) {
-      throw new Error("You already have an active tournament session.");
+      throw new Error("이미 활성 토너먼트 세션이 있습니다.");
     }
     if (!nickname.trim()) {
       throw new Error(nicknameRequiredMessage);
@@ -193,16 +207,16 @@ export function HomePage() {
     clearJoinErrors();
 
     if (!createRoomName.trim()) {
-      setValidationError({ scope: "create", message: "Enter a room name before creating a table." });
+      setValidationError({ scope: "create", message: "테이블을 만들기 전에 방 이름을 입력하세요." });
       return;
     }
     if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
-      setValidationError({ scope: "create", message: "Private tables need a password." });
+      setValidationError({ scope: "create", message: "잠금 테이블에는 비밀번호가 필요합니다." });
       return;
     }
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("Enter your nickname before creating a table.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블을 만들기 전에 닉네임을 입력하세요.");
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
@@ -211,7 +225,7 @@ export function HomePage() {
         password: roomVisibility === "PRIVATE" ? createPassword.trim() : undefined,
       });
     } catch (error) {
-      setValidationError({ scope: "create", message: toErrorMessage(error, "Table creation failed.") });
+      setValidationError({ scope: "create", message: toErrorMessage(error, "테이블 생성에 실패했습니다.") });
     }
   }
 
@@ -221,7 +235,7 @@ export function HomePage() {
     setLastJoinUsedPassword(typeof password === "string");
 
     try {
-      const resolvedGuestId = await ensureAvailableGuest("Enter your nickname before joining a table.");
+      const resolvedGuestId = await ensureAvailableGuest("테이블에 참가하기 전에 닉네임을 입력하세요.");
       joinMutation.mutate({
         code,
         guestId: resolvedGuestId,
@@ -229,7 +243,7 @@ export function HomePage() {
         password,
       });
     } catch (error) {
-      setValidationError({ scope: "join", message: toErrorMessage(error, "Table join failed.") });
+      setValidationError({ scope: "join", message: toErrorMessage(error, "테이블 참가에 실패했습니다.") });
     }
   }
 
@@ -251,72 +265,43 @@ export function HomePage() {
           <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
           <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div className="space-y-5">
-              <p className="social-kicker text-cyan-100/70">WPL-inspired social poker</p>
               <h2 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-                Fast lobby, bigger buttons, and a table that feels alive.
+                빠르게 방을 만들고, 바로 참가하세요.
               </h2>
               <p className="max-w-xl text-base leading-7 text-[color:var(--app-text-dim)]">
-                Open rooms stay easy to scan, locked rooms stay obvious, and private invites are shared with less
-                friction. The goal here is a friendlier game-app feel, not a heavy casino frame.
+                공개 방은 바로 들어가고, 잠금 방은 비밀번호로 들어갑니다. 친구에게는 방 이름과 필요한 정보만
+                공유하면 됩니다.
               </p>
 
               <div className="flex flex-wrap gap-2">
                 <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50">
-                  Live: {statusQuery.data?.status ?? "checking"}
+                  서비스 상태: {formatBackendStatus(statusQuery.data?.status)}
                 </span>
                 <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-                  Open rooms {liveOpenRooms}
+                  공개 방 {liveOpenRooms}
                 </span>
                 <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-                  Locked rooms {liveLockedRooms}
+                  잠금 방 {liveLockedRooms}
                 </span>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <MetricCard label="Demo blind" value={`L${previewSnapshot.currentLevel.level}`} accent="cyan" />
-                <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} accent="gold" />
-                <MetricCard
-                  label="Room code"
-                  value={previewSnapshot.code}
-                  accent="green"
-                  helper="Internal identifier"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <GuidanceCard
-                  label="Open rooms"
-                  value="Rooms are visible immediately, so it is simple to jump into a table and start playing."
-                />
-                <GuidanceCard
-                  label="Private rooms"
-                  value="Locked tables stay listed, but joining needs the password the host shares with friends."
-                />
-                <GuidanceCard
-                  label="Fast return"
-                  value="If you already have a live session, the lobby makes it clear how to jump back in."
-                />
+                <MetricCard label="서비스 상태" value={formatBackendStatus(statusQuery.data?.status)} accent="cyan" />
+                <MetricCard label="공개 방" value={`${liveOpenRooms}`} accent="gold" />
+                <MetricCard label="잠금 방" value={`${liveLockedRooms}`} accent="green" />
               </div>
             </div>
 
             <div className="rounded-[1.8rem] border border-white/10 bg-black/25 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.18)]">
-              <p className="social-kicker text-amber-100/80">Live snapshot</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <p className="text-sm font-semibold text-white">로비 안내</p>
+              <div className="mt-3 grid gap-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">Current table</p>
-                  <p className="mt-2 text-lg font-bold text-white">{previewSnapshot.roomName}</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">공개 방</p>
+                  <p className="mt-2 text-sm text-zinc-200">목록에서 바로 참가할 수 있습니다.</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">Lobby state</p>
-                  <p className="mt-2 text-lg font-bold text-white">{statusQuery.data?.status ?? "unknown"}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">Big blind</p>
-                  <p className="mt-2 text-lg font-bold text-white">{previewSnapshot.currentLevel.bigBlind}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">Room format</p>
-                  <p className="mt-2 text-lg font-bold text-white">Open / locked</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">잠금 방</p>
+                  <p className="mt-2 text-sm text-zinc-200">참가하려면 방장이 공유한 비밀번호가 필요합니다.</p>
                 </div>
               </div>
             </div>
@@ -371,12 +356,10 @@ export function HomePage() {
 function MetricCard({
   label,
   value,
-  helper,
   accent,
 }: {
   label: string;
   value: string;
-  helper?: string;
   accent: "cyan" | "gold" | "green";
 }) {
   const accentClass =
@@ -390,16 +373,6 @@ function MetricCard({
     <div className={`rounded-3xl border bg-[linear-gradient(180deg,_rgba(255,255,255,0.08),_rgba(255,255,255,0.04))] p-4 ${accentClass}`}>
       <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-400">{label}</p>
       <p className="mt-2 text-lg font-bold text-white">{value}</p>
-      {helper ? <p className="mt-1 text-xs text-zinc-300">{helper}</p> : null}
-    </div>
-  );
-}
-
-function GuidanceCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-      <p className="text-[11px] uppercase tracking-[0.24em] text-cyan-100/70">{label}</p>
-      <p className="mt-3 text-sm leading-6 text-zinc-200">{value}</p>
     </div>
   );
 }

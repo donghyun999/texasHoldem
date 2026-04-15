@@ -34,50 +34,44 @@ export function WaitingRoomDirectJoinPanel({
     <section className="social-surface rounded-[1.8rem] border-cyan-200/20 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="social-kicker text-cyan-100/80">Quick join</p>
-          <h3 className="mt-2 text-xl font-black tracking-tight text-white">{snapshot.roomName} lobby</h3>
+          <h3 className="text-xl font-black tracking-tight text-white">{snapshot.roomName} 대기실</h3>
         </div>
         <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-          {lockedTable ? "Locked" : "Open"}
+          {lockedTable ? "잠금" : "공개"}
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         {lockedTable
           ? passwordEmbedded
-            ? "This invite already includes the password, so you can join after confirming your nickname."
-            : "This room needs a password. Enter it below and join from the lobby."
-          : "This room is open. Enter your nickname and join straight from the waiting room."}
+            ? "이 초대에는 비밀번호가 이미 포함되어 있어, 닉네임만 확인하면 참가할 수 있습니다."
+            : "이 방은 비밀번호가 필요합니다. 아래에 입력한 뒤 로비에서 바로 참가하세요."
+          : "이 방은 공개 상태입니다. 닉네임만 입력하면 대기실에서 바로 참가할 수 있습니다."}
       </p>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-zinc-200">Nickname</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-200">닉네임</span>
           <input
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
-            placeholder="Your player name"
+            placeholder="플레이어 이름"
             className="social-input"
           />
         </label>
 
         {lockedTable ? (
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-zinc-200">Password</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
             <input
               type="password"
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
-              placeholder="Enter the room password"
+              placeholder="방 비밀번호를 입력하세요"
               className="social-input"
             />
           </label>
-        ) : (
-          <div className="rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Join info</p>
-            <p className="mt-2 text-base font-bold text-white">Password not required</p>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {errorMessage ? (
@@ -93,14 +87,14 @@ export function WaitingRoomDirectJoinPanel({
           disabled={joinPending}
           className="social-cta-secondary px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {joinPending ? "Joining..." : "Join table"}
+          {joinPending ? "참가 중..." : "테이블 참가"}
         </button>
         <p className="text-sm text-zinc-300">
           {autoJoinPending
-            ? "Trying to join the invite automatically."
+            ? "초대 링크로 자동 참가를 시도하는 중입니다."
             : lockedTable && passwordEmbedded
-              ? "The invite already has the password embedded, so join is ready to go."
-              : "The room will refresh while you are still waiting in the lobby."}
+              ? "초대 링크에 비밀번호가 포함되어 있어, 바로 참가할 준비가 되어 있습니다."
+              : "로비에서 대기하는 동안 방 상태를 새로고침합니다."}
         </p>
       </div>
     </section>

@@ -166,7 +166,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (currentPlayer.status === "FOLDED" && previousStatus !== "FOLDED") {
     return {
       guestId: previousActorGuestId,
-      label: "Fold",
+      label: "폴드",
       tone: "danger" as const,
     };
   }
@@ -174,7 +174,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (becameAllIn && contributionDelta <= 0) {
     return {
       guestId: previousActorGuestId,
-      label: "All in",
+      label: "올인",
       tone: "aggressive" as const,
     };
   }
@@ -183,15 +183,14 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
     if (currentPlayer.roundContribution > previousBetState.maximumContribution) {
       return {
         guestId: previousActorGuestId,
-        label: becameAllIn ? "All in" : previousBetState.maximumContribution > 0 ? "Raise" : "Bet",
+        label: becameAllIn ? "올인" : previousBetState.maximumContribution > 0 ? "레이즈" : "베팅",
         tone: "aggressive" as const,
       };
     }
 
     return {
       guestId: previousActorGuestId,
-      label:
-        becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution ? "All in" : "Call",
+      label: becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution ? "올인" : "콜",
       tone:
         becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution
           ? ("aggressive" as const)
@@ -202,7 +201,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (becameAllIn) {
     return {
       guestId: previousActorGuestId,
-      label: "All in",
+      label: "올인",
       tone: "aggressive" as const,
     };
   }
@@ -210,7 +209,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (snapshot.actingSeat !== previousBetState.actingSeat || snapshot.stateVersion > previousBetState.stateVersion) {
     return {
       guestId: previousActorGuestId,
-      label: "Check",
+      label: "체크",
       tone: "neutral" as const,
     };
   }
@@ -252,15 +251,15 @@ function buildDisplayedSeatIndexes(players: TournamentPlayer[], currentGuestId?:
 function getStreetLabel(boardCards: string[]) {
   switch (boardCards.length) {
     case 0:
-      return "Preflop";
+      return "프리플롭";
     case 3:
-      return "Flop";
+      return "플롭";
     case 4:
-      return "Turn";
+      return "턴";
     case 5:
-      return "River";
+      return "리버";
     default:
-      return "Table";
+      return "테이블";
   }
 }
 
@@ -297,7 +296,7 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
         : winnerNames.join(", ");
 
     return {
-      headline: "Split Pot",
+      headline: "공동 팟",
       detail,
       amountLabel: `+${bestAmount}`,
     };
@@ -307,7 +306,7 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
   const showdownHand = snapshot.showdownHands.find((hand) => hand.guestId === winner.guestId);
   return {
     headline: winner.nickname,
-    detail: showdownHand?.handLabel ?? "Won the hand",
+    detail: showdownHand?.handLabel ?? "핸드 승리",
     amountLabel: `+${winner.amount}`,
   };
 }
@@ -326,43 +325,43 @@ function buildCenterCopy(
 ): TableCenterCopy {
   if (snapshot.status === "WAITING") {
     return {
-      stageLabel: "Lobby",
-      headline: snapshot.paused ? "Table paused" : "Waiting on players",
+      stageLabel: "로비",
+      headline: snapshot.paused ? "테이블 일시정지" : "플레이어 대기 중",
       detail: snapshot.paused
         ? snapshot.tableMessage
-        : "Players can join, ready up, and wait for the next shuffle.",
+        : "플레이어들은 참가하고, 준비를 마친 뒤 다음 셔플을 기다릴 수 있습니다.",
     };
   }
 
   if (snapshot.status === "IN_HAND") {
     return {
       stageLabel: streetLabel,
-      headline: snapshot.paused ? "Hand paused" : actingPlayer ? `${actingPlayer.nickname} is acting` : "Hand active",
+      headline: snapshot.paused ? "핸드 일시정지" : actingPlayer ? `${actingPlayer.nickname} 차례` : "핸드 진행 중",
       detail: snapshot.paused
         ? snapshot.tableMessage
-        : snapshot.tableMessage || "Pot, cards, and action updates stay live while the hand runs.",
+        : snapshot.tableMessage || "핸드가 진행되는 동안 팟, 카드, 액션 정보가 계속 갱신됩니다.",
     };
   }
 
   if (snapshot.status === "HAND_RESULT") {
     return {
-      stageLabel: "Showdown",
-      headline: resultSummary?.headline ?? "Winner decided",
-      detail: snapshot.tableMessage || "Showdown cards are being settled.",
+      stageLabel: "쇼다운",
+      headline: resultSummary?.headline ?? "승자 확정",
+      detail: snapshot.tableMessage || "쇼다운 카드와 결과를 정산하고 있습니다.",
     };
   }
 
   return {
-    stageLabel: "Tournament complete",
-    headline: resultSummary?.headline ?? "Final results",
-    detail: resultSummary?.detail ?? (snapshot.tableMessage || "The tournament is complete."),
+    stageLabel: "토너먼트 종료",
+    headline: resultSummary?.headline ?? "최종 결과",
+    detail: resultSummary?.detail ?? (snapshot.tableMessage || "토너먼트가 종료되었습니다."),
   };
 }
 
 function buildSidePotSummary(snapshot: TournamentSnapshot) {
   return snapshot.sidePots.map((pot, index) => ({
     id: pot.id,
-    label: `Side ${index + 1}`,
+    label: `사이드 ${index + 1}`,
     amount: pot.amount,
   }));
 }
@@ -1137,7 +1136,7 @@ export function TournamentTable({
         <div className="min-w-0">
           <p className="max-w-[8.5rem] truncate font-semibold sm:max-w-[10rem]">{snapshot.roomName}</p>
           <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
-            {snapshot.visibility === "PUBLIC" ? "Open table" : "Locked table"}
+            {snapshot.visibility === "PUBLIC" ? "공개 테이블" : "잠금 테이블"}
           </p>
         </div>
         <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
@@ -1152,7 +1151,7 @@ export function TournamentTable({
                   selected ? "social-cta-secondary text-[11px] text-slate-950" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                {mode === "chips" ? "Chips" : "BB"}
+                {mode === "chips" ? "칩" : "BB"}
               </button>
             );
           })}
@@ -1160,17 +1159,17 @@ export function TournamentTable({
       </div>
 
       <div className="social-surface absolute right-3 top-3 z-30 w-[7.8rem] rounded-[1.35rem] px-2.5 py-1.5 text-right text-[9px] font-medium text-zinc-100 sm:right-4 sm:top-4 sm:w-[8.8rem] sm:px-3 sm:py-2 sm:text-[11px]">
-        <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">Blinds</p>
+        <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">블라인드</p>
         <p className="mt-0.5 text-base font-black text-white">
           {snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}
         </p>
         <p className="mt-0.5 text-[9px] text-zinc-400 sm:text-[10px]">
-          Next {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
+          다음 {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
         </p>
         <div className="mt-1 flex items-center justify-end gap-1.5">
           {snapshot.paused ? (
             <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-amber-100 sm:text-[9px]">
-              Paused
+              일시정지
             </span>
           ) : null}
           <p className={`text-[9px] font-semibold ${levelTimerState.timerClass} sm:text-[10px]`}>
@@ -1195,7 +1194,7 @@ export function TournamentTable({
           </span>
           {snapshot.paused ? (
             <span className="social-chip px-2 py-1 text-amber-50">
-              Paused
+              일시정지
             </span>
           ) : null}
         </div>
@@ -1205,7 +1204,7 @@ export function TournamentTable({
         </p>
         {snapshot.paused ? (
           <div className="mx-auto mt-3 max-w-[16rem] rounded-[1.2rem] border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All players AFK</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">모든 플레이어 AFK</p>
             <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
           </div>
         ) : null}
@@ -1220,7 +1219,7 @@ export function TournamentTable({
             <p className="mt-1 text-[11px] text-amber-50/80">{resultSummary.detail}</p>
           </div>
         ) : null}
-        <p className="mt-3 text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">Pot</p>
+        <p className="mt-3 text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">팟</p>
         <div className="relative mx-auto mt-1 w-max">
           {potPulseId ? <span className="table-pot-pulse-ring" /> : null}
           <p
@@ -1233,7 +1232,7 @@ export function TournamentTable({
           </p>
         </div>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
-          <span className="social-chip px-2 py-1">Main {mainPotLabel}</span>
+          <span className="social-chip px-2 py-1">메인 {mainPotLabel}</span>
           {sidePotSummary.map((pot) => (
             <span key={pot.id} className="social-chip px-2 py-1">
               {pot.label}{" "}
