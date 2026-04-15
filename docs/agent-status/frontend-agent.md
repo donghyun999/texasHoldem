@@ -5,7 +5,7 @@
 - 상태:
   - `done`
 - 현재 작업:
-  - handoff 완료
+  - WPL 방향 visual pass handoff 완료
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -27,6 +27,7 @@
   - 후속 frontend task가 생기면 현재 lobby / realtime / table 경계를 기준으로 범위를 다시 배정한다
   - 필요 시 websocket lifecycle과 cache hydration을 더 세밀하게 분리한다
   - 필요 시 로비 문구와 상태별 테이블 정보 구조를 추가 polish한다
+  - 필요 시 `social-*` 토큰을 `PlayerSeat`, 액션패널, 기타 HUD 컴포넌트로 확장한다
 - 막힌 점:
   - 현재 frontend handoff와 build는 완료됐다
 - 세션 재개 시 먼저 볼 파일:

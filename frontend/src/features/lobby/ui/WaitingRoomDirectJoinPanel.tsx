@@ -31,57 +31,57 @@ export function WaitingRoomDirectJoinPanel({
   const passwordEmbedded = lockedTable && password.trim().length > 0;
 
   return (
-    <section className="rounded-[1.8rem] border border-cyan-300/20 bg-[linear-gradient(135deg,_rgba(14,116,144,0.22),_rgba(7,12,20,0.94))] p-5 shadow-xl shadow-black/20">
+    <section className="social-surface rounded-[1.8rem] border-cyan-200/20 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.28em] text-cyan-200/70">초대 링크</p>
-          <h3 className="mt-2 text-xl font-semibold text-white">{snapshot.roomName} 바로 입장</h3>
+          <p className="social-kicker text-cyan-100/80">Quick join</p>
+          <h3 className="mt-2 text-xl font-black tracking-tight text-white">{snapshot.roomName} lobby</h3>
         </div>
-        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-100">
-          {lockedTable ? "잠금 테이블" : "공개 테이블"}
+        <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+          {lockedTable ? "Locked" : "Open"}
         </span>
       </div>
 
       <p className="mt-3 text-sm leading-6 text-zinc-300">
         {lockedTable
           ? passwordEmbedded
-            ? "이 초대에는 비밀번호가 포함되어 있습니다. 닉네임만 확인하고 바로 입장하면 됩니다."
-            : "이 방은 비밀번호가 필요합니다. 로비를 거치지 않고 여기서 바로 입력해 입장할 수 있습니다."
-          : "이 링크를 열면 로비를 거치지 않고 바로 테이블 화면으로 이동합니다."}
+            ? "This invite already includes the password, so you can join after confirming your nickname."
+            : "This room needs a password. Enter it below and join from the lobby."
+          : "This room is open. Enter your nickname and join straight from the waiting room."}
       </p>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-sm text-zinc-300">닉네임</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-200">Nickname</span>
           <input
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
-            placeholder="플레이어 이름"
-            className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-cyan-300"
+            placeholder="Your player name"
+            className="social-input"
           />
         </label>
 
         {lockedTable ? (
           <label className="block">
-            <span className="mb-2 block text-sm text-zinc-300">비밀번호</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-200">Password</span>
             <input
               type="password"
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
-              placeholder="테이블 비밀번호를 입력해 주세요"
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-cyan-300"
+              placeholder="Enter the room password"
+              className="social-input"
             />
           </label>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">접속 정보</p>
-            <p className="mt-2 text-base font-semibold text-white">비밀번호 필요 없음</p>
+          <div className="rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Join info</p>
+            <p className="mt-2 text-base font-bold text-white">Password not required</p>
           </div>
         )}
       </div>
 
       {errorMessage ? (
-        <p className="mt-4 rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+        <p className="mt-4 rounded-[1.25rem] border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
           {errorMessage}
         </p>
       ) : null}
@@ -91,16 +91,16 @@ export function WaitingRoomDirectJoinPanel({
           type="button"
           onClick={onJoin}
           disabled={joinPending}
-          className="rounded-2xl border border-cyan-300/25 bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="social-cta-secondary px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {joinPending ? "입장 중..." : "테이블 입장"}
+          {joinPending ? "Joining..." : "Join table"}
         </button>
         <p className="text-sm text-zinc-300">
           {autoJoinPending
-            ? "초대 링크에서 자동 입장을 시도하는 중입니다."
+            ? "Trying to join the invite automatically."
             : lockedTable && passwordEmbedded
-              ? "초대에 포함된 비밀번호를 확인할 수 있습니다. 입장 전에 수정할 수도 있습니다."
-              : "테이블은 아직 대기 중이며, 아래 미리보기는 실시간으로 갱신됩니다."}
+              ? "The invite already has the password embedded, so join is ready to go."
+              : "The room will refresh while you are still waiting in the lobby."}
         </p>
       </div>
     </section>

@@ -5,7 +5,7 @@
 - 상태:
   - `done`
 - 현재 작업:
-  - 우선순위 1~4 handoff 반영 및 세션 종료 정리
+  - WPL 방향 frontend 디자인 handoff 반영 및 세션 종료 정리
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -29,16 +29,17 @@
   - `frontend/**`
   - 구현 역할 에이전트가 소유 중인 hotspot 파일
 - 마지막 결정:
-  - 액션패널 사이징 UX는 유지한 채 우선순위 1~4를 반영했고, frontend build와 targeted backend test를 통과했다
+  - `WPL` 방향으로 frontend 비주얼 톤을 이동했고, 액션패널 사이징 동작은 유지한 채 frontend build를 통과했다
 - 다음 액션:
   - 다음 세션 시작 시 `AGENTS.md`, 운영 문서, `docs/agent-status/orchestrator.md`를 먼저 읽는다
   - 실제 후속 task가 생기면 역할별 task-owner와 `agent-status`를 먼저 갱신한다
-  - 필요 시 reconnect recovery와 최종 브라우저 smoke 범위를 다시 배정한다
+  - 필요 시 좌석 크롬, 액션패널 시각언어, 상태별 모션을 같은 디자인 언어로 확장한다
 - 막힌 점:
   - 현재 미통합 변경은 남아 있지만 handoff와 검증 요약은 정리된 상태다
 - 남은 리스크:
   - `use-tournament-realtime-snapshot`는 여전히 websocket/session lifecycle 소유자라 후속 분리 여지가 남아 있다
   - backend facade는 얇아졌지만 호환성 때문에 일부 retained field가 남아 있어 추가 정리는 별도 작업으로 다뤄야 한다
+  - 이번 디자인 라운드는 로비와 테이블 HUD 중심이라 `PlayerSeat`와 액션패널의 시각 톤은 후속 작업 여지가 남아 있다
 - 세션 재개 시 먼저 볼 파일:
   - `AGENTS.md`
   - `docs/multi-agent-cli-operations.md`

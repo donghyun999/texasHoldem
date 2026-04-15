@@ -62,6 +62,7 @@
 - `use-tournament-realtime-snapshot.ts`에서 snapshot merge, event parse, cache sync 보조 로직을 분리해 realtime 책임을 조금 더 명확히 정리
 - `TournamentTable`의 중앙 상태 카피를 `WAITING`, `IN_HAND`, `HAND_RESULT` 중심으로 더 분명히 나눠 읽기 우선순위를 개선
 - `TournamentService`를 더 얇은 facade로 유지하고 command-specific flow를 focused collaborator로 분리
+- frontend 비주얼 톤을 `WPL`에 가까운 social-poker 스타일로 조정하고, 로비와 테이블 HUD에 공통 `social-*` 디자인 토큰을 도입
 
 ## 현재 집중 영역
 
@@ -112,6 +113,7 @@
 - 현재 남은 핵심 작업은 waiting-room leave나 기본 websocket 안정성 문제라기보다 MVP boundary 확정과 새 reconnect edge case 여부 점검이다
 - 로비 쪽 남은 과제는 correctness gap보다는 UX polish다
 - 이번 구조 변경 이후에도 frontend build와 `TournamentServiceTest` targeted suite는 통과했다
+- 최신 WPL 방향 visual pass 이후에도 frontend build는 통과했다
 - active-player capacity는 persisted `updated_at` 기반 stale-row safety valve를 가지므로 abandoned tournament가 반복적인 `503 at capacity` 실패를 일으킬 가능성이 줄었다
 - Railway용 배포 설정은 local profile과 분리되어 있고, 현재 public frontend 배포는 expected showdown/result 동작까지 수동 검증이 끝났다
 - 최신 배포 6인 브라우저 smoke에서는 seat 5 self-hole-card 렌더링 이슈가 재현되지 않았고, 상세 내용은 `docs/railway-six-player-smoke.md`에 기록되어 있다

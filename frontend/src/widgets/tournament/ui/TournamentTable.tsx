@@ -326,36 +326,36 @@ function buildCenterCopy(
 ): TableCenterCopy {
   if (snapshot.status === "WAITING") {
     return {
-      stageLabel: "Waiting room",
-      headline: snapshot.paused ? "Table paused" : "Waiting for ready players",
+      stageLabel: "Lobby",
+      headline: snapshot.paused ? "Table paused" : "Waiting on players",
       detail: snapshot.paused
         ? snapshot.tableMessage
-        : "Players can join and ready up before the next hand starts.",
+        : "Players can join, ready up, and wait for the next shuffle.",
     };
   }
 
   if (snapshot.status === "IN_HAND") {
     return {
       stageLabel: streetLabel,
-      headline: snapshot.paused ? "Hand paused" : actingPlayer ? `${actingPlayer.nickname} acting` : "Hand in progress",
+      headline: snapshot.paused ? "Hand paused" : actingPlayer ? `${actingPlayer.nickname} is acting` : "Hand active",
       detail: snapshot.paused
         ? snapshot.tableMessage
-        : snapshot.tableMessage || "Pot and action updates are live while the hand is running.",
+        : snapshot.tableMessage || "Pot, cards, and action updates stay live while the hand runs.",
     };
   }
 
   if (snapshot.status === "HAND_RESULT") {
     return {
-      stageLabel: "Hand result",
-      headline: resultSummary?.headline ?? "Showdown",
-      detail: snapshot.tableMessage || "Showdown resolved.",
+      stageLabel: "Showdown",
+      headline: resultSummary?.headline ?? "Winner decided",
+      detail: snapshot.tableMessage || "Showdown cards are being settled.",
     };
   }
 
   return {
-    stageLabel: "Tournament finished",
+    stageLabel: "Tournament complete",
     headline: resultSummary?.headline ?? "Final results",
-    detail: resultSummary?.detail ?? (snapshot.tableMessage || "The tournament is over."),
+    detail: resultSummary?.detail ?? (snapshot.tableMessage || "The tournament is complete."),
   };
 }
 
@@ -401,28 +401,28 @@ function getLevelProgressPercent(secondsRemaining: number, durationSeconds: numb
 function getLevelTimerState(secondsRemaining: number, durationSeconds: number) {
   if (secondsRemaining <= 15) {
     return {
-      timerClass: "text-rose-100",
-      barClass: "bg-[linear-gradient(90deg,_rgba(251,113,133,0.98),_rgba(239,68,68,0.72))]",
+      timerClass: "text-rose-50",
+      barClass: "bg-[linear-gradient(90deg,_rgba(251,113,133,0.98),_rgba(244,63,94,0.82))]",
     };
   }
 
   if (secondsRemaining <= 60) {
     return {
-      timerClass: "text-amber-100",
-      barClass: "bg-[linear-gradient(90deg,_rgba(250,204,21,0.95),_rgba(249,115,22,0.7))]",
+      timerClass: "text-amber-50",
+      barClass: "bg-[linear-gradient(90deg,_rgba(250,204,21,0.96),_rgba(251,146,60,0.78))]",
     };
   }
 
   return {
-    timerClass: "text-zinc-300",
-    barClass: "bg-[linear-gradient(90deg,_rgba(45,212,191,0.92),_rgba(56,189,248,0.7))]",
+    timerClass: "text-cyan-50",
+    barClass: "bg-[linear-gradient(90deg,_rgba(45,212,191,0.96),_rgba(96,165,250,0.78))]",
   };
 }
 
 function getPausedLevelTimerState() {
   return {
-    timerClass: "text-amber-100",
-    barClass: "bg-[linear-gradient(90deg,_rgba(245,158,11,0.7),_rgba(161,98,7,0.78))]",
+    timerClass: "text-amber-50",
+    barClass: "bg-[linear-gradient(90deg,_rgba(251,191,36,0.8),_rgba(245,158,11,0.82))]",
   };
 }
 
@@ -1127,20 +1127,20 @@ export function TournamentTable({
   ]);
 
   return (
-    <div className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[#050b0a] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.08),_transparent_24%),radial-gradient(circle_at_50%_54%,_rgba(56,189,248,0.08),_transparent_30%),linear-gradient(180deg,_rgba(10,22,21,0.96),_rgba(1,6,6,0.98))]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#4a3427] bg-[radial-gradient(circle_at_50%_34%,_rgba(53,161,103,0.5),_rgba(19,89,56,0.92)_38%,_rgba(7,31,22,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-emerald-100/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(66,191,128,0.17),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
-      <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(245,158,11,0.22),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
+    <div className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,_rgba(6,16,13,0.98),_rgba(2,7,6,0.99))] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.1),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(103,232,249,0.12),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(250,204,21,0.09),_transparent_22%),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
+      <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#355f56] bg-[radial-gradient(circle_at_50%_34%,_rgba(103,232,249,0.22),_rgba(35,163,116,0.92)_38%,_rgba(7,33,26,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
+      <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-white/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.08),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
+      <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(250,204,21,0.2),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
 
-      <div className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 px-2 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:left-4 sm:top-4 sm:text-xs">
+      <div className="social-surface absolute left-3 top-3 z-30 flex items-center gap-2 rounded-[1.35rem] px-3 py-2 text-[10px] font-medium text-zinc-100 sm:left-4 sm:top-4 sm:text-xs">
         <div className="min-w-0">
           <p className="max-w-[8.5rem] truncate font-semibold sm:max-w-[10rem]">{snapshot.roomName}</p>
           <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
-            {snapshot.visibility === "PUBLIC" ? "Open Table" : "Private Table"}
+            {snapshot.visibility === "PUBLIC" ? "Open table" : "Locked table"}
           </p>
         </div>
-        <div className="flex rounded-full border border-white/10 bg-black/30 p-0.5">
+        <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
           {(["chips", "bb"] as const).map((mode) => {
             const selected = stackDisplayMode === mode;
             return (
@@ -1148,8 +1148,8 @@ export function TournamentTable({
                 key={mode}
                 type="button"
                 onClick={() => onStackDisplayModeChange(mode)}
-                className={`rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
-                  selected ? "bg-white/15 text-white" : "text-zinc-400 hover:text-zinc-200"
+                className={`rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
+                  selected ? "social-cta-secondary text-[11px] text-slate-950" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 {mode === "chips" ? "Chips" : "BB"}
@@ -1159,9 +1159,9 @@ export function TournamentTable({
         </div>
       </div>
 
-      <div className="absolute right-3 top-3 z-30 w-[7.8rem] rounded-2xl border border-white/10 bg-black/35 px-2.5 py-1.5 text-right text-[9px] font-medium text-zinc-100 backdrop-blur-sm sm:right-4 sm:top-4 sm:w-[8.8rem] sm:px-3 sm:py-2 sm:text-[11px]">
+      <div className="social-surface absolute right-3 top-3 z-30 w-[7.8rem] rounded-[1.35rem] px-2.5 py-1.5 text-right text-[9px] font-medium text-zinc-100 sm:right-4 sm:top-4 sm:w-[8.8rem] sm:px-3 sm:py-2 sm:text-[11px]">
         <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">Blinds</p>
-        <p className="mt-0.5 font-semibold">
+        <p className="mt-0.5 text-base font-black text-white">
           {snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}
         </p>
         <p className="mt-0.5 text-[9px] text-zinc-400 sm:text-[10px]">
@@ -1173,7 +1173,9 @@ export function TournamentTable({
               Paused
             </span>
           ) : null}
-          <p className={`text-[9px] ${levelTimerState.timerClass} sm:text-[10px]`}>{formatLevelCountdown(secondsRemaining)}</p>
+          <p className={`text-[9px] font-semibold ${levelTimerState.timerClass} sm:text-[10px]`}>
+            {formatLevelCountdown(secondsRemaining)}
+          </p>
         </div>
         <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10 sm:h-[5px]">
           <div
@@ -1184,34 +1186,34 @@ export function TournamentTable({
       </div>
 
       <div
-        className="absolute left-1/2 z-10 w-[min(74%,18rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[21rem]"
+        className="social-surface absolute left-1/2 z-10 w-[min(76%,18rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.6rem] px-4 py-4 text-center sm:w-[21rem]"
         style={{ top: showBoardSlots ? "37.8%" : "39%" }}
       >
-        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:gap-2 sm:px-3 sm:text-xs">
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-100">
+        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 sm:gap-2 sm:px-3 sm:text-xs">
+          <span className="social-chip px-2 py-1 text-cyan-50">
             {centerCopy.stageLabel}
           </span>
           {snapshot.paused ? (
-            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-2 py-1 text-amber-100">
+            <span className="social-chip px-2 py-1 text-amber-50">
               Paused
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-sm font-semibold text-white sm:text-base">{centerCopy.headline}</p>
+        <p className="mt-2 text-sm font-black text-white sm:text-base">{centerCopy.headline}</p>
         <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-5 text-zinc-300 sm:max-w-[18rem] sm:text-xs">
           {centerCopy.detail}
         </p>
         {snapshot.paused ? (
-          <div className="mx-auto mt-3 max-w-[16rem] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All Players AFK</p>
+          <div className="mx-auto mt-3 max-w-[16rem] rounded-[1.2rem] border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All players AFK</p>
             <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
           </div>
         ) : null}
         {resultSummary ? (
-          <div className="mx-auto mt-3 max-w-[14rem] rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.56),_rgba(12,12,12,0.86))] px-3 py-2 shadow-xl shadow-black/30">
+          <div className="mx-auto mt-3 max-w-[14rem] rounded-[1.2rem] border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(250,204,21,0.2),_rgba(12,12,12,0.84))] px-3 py-2 shadow-xl shadow-black/30">
             <div className="flex items-center justify-center gap-2">
               <p className="text-sm font-semibold text-white">{resultSummary.headline}</p>
-              <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-2 py-1 text-[10px] font-semibold text-amber-100">
+              <span className="social-chip px-2 py-1 text-[10px] font-semibold text-amber-50">
                 {resultSummary.amountLabel}
               </span>
             </div>
@@ -1223,7 +1225,7 @@ export function TournamentTable({
           {potPulseId ? <span className="table-pot-pulse-ring" /> : null}
           <p
             key={potPulseId ?? "pot-static"}
-            className={`relative text-[1.9rem] font-black leading-none text-amber-100 sm:text-[2.7rem] ${
+            className={`relative text-[2rem] font-black leading-none text-amber-50 drop-shadow-[0_10px_30px_rgba(250,204,21,0.18)] sm:text-[2.8rem] ${
               potPulseId ? "table-pot-value-pulse" : ""
             }`}
           >
@@ -1231,9 +1233,9 @@ export function TournamentTable({
           </p>
         </div>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
-          <span className="rounded-full border border-white/10 bg-black/35 px-2 py-1">Main {mainPotLabel}</span>
+          <span className="social-chip px-2 py-1">Main {mainPotLabel}</span>
           {sidePotSummary.map((pot) => (
-            <span key={pot.id} className="rounded-full border border-white/10 bg-black/35 px-2 py-1">
+            <span key={pot.id} className="social-chip px-2 py-1">
               {pot.label}{" "}
               {formatAmountDisplay({
                 amount: pot.amount,
@@ -1245,7 +1247,7 @@ export function TournamentTable({
           ))}
         </div>
         {showBoardSlots ? (
-          <div className="mt-3 flex justify-center gap-0.5 scale-[0.92] sm:mt-4 sm:gap-2 sm:scale-100">
+          <div className="mt-3 flex scale-[0.92] justify-center gap-0.5 sm:mt-4 sm:gap-2 sm:scale-100">
             {boardSlots.map((card, index) =>
               card ? (
                 <div key={card} className={revealedBoardCardSet.has(card) ? "board-card-reveal" : ""}>
@@ -1259,10 +1261,10 @@ export function TournamentTable({
                   {index + 1}
                 </div>
               ),
-            )}
+              )}
           </div>
         ) : (
-          <p className="mx-auto mt-4 max-w-xs rounded-lg border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
+          <p className="mx-auto mt-4 max-w-xs rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
             {centerCopy.detail}
           </p>
         )}

@@ -18,35 +18,36 @@ type LobbyFormProps = {
   onCreate: () => void;
 };
 
-const visibilityOptions: Array<{ value: TournamentVisibility; label: string; description: string }> = [
+const visibilityOptions: Array<{ value: TournamentVisibility; label: string; description: string; badge: string }> = [
   {
     value: "PUBLIC",
-    label: "공개 테이블",
-    description: "로비 목록에 표시되며, 비밀번호 없이 바로 입장할 수 있습니다.",
+    label: "Open table",
+    badge: "Open",
+    description: "Shows up in the lobby so anyone can jump in without a password.",
   },
   {
     value: "PRIVATE",
-    label: "잠금 테이블",
-    description: "로비 목록에 보이지만 입장하려면 비밀번호가 필요합니다.",
+    label: "Locked table",
+    badge: "Locked",
+    description: "Still visible in the lobby, but joining needs the password you share.",
   },
 ];
 
 function toDisplayStatus(status: TournamentStatus) {
   switch (status) {
     case "WAITING":
-      return "대기 중";
+      return "Waiting";
     case "IN_HAND":
-      return "핸드 진행 중";
+      return "Hand active";
     case "HAND_RESULT":
-      return "핸드 결과";
+      return "Showdown";
     case "FINISHED":
-      return "종료";
+      return "Finished";
     default:
       return status;
   }
 }
 
-// Collects player-facing inputs for creating one open or locked table.
 export function LobbyForm({
   nickname,
   createRoomName,
@@ -65,29 +66,35 @@ export function LobbyForm({
   onCreate,
 }: LobbyFormProps) {
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur">
-      <p className="text-xs uppercase tracking-[0.3em] text-zinc-400">테이블 만들기</p>
-      <h3 className="mt-3 text-2xl font-semibold text-white">새 게임 생성</h3>
+    <div className="social-surface social-surface-strong rounded-[2rem] p-5 shadow-2xl shadow-black/20 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="social-kicker text-cyan-100/70">Create a room</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-white">Build your table</h3>
+        </div>
+        <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+          {roomVisibility === "PRIVATE" ? "Locked" : "Open"}
+        </span>
+      </div>
+
       <p className="mt-3 text-sm leading-6 text-zinc-300">
-        닉네임과 테이블 제목을 정하고, 누구나 바로 입장 가능한 공개방 또는 비밀번호가 필요한 잠금방 중 하나를
-        선택해 주세요. 플레이어에게는 테이블 제목과 비밀번호만 공유하면 되고, 방 코드는 서버가 내부적으로
-        관리합니다.
+        Pick a nickname, choose whether the room is open or locked, and create a table that is easy to share with
+        friends.
       </p>
 
       {activeTournamentRoomName ? (
-        <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-200/10 px-4 py-4 text-sm text-amber-50">
-          <p className="font-semibold">이미 참가 중인 테이블이 있습니다</p>
-          <p className="mt-2">
-            <span className="font-semibold">{activeTournamentRoomName}</span>
-            {activeTournamentStatus ? ` (${toDisplayStatus(activeTournamentStatus)})` : ""} 테이블로 돌아가세요.
+        <div className="mt-5 rounded-[1.4rem] border border-cyan-300/20 bg-[linear-gradient(135deg,_rgba(34,197,94,0.12),_rgba(10,18,16,0.94))] p-4 text-sm text-cyan-50">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">Active session</p>
+          <p className="mt-2 text-base font-bold text-white">
+            {activeTournamentRoomName}
+            {activeTournamentStatus ? ` · ${toDisplayStatus(activeTournamentStatus)}` : ""}
+          </p>
+          <p className="mt-2 leading-6 text-cyan-50/85">
+            You already have a live tournament. Jump back in from here instead of creating a new one.
           </p>
           {onResumeTournament ? (
-            <button
-              type="button"
-              onClick={onResumeTournament}
-              className="mt-3 rounded-2xl bg-amber-300 px-4 py-3 font-semibold text-slate-950 transition hover:bg-amber-200"
-            >
-              테이블로 돌아가기
+            <button type="button" onClick={onResumeTournament} className="social-cta-secondary mt-4 px-4 py-3 text-sm">
+              Resume table
             </button>
           ) : null}
         </div>
@@ -95,106 +102,105 @@ export function LobbyForm({
 
       <div className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-2 block text-sm text-zinc-300">닉네임</span>
+          <span className="mb-2 block text-sm font-medium text-zinc-200">Nickname</span>
           <input
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
-            placeholder="플레이어 이름"
-            className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
+            placeholder="Your player name"
+            className="social-input"
           />
         </label>
 
-        <div className="rounded-[1.6rem] border border-white/10 bg-black/20 p-4">
-          <div>
-            <p className="text-sm font-semibold text-white">테이블 설정</p>
-            <p className="mt-1 text-xs leading-5 text-zinc-400">
-              방 코드는 자동 생성됩니다. 플레이어는 테이블 제목을 보고, 잠금 테이블이라면 비밀번호를 입력해
-              입장합니다.
-            </p>
+        <div className="rounded-[1.55rem] border border-white/10 bg-black/20 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white">Room style</p>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">
+                Open tables are public. Locked tables stay listed, but the password is required at join time.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
             {visibilityOptions.map((option) => {
               const selected = roomVisibility === option.value;
+
               return (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => onRoomVisibilityChange(option.value)}
-                  className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  className={`rounded-[1.35rem] border p-4 text-left transition ${
                     selected
-                      ? "border-emerald-300/35 bg-emerald-400/10"
+                      ? "border-cyan-200/40 bg-[linear-gradient(180deg,_rgba(103,232,249,0.14),_rgba(255,255,255,0.04))] shadow-lg shadow-cyan-950/10"
                       : "border-white/10 bg-white/5 hover:bg-white/10"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-white">{option.label}</span>
+                    <div>
+                      <p className="text-base font-bold text-white">{option.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-400">{option.description}</p>
+                    </div>
                     <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${
-                        selected ? "bg-emerald-300 text-slate-950" : "bg-white/10 text-zinc-300"
+                      className={`social-chip px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                        selected ? "text-cyan-50" : "text-zinc-200"
                       }`}
                     >
-                      {option.value === "PUBLIC" ? "공개" : "잠금"}
+                      {option.badge}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-zinc-400">{option.description}</p>
                 </button>
               );
             })}
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
+          <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-black/20 px-4 py-3 text-sm text-zinc-200">
             <p className="font-semibold text-white">
-              {roomVisibility === "PRIVATE" ? "잠금방 공유 안내" : "공개방 공유 안내"}
+              {roomVisibility === "PRIVATE" ? "Private table share" : "Open table share"}
             </p>
             <p className="mt-2 leading-6 text-zinc-300">
               {roomVisibility === "PRIVATE"
-                ? "플레이어에게는 테이블 제목과 비밀번호만 전달하세요. 로비에는 방이 보이지만, 입장할 때 비밀번호가 필요합니다."
-                : "테이블 제목만 공유하면 로비에서 바로 찾을 수 있습니다. 방 코드는 내부 식별자로만 사용됩니다."}
+                ? "Share the room title and password with friends. The room code stays internal."
+                : "Share the room title or code and friends can join straight from the lobby."}
             </p>
           </div>
 
           <label className="mt-4 block">
-            <span className="mb-2 block text-sm text-zinc-300">테이블 제목</span>
+            <span className="mb-2 block text-sm font-medium text-zinc-200">Room name</span>
             <input
               value={createRoomName}
               onChange={(event) => onCreateRoomNameChange(event.target.value)}
-              placeholder="금요일 저녁 하이롤러"
-              className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
+              placeholder="Friday Night Table"
+              className="social-input"
             />
           </label>
 
           {roomVisibility === "PRIVATE" ? (
             <label className="mt-4 block">
-              <span className="mb-2 block text-sm text-zinc-300">비밀번호</span>
+              <span className="mb-2 block text-sm font-medium text-zinc-200">Password</span>
               <input
                 type="password"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="테이블 비밀번호를 입력해 주세요"
-                className="w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
+                placeholder="Set a room password"
+                className="social-input"
               />
             </label>
           ) : null}
 
-          <button
-            type="button"
-            onClick={onCreate}
-            disabled={createDisabled}
-            className="mt-4 w-full rounded-2xl bg-emerald-400 px-4 py-3 font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {roomVisibility === "PUBLIC" ? "공개" : "잠금"} 테이블 만들기
+          <button type="button" onClick={onCreate} disabled={createDisabled} className="social-cta mt-4 w-full px-4 py-3">
+            {roomVisibility === "PUBLIC" ? "Create open table" : "Create locked table"}
           </button>
         </div>
 
         {busyLabel ? (
-          <p className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+          <p className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-50">
             {busyLabel}
           </p>
         ) : null}
 
         {errorMessage ? (
-          <p className="rounded-2xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+          <p className="rounded-[1.25rem] border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
             {errorMessage}
           </p>
         ) : null}
