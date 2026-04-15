@@ -30,14 +30,14 @@ final class TournamentHandEngine {
         this.handProgressManager = handProgressManager;
     }
 
-    private String describeAction(String action) {
+    private String describeActionEvent(String action) {
         return switch (action) {
-            case "CHECK" -> "Check";
-            case "CALL" -> "Call";
-            case "BET" -> "Bet";
-            case "RAISE" -> "Raise";
-            case "ALL_IN" -> "All in";
-            case "FOLD" -> "Fold";
+            case "CHECK" -> "checked";
+            case "CALL" -> "called";
+            case "BET" -> "bet";
+            case "RAISE" -> "raised";
+            case "ALL_IN" -> "went all in";
+            case "FOLD" -> "folded";
             default -> action;
         };
     }
@@ -82,7 +82,13 @@ final class TournamentHandEngine {
         if (player.afk) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Player is AFK and must return before acting");
         }
-        return applyActionInternal(tournament, player, action, amount, player.nickname + " applied " + action + ".");
+        return applyActionInternal(
+                tournament,
+                player,
+                action,
+                amount,
+                player.nickname + " " + describeActionEvent(action) + "."
+        );
     }
 
     // Applies one server-driven automatic action such as an AFK timeout branch.

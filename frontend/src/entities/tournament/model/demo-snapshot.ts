@@ -130,7 +130,7 @@ export function createDemoTournamentSnapshot(code: string, roomName = "금요 �
     availableActions: ["FOLD", "CALL", "RAISE", "ALL_IN"],
     chipsToCall: 50,
     minimumRaiseTo: 100,
-    tableMessage: "Noah의 차례입니다. 50칩을 더 콜해야 하며 사이드 팟이 열려 있습니다.",
+    tableMessage: "Noah is up. Call 50 more to continue, and a side pot is active.",
     selfHoleCards: ["QS", "QH"],
   };
 }

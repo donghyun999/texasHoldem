@@ -44,8 +44,8 @@ final class TournamentLobbyManager {
         tournament.visibility = visibility;
         tournament.players.add(TournamentPlayerState.owner(guestId, identityFactory.normalizeNickname(nickname), 0));
         tournament.tableMessage = visibility == TournamentVisibility.PUBLIC
-                ? roomName + " 테이블이 로비에서 입장 가능합니다."
-                : roomName + " 테이블이 준비됐습니다. 방 이름과 비밀번호를 공유해 초대하세요.";
+                ? roomName + " is open for players in the lobby."
+                : roomName + " is ready. Share the room name and password to invite players.";
         return tournament;
     }
 
@@ -71,7 +71,7 @@ final class TournamentLobbyManager {
                 normalizedNickname,
                 stateAccess.nextSeatIndex(tournament.players)
         ));
-        tournament.tableMessage = normalizedNickname + " 님이 테이블에 입장했습니다.";
+        tournament.tableMessage = normalizedNickname + " joined the table.";
     }
 
     // Toggles the ready flag for one seated player before the tournament starts.
@@ -79,7 +79,7 @@ final class TournamentLobbyManager {
         stateAccess.requireWaiting(tournament);
         var player = stateAccess.requirePlayer(tournament, guestId);
         player.status = ready ? PlayerStatus.READY : PlayerStatus.SEATED;
-        tournament.tableMessage = player.nickname + (ready ? " 님이 준비 완료했습니다." : " 님이 준비를 해제했습니다.");
+        tournament.tableMessage = player.nickname + (ready ? " is ready." : " is not ready.");
     }
 
     // Verifies that the caller currently owns tournament start authority.

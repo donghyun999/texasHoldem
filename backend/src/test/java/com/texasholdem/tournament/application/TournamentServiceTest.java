@@ -260,7 +260,7 @@ class TournamentServiceTest {
         assertThat(broadcast.primaryEvent().payload()).containsEntry("reason", "playerJoined");
         assertThat(joinedSnapshot.code()).isEqualTo("JOIN1");
         assertThat(joinedSnapshot.players()).hasSize(2);
-        assertThat(joinedSnapshot.tableMessage()).contains("Player2 님이 테이블에 입장했습니다.");
+        assertThat(joinedSnapshot.tableMessage()).contains("Player2 joined the table.");
     }
 
     // Verifies that new creates and joins are rejected once the active-player cap is reached.
