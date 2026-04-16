@@ -1,6 +1,6 @@
 package com.texasholdem.websocket;
 
-import com.texasholdem.tournament.application.TournamentService;
+import com.texasholdem.tournament.application.command.TournamentService;
 import com.texasholdem.tournament.presentation.dto.GameActionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;

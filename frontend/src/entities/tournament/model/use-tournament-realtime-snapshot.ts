@@ -21,6 +21,19 @@ import {
 
 type TournamentRealtimeState = "IDLE" | "CONNECTING" | "CONNECTED" | "RECONNECTING" | "ERROR";
 
+function buildViewerSnapshotKey(snapshot: TournamentSnapshot) {
+  return [
+    snapshot.code,
+    snapshot.handNumber,
+    snapshot.stateVersion,
+    snapshot.snapshotAudience,
+    snapshot.viewerGuestId ?? "",
+    snapshot.viewerHoleCardsIncluded ? "1" : "0",
+    snapshot.chipsToCall,
+    snapshot.selfHoleCards.join(","),
+  ].join("|");
+}
+
 // Subscribes to one tournament topic and keeps the latest snapshot hot in memory.
 export function useTournamentRealtimeSnapshot(code: string, guestId: string, seedSnapshot?: TournamentSnapshot) {
   const queryClient = useQueryClient();
@@ -32,8 +45,24 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
   const routeExitDisconnectReadyRef = useRef(false);
   const documentExitRef = useRef(false);
   const manualReconnectRequiredRef = useRef(false);
+  const snapshotRef = useRef<TournamentSnapshot | null>(seedSnapshot ?? null);
+  const lastSyncedSnapshotKeyRef = useRef("");
+  const lastHydratedSnapshotKeyRef = useRef("");
   const normalizedCode = code.trim().toUpperCase();
   const currentPlayer = findCurrentPlayer(snapshot, guestId);
+
+  const commitSnapshot = (nextSnapshot: TournamentSnapshot, syncOptions?: { syncActiveSession?: boolean }) => {
+    const nextSnapshotKey = buildViewerSnapshotKey(nextSnapshot);
+    if (lastSyncedSnapshotKeyRef.current === nextSnapshotKey) {
+      return false;
+    }
+
+    snapshotRef.current = nextSnapshot;
+    lastSyncedSnapshotKeyRef.current = nextSnapshotKey;
+    setSnapshot(nextSnapshot);
+    syncTournamentSnapshotCaches(queryClient, guestId, nextSnapshot, syncOptions);
+    return true;
+  };
 
   // Keeps the latest disconnect payload ready for unload and route-exit cleanup.
   useEffect(() => {
@@ -47,6 +76,9 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
   // Clears stale viewer state when either the tournament or current guest changes.
   useEffect(() => {
+    snapshotRef.current = seedSnapshot ?? null;
+    lastSyncedSnapshotKeyRef.current = seedSnapshot ? buildViewerSnapshotKey(seedSnapshot) : "";
+    lastHydratedSnapshotKeyRef.current = "";
     setSnapshot(seedSnapshot ?? null);
     setLastEventType(null);
     manualReconnectRequiredRef.current = false;
@@ -58,28 +90,21 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    setSnapshot((currentSnapshot) => currentSnapshot ?? seedSnapshot);
-  }, [seedSnapshot]);
-
-  // Keeps shared snapshot, active-tournament, and public-room caches aligned even on initial REST-only entry.
-  useEffect(() => {
-    if (!snapshot) {
-      return;
+    if (!snapshotRef.current) {
+      commitSnapshot(seedSnapshot);
     }
-
-    syncTournamentSnapshotCaches(queryClient, guestId, snapshot);
-  }, [code, guestId, queryClient, snapshot]);
+  }, [seedSnapshot]);
 
   // Applies one tournament event from either WebSocket or REST fallback into local caches.
   function applyTournamentEvent(event: TournamentEvent) {
-    const mergedSnapshot = mergeSnapshotForViewer(snapshot, event.snapshot);
+    const mergedSnapshot = mergeSnapshotForViewer(snapshotRef.current, event.snapshot);
     if (!mergedSnapshot) {
       return;
     }
 
-    setSnapshot(mergedSnapshot);
-    setLastEventType(event.eventType);
-    syncTournamentSnapshotCaches(queryClient, guestId, mergedSnapshot);
+    if (commitSnapshot(mergedSnapshot)) {
+      setLastEventType(event.eventType);
+    }
   }
 
   // Refreshes the current guest's personalized snapshot view when hole cards or reconnect state may change.
@@ -88,15 +113,20 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
+    const currentSnapshotKey = snapshotRef.current ? buildViewerSnapshotKey(snapshotRef.current) : "";
+    if (currentSnapshotKey && currentSnapshotKey === lastHydratedSnapshotKeyRef.current) {
+      return;
+    }
+
     void getTournamentSnapshot(normalizedCode, guestId)
       .then((viewerSnapshot) => {
-        const mergedSnapshot = mergeSnapshotForViewer(snapshot, viewerSnapshot);
+        lastHydratedSnapshotKeyRef.current = currentSnapshotKey;
+        const mergedSnapshot = mergeSnapshotForViewer(snapshotRef.current, viewerSnapshot);
         if (!mergedSnapshot) {
           return;
         }
 
-        setSnapshot(mergedSnapshot);
-        syncTournamentSnapshotCaches(queryClient, guestId, mergedSnapshot);
+        commitSnapshot(mergedSnapshot);
       })
       .catch(() => {
         // Keep the current live snapshot when the viewer-specific refresh fails.
@@ -113,13 +143,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
     applyTournamentEvent(event);
 
-    if (
-      event.eventType === "actionApplied" ||
-      event.eventType === "handStarted" ||
-      event.eventType === "tournamentSnapshot" ||
-      event.eventType === "playerReconnected" ||
-      event.eventType === "playerReturned"
-    ) {
+    if (event.eventType === "playerReconnected" || event.eventType === "playerReturned") {
       hydrateViewerSnapshot();
     }
   });
@@ -145,7 +169,6 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     const client = createTournamentClient();
     clientRef.current = client;
     setRealtimeState("CONNECTING");
-    setLastEventType(null);
 
     client.onConnect = () => {
       setRealtimeState("CONNECTED");
@@ -256,13 +279,12 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
       manualReconnectRequiredRef.current = true;
 
-      if (snapshot?.status === "WAITING") {
-        const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
-        setSnapshot(optimisticSnapshot);
-        setLastEventType("playerDisconnected");
-        syncTournamentSnapshotCaches(queryClient, guestId, optimisticSnapshot, { syncActiveSession: false });
-        syncActiveTournamentSessionCache(queryClient, guestId, null);
-      }
+    if (snapshot?.status === "WAITING") {
+      const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
+      commitSnapshot(optimisticSnapshot, { syncActiveSession: false });
+      setLastEventType("playerDisconnected");
+      syncActiveTournamentSessionCache(queryClient, guestId, null);
+    }
 
       void disconnectTournamentPlayer(normalizedCode, guestId)
         .then((event) => {

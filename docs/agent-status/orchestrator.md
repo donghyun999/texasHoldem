@@ -1,11 +1,11 @@
 # orchestrator 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-15 Asia/Seoul`
+  - `2026-04-16 Asia/Seoul`
 - 상태:
   - `done`
 - 현재 작업:
-  - WPL 방향 frontend 디자인 handoff 반영 및 세션 종료 정리
+  - frontend UI 단순화, 프론트 렌더 최적화, backend `tournament/application` 패키지 정리, 독립 verification handoff 수집 및 세션 종료 정리
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -29,17 +29,22 @@
   - `frontend/**`
   - 구현 역할 에이전트가 소유 중인 hotspot 파일
 - 마지막 결정:
-  - `WPL` 방향으로 frontend 비주얼 톤을 이동했고, 액션패널 사이징 동작은 유지한 채 frontend build를 통과했다
+  - frontend는 중앙 메타 제거, 로비 감량, 렌더 최적화를 완료했고, backend는 `tournament/application`을 `command/hand/persistence/runtime/snapshot/state`로 재정리한 뒤 targeted validation을 통과했다. verification-agent의 독립 검증도 frontend build와 backend targeted suite pass로 마무리됐다
 - 다음 액션:
-  - 다음 세션 시작 시 `AGENTS.md`, 운영 문서, `docs/agent-status/orchestrator.md`를 먼저 읽는다
-  - 실제 후속 task가 생기면 역할별 task-owner와 `agent-status`를 먼저 갱신한다
-  - 필요 시 좌석 크롬, 액션패널 시각언어, 상태별 모션을 같은 디자인 언어로 확장한다
+  - 다음 세션에서 인증/인가 전환이 시작되면 `HttpOnly` 세션 쿠키 기준의 backend task를 새로 배정한다
+  - 필요 시 `use-tournament-realtime-snapshot` 분리를 별도 구조 작업으로 다시 검토한다
+  - 세션 시작 시 최신 `agent-status`와 diff를 먼저 확인한다
 - 막힌 점:
-  - 현재 미통합 변경은 남아 있지만 handoff와 검증 요약은 정리된 상태다
+  - 없음
 - 남은 리스크:
   - `use-tournament-realtime-snapshot`는 여전히 websocket/session lifecycle 소유자라 후속 분리 여지가 남아 있다
   - backend facade는 얇아졌지만 호환성 때문에 일부 retained field가 남아 있어 추가 정리는 별도 작업으로 다뤄야 한다
   - 이번 디자인 라운드는 로비와 테이블 HUD 중심이라 `PlayerSeat`와 액션패널의 시각 톤은 후속 작업 여지가 남아 있다
+  - backend 패키지 분리 과정에서 일부 access modifier가 넓어져 후속 캡슐화 정리 여지가 남아 있다
+- 현재 미통합 변경:
+  - backend `tournament/application` 하위 패키지 재정리 move set
+  - frontend 중앙 메타 제거, 로비 감량, realtime/table 렌더 최적화 변경
+  - `docs/agent-status/*.md` 종료 상태 갱신
 - 세션 재개 시 먼저 볼 파일:
   - `AGENTS.md`
   - `docs/multi-agent-cli-operations.md`

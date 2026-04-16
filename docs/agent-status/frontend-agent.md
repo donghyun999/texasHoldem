@@ -1,11 +1,11 @@
 # frontend-agent 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-15 Asia/Seoul`
+  - `2026-04-16 Asia/Seoul`
 - 상태:
   - `done`
 - 현재 작업:
-  - WPL 방향 visual pass handoff 완료
+  - 중앙 메타 제거, 로비 감량, 테이블 겹침 조정, 렌더 최적화 handoff 완료
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -22,14 +22,13 @@
   - `backend/**`
   - 다른 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - frontend handoff를 수집했고, `TablePage.tsx`, `use-tournament-realtime-snapshot.ts`, `TournamentTable.tsx` 중심 작업은 frontend writer 1명만 맡는 원칙을 유지한다
+  - 중앙은 팟/보드 중심으로 단순화했고, 로비는 보조 설명 패널과 과한 메타 UI를 덜어냈으며, realtime/table 렌더 경로의 즉시 최적화 후보를 반영했다
 - 다음 액션:
-  - 후속 frontend task가 생기면 현재 lobby / realtime / table 경계를 기준으로 범위를 다시 배정한다
-  - 필요 시 websocket lifecycle과 cache hydration을 더 세밀하게 분리한다
-  - 필요 시 로비 문구와 상태별 테이블 정보 구조를 추가 polish한다
-  - 필요 시 `social-*` 토큰을 `PlayerSeat`, 액션패널, 기타 HUD 컴포넌트로 확장한다
+  - 후속 frontend task에서는 websocket/session orchestration을 `entities`에서 분리할지 구조적으로 다시 검토한다
+  - 필요 시 `PlayerSeat`와 `ActionPanel`의 시각 톤을 현재 HUD 언어에 맞춰 추가 정리한다
+  - 성능 이슈가 다시 보이면 realtime hydrate와 table animation state를 먼저 점검한다
 - 막힌 점:
-  - 현재 frontend handoff와 build는 완료됐다
+  - 없음
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `frontend/src/pages/HomePage.tsx`

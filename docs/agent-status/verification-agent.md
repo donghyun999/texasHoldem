@@ -1,11 +1,11 @@
 # verification-agent 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-15 Asia/Seoul`
+  - `2026-04-16 Asia/Seoul`
 - 상태:
   - `done`
 - 현재 작업:
-  - frontend build / backend targeted test 검증 완료
+  - 독립 verification pass handoff 완료
 - 현재 브랜치:
   - 없음
 - 현재 worktree:
@@ -24,13 +24,13 @@
   - `frontend/src/**`
   - 구현 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - verification handoff를 수집했고, `test-results/` 산출물은 모두 ignore 유지 원칙을 유지한다
+  - frontend build와 backend targeted validation을 독립 에이전트로 재실행했고, backend의 최초 실패는 코드가 아니라 Gradle 홈 경로 권한 문제임을 확인했다
 - 다음 액션:
   - 다음 세션에서 변경 범위에 맞춰 검증 명령 집합을 다시 확정
-  - gameplay 흐름 변경이 생기면 최종 브라우저 smoke 여부를 판단
-  - 산출물은 계속 ignore 경로 아래에만 유지한다
+  - backend 검증이 sandbox 환경에서 필요하면 workspace-local `GRADLE_USER_HOME` 사용 여부를 먼저 판단한다
+  - gameplay 흐름 변경이 생기면 최종 브라우저 smoke 여부를 판단한다
 - 막힌 점:
-  - 현재 검증 결과는 pass이며 추가 failure는 없다
+  - 없음
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `backend/build.gradle`

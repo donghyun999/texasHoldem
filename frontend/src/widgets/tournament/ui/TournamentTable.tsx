@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { formatAmountDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
@@ -72,11 +72,11 @@ const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
   0: { left: "38.5%", top: "28.5%" },
   1: { left: "50%", top: "23.2%" },
   2: { left: "61.5%", top: "28.5%" },
-  3: { left: "67.5%", top: "42.5%" },
-  4: { left: "50%", top: "55.5%" },
-  5: { left: "32.5%", top: "42.5%" },
+  3: { left: "68.5%", top: "41.5%" },
+  4: { left: "50%", top: "57%" },
+  5: { left: "31.5%", top: "41.5%" },
 };
-const POT_COLLECTION_POSITION = { left: "50%", top: "41.8%" };
+const POT_COLLECTION_POSITION = { left: "50%", top: "40.8%" };
 const BET_CHIP_ANIMATION_MS = 680;
 const BET_CHIP_CLEANUP_BUFFER_MS = 80;
 const POT_CHIP_ANIMATION_MS = 620;
@@ -688,28 +688,37 @@ export function TournamentTable({
   const potChipTimeoutIdsRef = useRef<number[]>([]);
   const potCollectionTimeoutIdsRef = useRef<number[]>([]);
   const uiEffectTimeoutIdsRef = useRef<number[]>([]);
-  const seats = buildSeatMap(snapshot.players);
-  const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
-  const showdownHoleCardsByGuestId = new Map(
-    snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const),
+  const seats = useMemo(() => buildSeatMap(snapshot.players), [snapshot.players]);
+  const displayedSeatIndexes = useMemo(
+    () => buildDisplayedSeatIndexes(snapshot.players, currentGuestId),
+    [snapshot.players, currentGuestId],
   );
-  const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
-  const streetLabel = getStreetLabel(snapshot.boardCards);
-  const resultSummary = buildResultSummary(snapshot);
-  const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
-  const winnerGuestIds = buildWinnerGuestIds(snapshot);
-  const winnerGuestIdsKey = winnerGuestIds.join("|");
-  const winnerGuestIdSet = new Set(winnerGuestIds);
-  const boardSlots = Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null);
-  const showBoardSlots = snapshot.status !== "WAITING" || snapshot.boardCards.length > 0;
-  const betMarkers = buildBetMarkers(snapshot, displayedSeatIndexes);
-  const sidePotSummary = buildSidePotSummary(snapshot);
-  const revealedBoardCardSet = new Set(revealedBoardCards);
-  const seatActionFlashByGuestId = new Map(seatActionFlashes.map((entry) => [entry.guestId, entry] as const));
-  const dealPulseByGuestId = new Map(dealPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const foldPulseByGuestId = new Map(foldPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const actorFocusPulseByGuestId = new Map(actorFocusPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const winnerPulseByGuestId = new Map(winnerPulses.map((entry) => [entry.guestId, entry.id] as const));
+  const showdownHoleCardsByGuestId = useMemo(
+    () => new Map(snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const)),
+    [snapshot.showdownHands],
+  );
+  const totalPot = useMemo(
+    () => snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0),
+    [snapshot.mainPot, snapshot.sidePots],
+  );
+  const winnerGuestIds = useMemo(() => buildWinnerGuestIds(snapshot), [snapshot.status, snapshot.showdownPots]);
+  const winnerGuestIdsKey = useMemo(() => winnerGuestIds.join("|"), [winnerGuestIds]);
+  const winnerGuestIdSet = useMemo(() => new Set(winnerGuestIds), [winnerGuestIds]);
+  const boardSlots = useMemo(() => Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null), [snapshot.boardCards]);
+  const betMarkers = useMemo(() => buildBetMarkers(snapshot, displayedSeatIndexes), [snapshot.players, snapshot.status, displayedSeatIndexes]);
+  const sidePotSummary = useMemo(() => buildSidePotSummary(snapshot), [snapshot.sidePots]);
+  const revealedBoardCardSet = useMemo(() => new Set(revealedBoardCards), [revealedBoardCards]);
+  const seatActionFlashByGuestId = useMemo(
+    () => new Map(seatActionFlashes.map((entry) => [entry.guestId, entry] as const)),
+    [seatActionFlashes],
+  );
+  const dealPulseByGuestId = useMemo(() => new Map(dealPulses.map((entry) => [entry.guestId, entry.id] as const)), [dealPulses]);
+  const foldPulseByGuestId = useMemo(() => new Map(foldPulses.map((entry) => [entry.guestId, entry.id] as const)), [foldPulses]);
+  const actorFocusPulseByGuestId = useMemo(
+    () => new Map(actorFocusPulses.map((entry) => [entry.guestId, entry.id] as const)),
+    [actorFocusPulses],
+  );
+  const winnerPulseByGuestId = useMemo(() => new Map(winnerPulses.map((entry) => [entry.guestId, entry.id] as const)), [winnerPulses]);
   const blindClockActive = isBlindClockActive(snapshot.status);
   const showOpponentActionTimer =
     snapshot.status === "IN_HAND" &&
@@ -736,7 +745,6 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
-  const centerCopy = buildCenterCopy(snapshot, streetLabel, actingPlayer, resultSummary);
 
   const createUiEffectId = (prefix: string) => {
     const id = `${prefix}-${snapshot.handNumber}-${snapshot.stateVersion}-${uiEffectIdRef.current}`;
@@ -1185,41 +1193,10 @@ export function TournamentTable({
       </div>
 
       <div
-        className="social-surface absolute left-1/2 z-10 w-[min(76%,18rem)] -translate-x-1/2 -translate-y-1/2 rounded-[1.6rem] px-4 py-4 text-center sm:w-[21rem]"
-        style={{ top: showBoardSlots ? "37.8%" : "39%" }}
+        className="absolute left-1/2 z-10 w-[min(74%,18.5rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[22rem]"
+        style={{ top: "36.8%" }}
       >
-        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 sm:gap-2 sm:px-3 sm:text-xs">
-          <span className="social-chip px-2 py-1 text-cyan-50">
-            {centerCopy.stageLabel}
-          </span>
-          {snapshot.paused ? (
-            <span className="social-chip px-2 py-1 text-amber-50">
-              일시정지
-            </span>
-          ) : null}
-        </div>
-        <p className="mt-2 text-sm font-black text-white sm:text-base">{centerCopy.headline}</p>
-        <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-5 text-zinc-300 sm:max-w-[18rem] sm:text-xs">
-          {centerCopy.detail}
-        </p>
-        {snapshot.paused ? (
-          <div className="mx-auto mt-3 max-w-[16rem] rounded-[1.2rem] border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">모든 플레이어 AFK</p>
-            <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
-          </div>
-        ) : null}
-        {resultSummary ? (
-          <div className="mx-auto mt-3 max-w-[14rem] rounded-[1.2rem] border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(250,204,21,0.2),_rgba(12,12,12,0.84))] px-3 py-2 shadow-xl shadow-black/30">
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-sm font-semibold text-white">{resultSummary.headline}</p>
-              <span className="social-chip px-2 py-1 text-[10px] font-semibold text-amber-50">
-                {resultSummary.amountLabel}
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] text-amber-50/80">{resultSummary.detail}</p>
-          </div>
-        ) : null}
-        <p className="mt-3 text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">팟</p>
+        <p className="text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">팟</p>
         <div className="relative mx-auto mt-1 w-max">
           {potPulseId ? <span className="table-pot-pulse-ring" /> : null}
           <p
@@ -1245,28 +1222,20 @@ export function TournamentTable({
             </span>
           ))}
         </div>
-        {showBoardSlots ? (
-          <div className="mt-3 flex scale-[0.92] justify-center gap-0.5 sm:mt-4 sm:gap-2 sm:scale-100">
-            {boardSlots.map((card, index) =>
-              card ? (
-                <div key={card} className={revealedBoardCardSet.has(card) ? "board-card-reveal" : ""}>
-                  <PlayingCard card={card} />
-                </div>
-              ) : (
-                <div
-                  key={`board-slot-${index}`}
-                  className="grid h-18 w-12 place-items-center rounded-lg border border-white/10 bg-black/20 text-xs text-white/25 sm:h-24 sm:w-16"
-                >
-                  {index + 1}
-                </div>
-              ),
-              )}
-          </div>
-        ) : (
-          <p className="mx-auto mt-4 max-w-xs rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
-            {centerCopy.detail}
-          </p>
-        )}
+        <div className="mt-2.5 flex scale-[0.88] justify-center gap-0.5 sm:mt-3.5 sm:gap-2 sm:scale-100">
+          {boardSlots.map((card, index) =>
+            card ? (
+              <div key={card} className={revealedBoardCardSet.has(card) ? "board-card-reveal" : ""}>
+                <PlayingCard card={card} />
+              </div>
+            ) : (
+              <div
+                key={`board-slot-${index}`}
+                className="h-18 w-12 rounded-lg border border-white/10 bg-black/20 sm:h-24 sm:w-16"
+              />
+            ),
+          )}
+        </div>
       </div>
 
       {Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {

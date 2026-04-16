@@ -103,9 +103,6 @@ export function PublicTournamentList({
                       <span className="social-chip px-2.5 py-1 uppercase tracking-[0.18em] text-zinc-100">
                         인원 {room.currentPlayers} / {room.maxPlayers}
                       </span>
-                      <span className="social-chip px-2.5 py-1 uppercase tracking-[0.18em] text-zinc-100">
-                        {locked ? "비밀번호 필요" : "비밀번호 없음"}
-                      </span>
                     </div>
 
                   </div>

@@ -1,11 +1,11 @@
 # backend-agent 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-15 Asia/Seoul`
+  - `2026-04-16 Asia/Seoul`
 - 상태:
   - `done`
 - 현재 작업:
-  - handoff 완료
+  - `TournamentService.java` production 복구, `tournament/application` 하위 패키지 정리, backend validation handoff 완료
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -22,13 +22,13 @@
   - `frontend/**`
   - 다른 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - backend handoff를 수집했고, `TournamentService.java` 중심 작업은 backend writer 1명만 맡는 원칙을 유지한다
+  - backend move set은 `command`, `hand`, `persistence`, `runtime`, `snapshot`, `state` 기준으로 정리했고, `TournamentService`는 `backend/src/main/java/**` 아래 production 위치를 유지한다
 - 다음 액션:
-  - 후속 backend task가 생기면 현재 facade / command-flow 경계를 기준으로 범위를 다시 배정한다
-  - 필요 시 retained field 정리나 추가 command handler 분리를 별도 task로 수행한다
-  - snapshot / event 계약 영향이 생기면 frontend와 다시 경계를 맞춘다
+  - 후속 backend task에서는 인증/인가 구조 전환을 우선 검토한다
+  - 필요 시 넓어진 access modifier를 다시 좁히는 캡슐화 정리를 별도 작업으로 수행한다
+  - 추가 구조 변경이 생기면 targeted suite부터 다시 확인한다
 - 막힌 점:
-  - 현재 backend handoff와 targeted test는 완료됐다
+  - 없음
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`

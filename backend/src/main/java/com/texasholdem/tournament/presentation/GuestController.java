@@ -1,7 +1,7 @@
 package com.texasholdem.tournament.presentation;
 
 import com.texasholdem.common.api.ApiResponse;
-import com.texasholdem.tournament.application.TournamentService;
+import com.texasholdem.tournament.application.command.TournamentService;
 import com.texasholdem.tournament.domain.ActiveTournamentSession;
 import com.texasholdem.tournament.domain.GuestSession;
 import com.texasholdem.tournament.presentation.dto.CreateGuestRequest;

@@ -77,9 +77,6 @@ export function LobbyForm({
         </span>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-zinc-300">
-        닉네임과 방 유형만 정하면 바로 만들 수 있습니다.
-      </p>
 
       {activeTournamentRoomName ? (
         <div className="mt-5 rounded-[1.4rem] border border-cyan-300/20 bg-[linear-gradient(135deg,_rgba(34,197,94,0.12),_rgba(10,18,16,0.94))] p-4 text-sm text-cyan-50">
@@ -109,78 +106,35 @@ export function LobbyForm({
             className="social-input"
           />
         </label>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {visibilityOptions.map((option) => {
+            const selected = roomVisibility === option.value;
 
-        <div className="rounded-[1.55rem] border border-white/10 bg-black/20 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-white">방 유형</p>
-              <p className="mt-1 text-xs leading-5 text-zinc-400">
-                공개 테이블은 모두에게 보입니다. 잠금 테이블은 목록에 남아 있지만, 참가 시 비밀번호가 필요합니다.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {visibilityOptions.map((option) => {
-              const selected = roomVisibility === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => onRoomVisibilityChange(option.value)}
-                  className={`rounded-[1.35rem] border p-4 text-left transition ${
-                    selected
-                      ? "border-cyan-200/40 bg-[linear-gradient(180deg,_rgba(103,232,249,0.14),_rgba(255,255,255,0.04))] shadow-lg shadow-cyan-950/10"
-                      : "border-white/10 bg-white/5 hover:bg-white/10"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-base font-bold text-white">{option.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-zinc-400">{option.description}</p>
-                    </div>
-                    <span
-                      className={`social-chip px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-                        selected ? "text-cyan-50" : "text-zinc-200"
-                      }`}
-                    >
-                      {option.badge}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <label className="mt-4 block">
-            <span className="mb-2 block text-sm font-medium text-zinc-200">방 이름</span>
-            <input
-              value={createRoomName}
-              onChange={(event) => onCreateRoomNameChange(event.target.value)}
-              placeholder="금요일 밤 테이블"
-              className="social-input"
-            />
-          </label>
-
-          {roomVisibility === "PRIVATE" ? (
-            <label className="mt-4 block">
-              <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
-              <input
-                type="password"
-                value={createPassword}
-                onChange={(event) => onCreatePasswordChange(event.target.value)}
-                placeholder="방 비밀번호를 설정하세요"
-                className="social-input"
-              />
-            </label>
-          ) : null}
-
-          <button type="button" onClick={onCreate} disabled={createDisabled} className="social-cta mt-4 w-full px-4 py-3">
-            {roomVisibility === "PUBLIC" ? "공개 테이블 만들기" : "잠금 테이블 만들기"}
-          </button>
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onRoomVisibilityChange(option.value)}
+                className={`rounded-[1.35rem] border p-4 text-left transition ${
+                  selected
+                    ? "border-cyan-200/40 bg-[linear-gradient(180deg,_rgba(103,232,249,0.14),_rgba(255,255,255,0.04))] shadow-lg shadow-cyan-950/10"
+                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-base font-bold text-white">{option.label}</p>
+                  <span
+                    className={`social-chip px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                      selected ? "text-cyan-50" : "text-zinc-200"
+                    }`}
+                  >
+                    {option.badge}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
-
         {busyLabel ? (
           <p className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-50">
             {busyLabel}
@@ -192,6 +146,7 @@ export function LobbyForm({
             {errorMessage}
           </p>
         ) : null}
+
       </div>
     </div>
   );

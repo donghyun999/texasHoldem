@@ -263,7 +263,7 @@ export function HomePage() {
         <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
           <div className="absolute -right-10 top-6 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
           <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
-          <div className="relative grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div className="relative space-y-5">
             <div className="space-y-5">
               <h2 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
                 빠르게 방을 만들고, 바로 참가하세요.
@@ -284,29 +284,9 @@ export function HomePage() {
                   잠금 방 {liveLockedRooms}
                 </span>
               </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <MetricCard label="서비스 상태" value={formatBackendStatus(statusQuery.data?.status)} accent="cyan" />
-                <MetricCard label="공개 방" value={`${liveOpenRooms}`} accent="gold" />
-                <MetricCard label="잠금 방" value={`${liveLockedRooms}`} accent="green" />
               </div>
             </div>
-
-            <div className="rounded-[1.8rem] border border-white/10 bg-black/25 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.18)]">
-              <p className="text-sm font-semibold text-white">로비 안내</p>
-              <div className="mt-3 grid gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">공개 방</p>
-                  <p className="mt-2 text-sm text-zinc-200">목록에서 바로 참가할 수 있습니다.</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-400">잠금 방</p>
-                  <p className="mt-2 text-sm text-zinc-200">참가하려면 방장이 공유한 비밀번호가 필요합니다.</p>
-                </div>
-              </div>
             </div>
-          </div>
-        </div>
 
         <PublicTournamentList
           rooms={waitingRooms}
@@ -350,29 +330,5 @@ export function HomePage() {
         onCreate={handleCreate}
       />
     </section>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string;
-  accent: "cyan" | "gold" | "green";
-}) {
-  const accentClass =
-    accent === "gold"
-      ? "from-amber-300/20 to-amber-100/0 border-amber-200/20"
-      : accent === "green"
-        ? "from-emerald-300/20 to-emerald-100/0 border-emerald-200/20"
-        : "from-cyan-300/20 to-cyan-100/0 border-cyan-200/20";
-
-  return (
-    <div className={`rounded-3xl border bg-[linear-gradient(180deg,_rgba(255,255,255,0.08),_rgba(255,255,255,0.04))] p-4 ${accentClass}`}>
-      <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-400">{label}</p>
-      <p className="mt-2 text-lg font-bold text-white">{value}</p>
-    </div>
   );
 }
