@@ -7,13 +7,13 @@ import {
   buildTournamentSnapshotKey,
   publicTournamentListQueryKey,
 } from "@/entities/tournament/model/query-keys";
-import type { TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
+import type { ActiveTournamentSession, TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
 import { rememberCreatedRoomPassword } from "@/features/lobby/model/created-room-passwords";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
 import { PublicTournamentList } from "@/features/lobby/ui/PublicTournamentList";
 import {
   createTournament,
-  getActiveTournamentForGuest,
+  getActiveTournamentForCurrentGuest,
   getBackendStatus,
   getPublicWaitingTournaments,
   joinTournament,
@@ -64,10 +64,9 @@ export function HomePage() {
     queryFn: getBackendStatus,
     retry: false,
   });
-  const activeTournamentQuery = useQuery({
-    queryKey: buildActiveTournamentKey(guestId),
-    queryFn: () => getActiveTournamentForGuest(guestId),
-    enabled: !!guestId.trim(),
+  const activeTournamentQuery = useQuery<ActiveTournamentSession | null, Error>({
+    queryKey: buildActiveTournamentKey(),
+    queryFn: () => getActiveTournamentForCurrentGuest(),
     retry: false,
   });
   const waitingRoomListQuery = useQuery({
@@ -127,11 +126,11 @@ export function HomePage() {
 
   const controlsDisabled =
     !!activeTournament ||
-    (!!guestId.trim() && activeTournamentQuery.isPending) ||
+    activeTournamentQuery.isPending ||
     createMutation.isPending ||
     joinMutation.isPending;
 
-  const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
+  const isCheckingActiveTournament = activeTournamentQuery.isPending;
   const busyLabel = createMutation.isPending
     ? "테이블을 만드는 중..."
     : joinMutation.isPending
@@ -178,7 +177,7 @@ export function HomePage() {
     navigationState?: TableNavigationState,
   ) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
-    queryClient.setQueryData(buildActiveTournamentKey(viewerGuestId), {
+    queryClient.setQueryData(buildActiveTournamentKey(), {
       guestId: viewerGuestId,
       tournamentCode: snapshot.code,
       roomName: snapshot.roomName,

@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createGuestSession } from "@/shared/api/http";
+import { readPersistedGuestId, writePersistedGuestId } from "@/shared/model/guest-session-storage";
 import { useUiStore } from "@/shared/model/ui-store";
 
 const guestSessionBootstrapQueryKey = ["guest-session-bootstrap"] as const;
@@ -12,9 +13,8 @@ type UseGuestSessionOptions = {
 // Optionally bootstraps one persisted guest session from the backend when the browser has none yet.
 export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions = {}) {
   const queryClient = useQueryClient();
-  const guestId = useUiStore((state) => state.guestId);
+  const [guestId, setGuestId] = useState(() => readPersistedGuestId());
   const nickname = useUiStore((state) => state.nickname);
-  const setGuestSession = useUiStore((state) => state.setGuestSession);
   const setNickname = useUiStore((state) => state.setNickname);
   const guestSessionQueryOptions = {
     queryKey: guestSessionBootstrapQueryKey,
@@ -33,8 +33,10 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
       return;
     }
 
-    setGuestSession(guestSessionQuery.data.guestId, guestSessionQuery.data.nickname);
-  }, [guestSessionQuery.data, setGuestSession]);
+    setGuestId(guestSessionQuery.data.guestId);
+    writePersistedGuestId(guestSessionQuery.data.guestId);
+    setNickname(guestSessionQuery.data.nickname);
+  }, [guestSessionQuery.data, setNickname]);
 
   async function ensureGuestSession() {
     if (guestId.trim()) {
@@ -42,7 +44,9 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
     }
 
     const session = await queryClient.fetchQuery(guestSessionQueryOptions);
-    setGuestSession(session.guestId, session.nickname);
+    setGuestId(session.guestId);
+    writePersistedGuestId(session.guestId);
+    setNickname(session.nickname);
     return session.guestId;
   }
 

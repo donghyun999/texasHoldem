@@ -32,6 +32,7 @@ public final class TournamentCommandSupport {
     private final TournamentCommandLock commandLock;
     private final TournamentStateStore stateStore;
     private final ApplicationEventPublisher eventPublisher;
+    private final TournamentCleanupService cleanupService;
     private final int maxActivePlayers;
     private final long waitingIdleTtlMillis;
     private final long inHandIdleTtlMillis;
@@ -48,6 +49,7 @@ public final class TournamentCommandSupport {
             TournamentCommandLock commandLock,
             TournamentStateStore stateStore,
             ApplicationEventPublisher eventPublisher,
+            TournamentCleanupService cleanupService,
             int maxActivePlayers,
             long waitingIdleTtlMillis,
             long inHandIdleTtlMillis,
@@ -63,6 +65,7 @@ public final class TournamentCommandSupport {
         this.commandLock = commandLock;
         this.stateStore = stateStore;
         this.eventPublisher = eventPublisher;
+        this.cleanupService = cleanupService;
         this.maxActivePlayers = maxActivePlayers;
         this.waitingIdleTtlMillis = waitingIdleTtlMillis;
         this.inHandIdleTtlMillis = inHandIdleTtlMillis;
@@ -262,18 +265,8 @@ public final class TournamentCommandSupport {
         return new TournamentBroadcast(mergedEvents);
     }
 
-    void cleanupStaleTournaments() {
-        if (waitingIdleTtlMillis <= 0 && inHandIdleTtlMillis <= 0 && hardTtlMillis <= 0) {
-            return;
-        }
-
-        var staleCodes = stateStore.findStaleTournamentCodes(
-                Instant.now().toEpochMilli(),
-                waitingIdleTtlMillis,
-                inHandIdleTtlMillis,
-                hardTtlMillis
-        );
-        staleCodes.forEach(this::deleteTournament);
+    void cleanupStaleTournamentsIfDue() {
+        cleanupService.cleanupStaleTournamentsIfDue();
     }
 
     <T> T withLockedTournament(String operationName, String code, Function<TournamentState, T> action) {

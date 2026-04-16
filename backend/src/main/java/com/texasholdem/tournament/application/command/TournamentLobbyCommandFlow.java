@@ -82,7 +82,7 @@ public final class TournamentLobbyCommandFlow {
     }
 
     TournamentSnapshot joinTournament(String code, String guestId, String nickname, String roomPassword) {
-        support.cleanupStaleTournaments();
+        support.cleanupStaleTournamentsIfDue();
         support.ensureGuestNotInAnotherTournament(guestId, code);
         support.ensureCapacityForNewGuest();
         return support.withLockedTournament("joinTournament", code, tournament -> {
@@ -94,7 +94,7 @@ public final class TournamentLobbyCommandFlow {
     }
 
     TournamentSnapshot joinPrivateTournament(String roomName, String roomPassword, String guestId, String nickname) {
-        support.cleanupStaleTournaments();
+        support.cleanupStaleTournamentsIfDue();
         var normalizedRoomName = support.normalizeRoomName(roomName);
         if (normalizedRoomName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "\ubc29 \uc774\ub984\uc744 \uc785\ub825\ud558\uc138\uc694.");
@@ -126,7 +126,7 @@ public final class TournamentLobbyCommandFlow {
     }
 
     TournamentBroadcast joinTournamentBroadcast(String code, String guestId, String nickname, String roomPassword) {
-        support.cleanupStaleTournaments();
+        support.cleanupStaleTournamentsIfDue();
         support.ensureGuestNotInAnotherTournament(guestId, code);
         support.ensureCapacityForNewGuest();
         return support.withLockedTournament("joinTournamentBroadcast", code, tournament -> {
@@ -194,7 +194,7 @@ public final class TournamentLobbyCommandFlow {
             String requestedRoomPassword,
             TournamentVisibility visibility
     ) {
-        support.cleanupStaleTournaments();
+        support.cleanupStaleTournamentsIfDue();
         support.ensureGuestNotInAnotherTournament(guestId, null);
         support.ensureCapacityForNewGuest();
         var code = support.resolveTournamentCode(requestedCode);

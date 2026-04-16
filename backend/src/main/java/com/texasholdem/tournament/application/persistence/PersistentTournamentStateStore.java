@@ -4,12 +4,8 @@ import com.texasholdem.tournament.application.state.*;
 import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.PublicTournamentSummary;
-import com.texasholdem.tournament.domain.TournamentStatus;
-import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
-import java.time.ZoneId;
-import java.util.Comparator;
 import java.util.List;
 
 @Component
@@ -58,52 +54,27 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
     // Scans persisted tournament payloads for one unfinished seat held by the guest.
     @Override
     public String findActiveTournamentCodeByGuestId(String guestId) {
-        return repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
-                .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
-                .map(tournament -> tournament.code)
-                .findFirst()
-                .orElse(null);
+        return repository.findActiveTournamentCodeByGuestId(guestId);
     }
 
     // Scans persisted tournament payloads for one unfinished room-title match.
     @Override
     public String findActiveTournamentCodeByRoomName(String roomName) {
-        return repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
-                .filter(tournament -> resolveRoomName(tournament).equalsIgnoreCase(roomName))
-                .map(tournament -> tournament.code)
-                .findFirst()
-                .orElse(null);
+        return repository.findActiveTournamentCodeByRoomName(roomName);
     }
 
     // Counts every guest seat that still belongs to a non-finished tournament.
     @Override
     public int countActiveGuests() {
-        return (int) repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
-                .flatMap(tournament -> tournament.players.stream())
-                .map(player -> player.guestId)
-                .distinct()
-                .count();
+        return Math.toIntExact(repository.countActiveGuests());
     }
 
     // Lists persisted waiting rooms in newest-first order for the home lobby.
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
-        return repository.findAll().stream()
-                .sorted(Comparator.comparing(TournamentStateEntity::getCreatedAt).reversed())
+        return repository.findWaitingTournamentRows(maxPlayers).stream()
                 .map(TournamentStateEntity::getPayload)
                 .map(mapper::read)
-                .filter(tournament -> tournament.status == TournamentStatus.WAITING)
-                .filter(tournament -> !tournament.players.isEmpty())
-                .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
                         resolveRoomName(tournament),
@@ -119,36 +90,24 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
     // Finds delayed hand-result transitions that should be rescheduled after a restart.
     @Override
     public List<PendingHandResult> findPendingHandResults() {
-        return repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status == TournamentStatus.HAND_RESULT)
-                .filter(tournament -> tournament.handResultEndsAtEpochMilli > 0)
-                .map(tournament -> new PendingHandResult(tournament.code, tournament.handResultEndsAtEpochMilli))
+        return repository.findPendingHandResults().stream()
+                .map(row -> new PendingHandResult(row.getCode(), row.getHandResultEndsAtEpochMilli()))
                 .toList();
     }
 
     // Finds delayed in-hand action deadlines that should be rescheduled after a restart.
     @Override
     public List<PendingActionTimeout> findPendingActionTimeouts() {
-        return repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status == TournamentStatus.IN_HAND)
-                .filter(tournament -> tournament.actionDeadlineAtEpochMilli > 0)
-                .map(tournament -> new PendingActionTimeout(tournament.code, tournament.actionDeadlineAtEpochMilli))
+        return repository.findPendingActionTimeouts().stream()
+                .map(row -> new PendingActionTimeout(row.getCode(), row.getActionDeadlineAtEpochMilli()))
                 .toList();
     }
 
     // Finds delayed finished cleanups that should be rescheduled after a restart.
     @Override
     public List<PendingFinishedCleanup> findPendingFinishedCleanups() {
-        return repository.findAll().stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
-                .filter(tournament -> tournament.status == TournamentStatus.FINISHED)
-                .filter(tournament -> tournament.finishedCleanupAtEpochMilli > 0)
-                .map(tournament -> new PendingFinishedCleanup(tournament.code, tournament.finishedCleanupAtEpochMilli))
+        return repository.findPendingFinishedCleanups().stream()
+                .map(row -> new PendingFinishedCleanup(row.getCode(), row.getFinishedCleanupAtEpochMilli()))
                 .toList();
     }
 
@@ -160,41 +119,20 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
             long inHandIdleTtlMillis,
             long hardTtlMillis
     ) {
-        return repository.findAll().stream()
-                .filter(entity -> isStale(entity, nowEpochMilli, waitingIdleTtlMillis, inHandIdleTtlMillis, hardTtlMillis))
-                .map(TournamentStateEntity::getCode)
-                .toList();
+        return repository.findStaleTournamentCodes(
+                waitingIdleTtlMillis,
+                inHandIdleTtlMillis,
+                hardTtlMillis,
+                cutoffEpochMilli(nowEpochMilli, waitingIdleTtlMillis),
+                cutoffEpochMilli(nowEpochMilli, inHandIdleTtlMillis),
+                cutoffEpochMilli(nowEpochMilli, hardTtlMillis)
+        );
     }
 
     // Deletes one persisted tournament aggregate from the database.
     @Override
     public void delete(String code) {
         repository.deleteById(code);
-    }
-
-    private boolean isStale(
-            TournamentStateEntity entity,
-            long nowEpochMilli,
-            long waitingIdleTtlMillis,
-            long inHandIdleTtlMillis,
-            long hardTtlMillis
-    ) {
-        var tournament = mapper.read(entity.getPayload());
-        var updatedAtEpochMilli = entity.getUpdatedAt()
-                .atZone(ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli();
-        var ageMillis = Math.max(0, nowEpochMilli - updatedAtEpochMilli);
-
-        if (hardTtlMillis > 0 && ageMillis >= hardTtlMillis) {
-            return true;
-        }
-        if (tournament.status == TournamentStatus.WAITING && waitingIdleTtlMillis > 0 && ageMillis >= waitingIdleTtlMillis) {
-            return true;
-        }
-        return tournament.status == TournamentStatus.IN_HAND
-                && inHandIdleTtlMillis > 0
-                && ageMillis >= inHandIdleTtlMillis;
     }
 
     private String resolveOwnerNickname(TournamentState tournament) {
@@ -207,5 +145,9 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
 
     private String resolveRoomName(TournamentState tournament) {
         return tournament.roomName == null || tournament.roomName.isBlank() ? tournament.code : tournament.roomName;
+    }
+
+    private long cutoffEpochMilli(long nowEpochMilli, long ttlMillis) {
+        return ttlMillis <= 0 ? Long.MAX_VALUE : Math.max(0, nowEpochMilli - ttlMillis);
     }
 }

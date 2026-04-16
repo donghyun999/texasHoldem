@@ -68,7 +68,7 @@ export function TablePage() {
     }) => joinTournament(snapshot.code, guestId, nickname, password),
     onSuccess: (joinedSnapshot, variables) => {
       queryClient.setQueryData(buildTournamentSnapshotKey(joinedSnapshot.code, variables.guestId), joinedSnapshot);
-      queryClient.setQueryData(buildActiveTournamentKey(variables.guestId), {
+      queryClient.setQueryData(buildActiveTournamentKey(), {
         guestId: variables.guestId,
         tournamentCode: joinedSnapshot.code,
         roomName: joinedSnapshot.roomName,

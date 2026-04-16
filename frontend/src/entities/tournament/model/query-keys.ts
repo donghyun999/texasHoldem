@@ -3,9 +3,9 @@ export function buildTournamentSnapshotKey(code: string, guestId?: string) {
   return ["tournament-snapshot", code.trim().toUpperCase(), guestId?.trim() ?? ""] as const;
 }
 
-// Builds the React Query cache key for the current guest's active-tournament lookup.
-export function buildActiveTournamentKey(guestId: string) {
-  return ["active-tournament", guestId.trim()] as const;
+// Builds the React Query cache key for the current session's active-tournament lookup.
+export function buildActiveTournamentKey() {
+  return ["active-tournament"] as const;
 }
 
 // Canonical cache key for the home-screen public waiting-room list.

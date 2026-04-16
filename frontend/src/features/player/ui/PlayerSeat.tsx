@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { TournamentPlayer } from "@/entities/tournament/model/types";
 import { formatStackDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
@@ -226,8 +227,81 @@ function CompactMeta({
   );
 }
 
+function haveSameCards(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((card, index) => card === right[index]);
+}
+
+function haveSamePlayer(left?: TournamentPlayer, right?: TournamentPlayer) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.guestId === right.guestId &&
+    left.nickname === right.nickname &&
+    left.seatIndex === right.seatIndex &&
+    left.status === right.status &&
+    left.stack === right.stack &&
+    left.roundContribution === right.roundContribution &&
+    left.owner === right.owner &&
+    left.connected === right.connected &&
+    left.afk === right.afk &&
+    left.participating === right.participating &&
+    left.acting === right.acting
+  );
+}
+
+function haveSameActionFlash(
+  left: PlayerSeatProps["actionFlash"],
+  right: PlayerSeatProps["actionFlash"],
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.id === right.id && left.label === right.label && left.tone === right.tone;
+}
+
+function areEqualPlayerSeatProps(left: PlayerSeatProps, right: PlayerSeatProps) {
+  return (
+    haveSamePlayer(left.player, right.player) &&
+    left.seatIndex === right.seatIndex &&
+    left.tablePositionIndex === right.tablePositionIndex &&
+    left.dealerSeat === right.dealerSeat &&
+    left.smallBlindSeat === right.smallBlindSeat &&
+    left.bigBlindSeat === right.bigBlindSeat &&
+    left.currentBigBlind === right.currentBigBlind &&
+    left.stackDisplayMode === right.stackDisplayMode &&
+    left.showStackLabel === right.showStackLabel &&
+    left.currentGuestId === right.currentGuestId &&
+    haveSameCards(left.selfHoleCards ?? [], right.selfHoleCards ?? []) &&
+    haveSameCards(left.revealedHoleCards ?? [], right.revealedHoleCards ?? []) &&
+    left.showActionTimer === right.showActionTimer &&
+    left.actionTimerProgress === right.actionTimerProgress &&
+    haveSameActionFlash(left.actionFlash, right.actionFlash) &&
+    left.dealPulseId === right.dealPulseId &&
+    left.foldPulseId === right.foldPulseId &&
+    left.actorFocusPulseId === right.actorFocusPulseId &&
+    left.winner === right.winner &&
+    left.winnerPulseId === right.winnerPulseId &&
+    left.className === right.className
+  );
+}
+
 // Renders either an occupied seat or an empty placeholder in the ring.
-export function PlayerSeat({
+function PlayerSeatView({
   player,
   seatIndex,
   tablePositionIndex,
@@ -393,3 +467,5 @@ export function PlayerSeat({
     </div>
   );
 }
+
+export const PlayerSeat = memo(PlayerSeatView, areEqualPlayerSeatProps);

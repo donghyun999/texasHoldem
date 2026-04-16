@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { TournamentPauseReason, TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
 import { buildActionPanelViewModel } from "@/features/table/model/action-panel";
 import {
@@ -422,6 +422,81 @@ function formatActionTimerLabel(secondsRemaining: number) {
   return secondsRemaining >= 10 ? `${Math.ceil(secondsRemaining)}s left` : `${secondsRemaining.toFixed(1)}s left`;
 }
 
+type ActionTimerProps = {
+  actionDeadlineAtEpochMilli: number;
+  actionTimeoutSeconds: number;
+  paused: boolean;
+  tournamentStatus: TournamentStatus;
+  currentPlayer: TournamentPlayer | null;
+};
+
+// Keeps the countdown updates local so the whole action bar does not repaint every 200ms.
+function ActionTimer({
+  actionDeadlineAtEpochMilli,
+  actionTimeoutSeconds,
+  paused,
+  tournamentStatus,
+  currentPlayer,
+}: ActionTimerProps) {
+  const [timerNow, setTimerNow] = useState(() => Date.now());
+
+  const shouldShowActionTimer =
+    tournamentStatus === "IN_HAND" &&
+    !paused &&
+    actionDeadlineAtEpochMilli > 0 &&
+    actionTimeoutSeconds > 0 &&
+    !!currentPlayer?.acting &&
+    !currentPlayer.afk;
+  const totalActionWindowMs = actionTimeoutSeconds * 1_000;
+  const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
+  const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
+  const secondsRemaining = remainingActionMs / 1_000;
+  const actionTimerTone =
+    timerProgress <= 0.25
+      ? "bg-rose-400"
+      : timerProgress <= 0.5
+        ? "bg-amber-300"
+        : "bg-emerald-300";
+  const actionTimerLabel = currentPlayer?.acting ? "Your turn timer" : "Action timer";
+
+  useEffect(() => {
+    if (!shouldShowActionTimer) {
+      setTimerNow(Date.now());
+      return;
+    }
+
+    setTimerNow(Date.now());
+    const timerId = window.setInterval(() => {
+      setTimerNow(Date.now());
+    }, 200);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [shouldShowActionTimer, actionDeadlineAtEpochMilli]);
+
+  if (!shouldShowActionTimer) {
+    return null;
+  }
+
+  return (
+    <div className={`${paused ? "mt-2" : ""} rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">{actionTimerLabel}</span>
+        <span className="text-[11px] font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
+      </div>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+        <div
+          className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
+          style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+const MemoizedActionTimer = memo(ActionTimer);
+
 function buildIdleMessage({
   currentPlayer,
   tournamentStatus,
@@ -488,7 +563,6 @@ export function ActionPanel({
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
   const [isSizingOpen, setIsSizingOpen] = useState(false);
-  const [timerNow, setTimerNow] = useState(() => Date.now());
   const keypadRows = getKeypadRows(stackDisplayMode);
   const {
     sizeAction,
@@ -528,18 +602,6 @@ export function ActionPanel({
   const shouldShowUtilityControls =
     showReturnToPlay || (tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect));
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, paused, pauseReason, canPublish, message });
-  const shouldShowActionTimer =
-    tournamentStatus === "IN_HAND" &&
-    !paused &&
-    actionDeadlineAtEpochMilli > 0 &&
-    actionTimeoutSeconds > 0 &&
-    !!currentPlayer?.acting &&
-    !currentPlayer.afk;
-  const totalActionWindowMs = actionTimeoutSeconds * 1_000;
-  const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
-  const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
-  const secondsRemaining = remainingActionMs / 1_000;
-  const actionTimerLabel = currentPlayer?.acting ? "Your turn timer" : "Action timer";
   const maxCommitment = getMaxCommitment(currentPlayer);
   const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
   const sizeButtonCaption = buildSizeButtonCaption({
@@ -587,29 +649,6 @@ export function ActionPanel({
     setIsSizingOpen(false);
     setTargetAmount("");
   }, [stackDisplayMode]);
-
-  useEffect(() => {
-    if (!shouldShowActionTimer) {
-      setTimerNow(Date.now());
-      return;
-    }
-
-    setTimerNow(Date.now());
-    const timerId = window.setInterval(() => {
-      setTimerNow(Date.now());
-    }, 200);
-
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, [shouldShowActionTimer, actionDeadlineAtEpochMilli]);
-
-  const actionTimerTone =
-    timerProgress <= 0.25
-      ? "bg-rose-400"
-      : timerProgress <= 0.5
-        ? "bg-amber-300"
-        : "bg-emerald-300";
 
   const openSizer = () => {
     if (!sizeAction) {
@@ -706,22 +745,13 @@ export function ActionPanel({
           </div>
         ) : null}
 
-        {shouldShowActionTimer ? (
-          <div className={`${paused ? "mt-2" : ""} rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                {actionTimerLabel}
-              </span>
-              <span className="text-[11px] font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
-            </div>
-            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-              <div
-                className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
-                style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
-              />
-            </div>
-          </div>
-        ) : null}
+        <MemoizedActionTimer
+          actionDeadlineAtEpochMilli={actionDeadlineAtEpochMilli}
+          actionTimeoutSeconds={actionTimeoutSeconds}
+          paused={paused}
+          tournamentStatus={tournamentStatus}
+          currentPlayer={currentPlayer}
+        />
 
         {shouldShowInHandControls ? (
           <div className="relative mt-2.5 grid grid-cols-3 gap-2">

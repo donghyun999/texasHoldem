@@ -75,6 +75,7 @@ class TournamentServiceTest {
         var snapshot = service.createTournament("guest-1", "Owner");
 
         touchPersistedTournament(service, snapshot.code(), Instant.now().minusSeconds(31 * 60L).toEpochMilli());
+        cleanupStaleTournamentsNow(service);
 
         assertThat(service.findActiveTournament("guest-1")).isNull();
         assertThatThrownBy(() -> service.getTournament(snapshot.code()))
@@ -290,6 +291,7 @@ class TournamentServiceTest {
         var staleCode = service.createTournament("guest-1", "Owner").code();
 
         touchPersistedTournament(service, staleCode, Instant.now().minusSeconds(31 * 60L).toEpochMilli());
+        cleanupStaleTournamentsNow(service);
 
         var replacementSnapshot = service.createTournament("guest-2", "NextOwner");
 
@@ -306,6 +308,7 @@ class TournamentServiceTest {
         var staleCode = prepareTournament(service, 2);
 
         touchPersistedTournament(service, staleCode, Instant.now().minusSeconds(2 * 60L * 60L + 60L).toEpochMilli());
+        cleanupStaleTournamentsNow(service);
 
         var replacementSnapshot = service.createTournament("guest-3", "FreshOwner");
 
@@ -1707,6 +1710,15 @@ class TournamentServiceTest {
         assertThat(stateStore).isInstanceOf(InMemoryTournamentStateStore.class);
         ((InMemoryTournamentStateStore) stateStore).touch(code, updatedAtEpochMilli);
         evictTournamentFromCache(service, code);
+    }
+
+    // Forces the bounded cleanup pass immediately for stale-state assertions.
+    private void cleanupStaleTournamentsNow(TournamentService service) {
+        var commandSupport = ReflectionTestUtils.getField(service, "commandSupport");
+        assertThat(commandSupport).isNotNull();
+        var cleanupService = ReflectionTestUtils.getField(commandSupport, "cleanupService");
+        assertThat(cleanupService).isNotNull();
+        ReflectionTestUtils.invokeMethod(cleanupService, "cleanupStaleTournamentsNow");
     }
 
     // Finds one player in a snapshot by guest id so the assertions stay readable.

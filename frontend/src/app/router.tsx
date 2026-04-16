@@ -1,7 +1,9 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/app/AppShell";
 import { HomePage } from "@/pages/HomePage";
-import { TablePage } from "@/pages/TablePage";
+
+const TablePage = lazy(() => import("@/pages/TablePage").then((module) => ({ default: module.TablePage })));
 
 export const router = createBrowserRouter([
   {
@@ -14,11 +16,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "tournaments/:tournamentCode",
-        element: <TablePage />,
+        element: (
+          <Suspense fallback={null}>
+            <TablePage />
+          </Suspense>
+        ),
       },
       {
         path: "table/:roomCode",
-        element: <TablePage />,
+        element: (
+          <Suspense fallback={null}>
+            <TablePage />
+          </Suspense>
+        ),
       },
     ],
   },

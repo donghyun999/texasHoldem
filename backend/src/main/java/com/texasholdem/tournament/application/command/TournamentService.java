@@ -11,9 +11,7 @@ import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,9 +33,6 @@ public class TournamentService {
     private final TournamentStateStore stateStore;
     private final ApplicationEventPublisher eventPublisher;
     private final int maxActivePlayers;
-    private final long waitingIdleTtlMillis;
-    private final long inHandIdleTtlMillis;
-    private final long hardTtlMillis;
     private final long commandLockSlowThresholdMillis;
     private final TournamentCommandSupport commandSupport;
     private final TournamentLobbyCommandFlow lobbyCommandFlow;
@@ -57,11 +52,9 @@ public class TournamentService {
             TournamentCommandLock commandLock,
             TournamentStateStore stateStore,
             ApplicationEventPublisher eventPublisher,
+            TournamentCleanupService cleanupService,
+            TournamentServiceProperties properties,
             @Value("${app.tournament.max-active-players:50}") int maxActivePlayers,
-            @Value("${app.tournament.waiting-idle-ttl-seconds:1800}") long waitingIdleTtlSeconds,
-            @Value("${app.tournament.in-hand-idle-ttl-seconds:7200}") long inHandIdleTtlSeconds,
-            @Value("${app.tournament.action-timeout-seconds:20}") long actionTimeoutSeconds,
-            @Value("${app.tournament.hard-ttl-seconds:86400}") long hardTtlSeconds,
             @Value("${app.tournament.command-lock-slow-threshold-ms:150}") long commandLockSlowThresholdMillis
     ) {
         this.identityFactory = identityFactory;
@@ -76,9 +69,6 @@ public class TournamentService {
         this.stateStore = stateStore;
         this.eventPublisher = eventPublisher;
         this.maxActivePlayers = maxActivePlayers;
-        this.waitingIdleTtlMillis = ttlToMillis(waitingIdleTtlSeconds);
-        this.inHandIdleTtlMillis = ttlToMillis(inHandIdleTtlSeconds);
-        this.hardTtlMillis = ttlToMillis(hardTtlSeconds);
         this.commandLockSlowThresholdMillis = Math.max(0, commandLockSlowThresholdMillis);
         this.commandSupport = new TournamentCommandSupport(
                 tournaments,
@@ -90,10 +80,11 @@ public class TournamentService {
                 commandLock,
                 stateStore,
                 eventPublisher,
+                cleanupService,
                 maxActivePlayers,
-                this.waitingIdleTtlMillis,
-                this.inHandIdleTtlMillis,
-                this.hardTtlMillis,
+                properties.waitingIdleTtlMillis(),
+                properties.inHandIdleTtlMillis(),
+                properties.hardTtlMillis(),
                 this.commandLockSlowThresholdMillis
         );
         this.lobbyCommandFlow = new TournamentLobbyCommandFlow(
@@ -122,20 +113,64 @@ public class TournamentService {
         );
     }
 
+    public TournamentService(
+            TournamentIdentityFactory identityFactory,
+            TournamentSnapshotFactory snapshotFactory,
+            TournamentEventFactory eventFactory,
+            TournamentStateAccess stateAccess,
+            TournamentLobbyManager lobbyManager,
+            TournamentConnectionManager connectionManager,
+            TournamentHandEngine handEngine,
+            TournamentHandProgressManager handProgressManager,
+            TournamentCommandLock commandLock,
+            TournamentStateStore stateStore,
+            ApplicationEventPublisher eventPublisher,
+            int maxActivePlayers,
+            long waitingIdleTtlSeconds,
+            long inHandIdleTtlSeconds,
+            long cleanupMinIntervalMillis,
+            long hardTtlSeconds,
+            long commandLockSlowThresholdMillis
+    ) {
+        this(
+                identityFactory,
+                snapshotFactory,
+                eventFactory,
+                stateAccess,
+                lobbyManager,
+                connectionManager,
+                handEngine,
+                handProgressManager,
+                commandLock,
+                stateStore,
+                eventPublisher,
+                new TournamentCleanupService(
+                        stateStore,
+                        new TournamentServiceProperties(
+                                waitingIdleTtlSeconds,
+                                inHandIdleTtlSeconds,
+                                hardTtlSeconds
+                        ),
+                        cleanupMinIntervalMillis
+                ),
+                new TournamentServiceProperties(
+                        waitingIdleTtlSeconds,
+                        inHandIdleTtlSeconds,
+                        hardTtlSeconds
+                ),
+                maxActivePlayers,
+                commandLockSlowThresholdMillis
+        );
+    }
+
     // Issues a lightweight guest identity for the tournament flow.
     public GuestSession registerGuest(String nickname) {
         return commandSupport.registerGuest(nickname);
     }
 
-    // Clears stale persisted tournaments once the app is ready to serve traffic.
-    @EventListener(ApplicationReadyEvent.class)
-    void cleanupStaleTournamentsOnStartup() {
-        commandSupport.cleanupStaleTournaments();
-    }
-
     // Returns the active non-finished tournament already occupied by the guest, when one exists.
     public ActiveTournamentSession findActiveTournament(String guestId) {
-        commandSupport.cleanupStaleTournaments();
+        commandSupport.cleanupStaleTournamentsIfDue();
         var activeTournamentCode = stateStore.findActiveTournamentCodeByGuestId(guestId);
         if (activeTournamentCode == null) {
             return null;
@@ -149,7 +184,7 @@ public class TournamentService {
 
     // Lists public waiting rooms that are currently joinable from the home lobby.
     public java.util.List<PublicTournamentSummary> listPublicWaitingTournaments() {
-        commandSupport.cleanupStaleTournaments();
+        commandSupport.cleanupStaleTournamentsIfDue();
         return stateStore.findPublicWaitingTournaments(stateAccess.maxSeats());
     }
 
@@ -266,9 +301,5 @@ public class TournamentService {
     // Deletes one finished tournament once its short result-retention window expires.
     public boolean cleanupFinishedTournament(String code, long expectedDeadlineEpochMilli) {
         return handCommandFlow.cleanupFinishedTournament(code, expectedDeadlineEpochMilli);
-    }
-
-    private long ttlToMillis(long ttlSeconds) {
-        return ttlSeconds <= 0 ? 0 : ttlSeconds * 1_000L;
     }
 }

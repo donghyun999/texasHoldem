@@ -4,6 +4,22 @@ import type { PublicTournamentSummary, TournamentSnapshot } from "@/entities/tou
 
 const SINGLE_TABLE_MAX_PLAYERS = 6;
 
+function areSamePublicRoom(left: PublicTournamentSummary | undefined, right: PublicTournamentSummary) {
+  if (!left) {
+    return false;
+  }
+
+  return (
+    left.code === right.code &&
+    left.roomName === right.roomName &&
+    left.visibility === right.visibility &&
+    left.status === right.status &&
+    left.currentPlayers === right.currentPlayers &&
+    left.maxPlayers === right.maxPlayers &&
+    left.ownerNickname === right.ownerNickname
+  );
+}
+
 // Keeps the cached public waiting-room list aligned with the latest tournament snapshot.
 export function syncPublicTournamentListCache(queryClient: QueryClient, snapshot: TournamentSnapshot) {
   queryClient.setQueryData(publicTournamentListQueryKey, (currentRooms: PublicTournamentSummary[] | undefined) => {
@@ -17,6 +33,10 @@ export function syncPublicTournamentListCache(queryClient: QueryClient, snapshot
       snapshot.status === "WAITING" && currentPlayers > 0 && currentPlayers < maxPlayers;
 
     if (!shouldAppear) {
+      if (!existingRoom) {
+        return rooms;
+      }
+
       return rooms.filter((room) => room.code !== snapshot.code);
     }
 
@@ -32,6 +52,10 @@ export function syncPublicTournamentListCache(queryClient: QueryClient, snapshot
 
     if (!existingRoom) {
       return [nextRoom, ...rooms];
+    }
+
+    if (areSamePublicRoom(existingRoom, nextRoom)) {
+      return rooms;
     }
 
     return rooms.map((room) => (room.code === snapshot.code ? nextRoom : room));

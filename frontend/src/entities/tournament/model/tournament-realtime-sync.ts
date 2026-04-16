@@ -4,6 +4,26 @@ import { syncPublicTournamentListCache } from "@/entities/tournament/model/lobby
 import { buildActiveTournamentKey, buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
 import type { ActiveTournamentSession, TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
 
+function areSameActiveTournamentSession(
+  left: ActiveTournamentSession | null | undefined,
+  right: ActiveTournamentSession | null,
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.guestId === right.guestId &&
+    left.tournamentCode === right.tournamentCode &&
+    left.roomName === right.roomName &&
+    left.status === right.status
+  );
+}
+
 // Parses one broker payload into the shared tournament event contract.
 export function parseTournamentEvent(message: IMessage) {
   try {
@@ -122,7 +142,12 @@ export function syncActiveTournamentSessionCache(
         }
       : null;
 
-  queryClient.setQueryData(buildActiveTournamentKey(guestId), activeTournament);
+  const currentActiveTournament = queryClient.getQueryData<ActiveTournamentSession | null>(buildActiveTournamentKey());
+  if (areSameActiveTournamentSession(currentActiveTournament, activeTournament)) {
+    return;
+  }
+
+  queryClient.setQueryData(buildActiveTournamentKey(), activeTournament);
 }
 
 type TournamentSnapshotCacheOptions = {

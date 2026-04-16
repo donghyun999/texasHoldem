@@ -91,6 +91,7 @@ const ACTOR_FOCUS_DELAY_WITH_ACTION_MS = 180;
 const ACTOR_FOCUS_DELAY_WITH_CHIP_FLIGHT_MS = 220;
 const ACTOR_FOCUS_DELAY_WITH_BOARD_REVEAL_MS = 140;
 const POT_PULSE_LANDING_OFFSET_MS = 420;
+const EMPTY_CARDS: string[] = [];
 
 function buildSeatMap(players: TournamentPlayer[]) {
   const seats: Array<TournamentPlayer | undefined> = new Array(TOTAL_SEATS).fill(undefined);
@@ -1264,7 +1265,7 @@ export function TournamentTable({
               showStackLabel={snapshot.status !== "WAITING"}
               currentGuestId={currentGuestId}
               selfHoleCards={snapshot.selfHoleCards}
-              revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? [] : []}
+              revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? EMPTY_CARDS : EMPTY_CARDS}
               actionFlash={seats[actualSeatIndex] ? seatActionFlashByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}
               dealPulseId={seats[actualSeatIndex] ? dealPulseByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}
               foldPulseId={seats[actualSeatIndex] ? foldPulseByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}

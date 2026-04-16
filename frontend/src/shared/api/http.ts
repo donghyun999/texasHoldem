@@ -31,6 +31,11 @@ type ErrorPayload = {
   title?: string;
 };
 
+type HttpError = Error & {
+  status: number;
+  path: string;
+};
+
 // Extracts the most useful server-side failure message for the UI.
 async function buildError(response: Response, path: string) {
   try {
@@ -40,15 +45,27 @@ async function buildError(response: Response, path: string) {
       payload.detail?.trim() ||
       payload.error?.trim() ||
       payload.title?.trim();
-    return new Error(message || `Request failed for ${path}`);
+    const error = new Error(message || `Request failed for ${path}`) as HttpError;
+    error.status = response.status;
+    error.path = path;
+    return error;
   } catch {
-    return new Error(`Request failed for ${path}`);
+    const error = new Error(`Request failed for ${path}`) as HttpError;
+    error.status = response.status;
+    error.path = path;
+    return error;
   }
+}
+
+function canFallbackToLegacy(error: unknown) {
+  return error instanceof Error && "status" in error && typeof (error as HttpError).status === "number" && [400, 404, 405].includes((error as HttpError).status);
 }
 
 // Reads a typed API payload and normalizes transport failures into one error path.
 async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw await buildError(response, path);
@@ -64,13 +81,16 @@ async function postJson<TRequest, TResponse>(
   body: TRequest,
   init?: RequestInit,
 ): Promise<TResponse> {
+  const { headers: initHeaders, credentials: initCredentials, ...restInit } = init ?? {};
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(initHeaders ?? {}),
     },
     body: JSON.stringify(body),
-    ...init,
+    ...restInit,
+    credentials: initCredentials ?? "include",
   });
 
   if (!response.ok) {
@@ -91,20 +111,39 @@ export function createGuestSession(nickname: string): Promise<GuestSession> {
   return postJson<{ nickname: string }, GuestSession>("/api/v1/guests", { nickname });
 }
 
+// Finds the active non-finished tournament for the current session, falling back to legacy guest identity when needed.
+export async function getActiveTournamentForCurrentGuest(legacyGuestId?: string): Promise<ActiveTournamentSession | null> {
+  try {
+    return await fetchJson<ActiveTournamentSession | null>("/api/v1/guests/me/active-tournament");
+  } catch (error) {
+    if (legacyGuestId?.trim() && canFallbackToLegacy(error)) {
+      return getActiveTournamentForGuest(legacyGuestId);
+    }
+
+    if (canFallbackToLegacy(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 // Finds the active non-finished tournament already occupied by one guest, when present.
 export function getActiveTournamentForGuest(guestId: string): Promise<ActiveTournamentSession | null> {
   return fetchJson<ActiveTournamentSession | null>(`/api/v1/guests/${guestId}/active-tournament`);
 }
 
-// Fetches the latest tournament snapshot from the backend API.
+// Fetches the latest tournament snapshot from the backend API using the current session when available.
 export function getTournamentSnapshot(code: string, guestId?: string): Promise<TournamentSnapshot> {
-  const params = new URLSearchParams();
-  if (guestId?.trim()) {
-    params.set("guestId", guestId.trim());
-  }
+  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}`).catch((error) => {
+    if (guestId?.trim() && canFallbackToLegacy(error)) {
+      const params = new URLSearchParams();
+      params.set("guestId", guestId.trim());
+      return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}?${params.toString()}`);
+    }
 
-  const query = params.size > 0 ? `?${params.toString()}` : "";
-  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}${query}`);
+    throw error;
+  });
 }
 
 // Fetches the current list of joinable waiting rooms for the lobby.
@@ -121,18 +160,60 @@ export function createTournament(
   password?: string,
 ): Promise<TournamentSnapshot> {
   return postJson<
-    { guestId: string; nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
+    { nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
     TournamentSnapshot
   >(
     "/api/v1/tournaments",
     {
-      guestId,
       nickname,
       roomName,
       visibility,
       ...(password ? { password } : {}),
     },
-  );
+  ).catch((error) => {
+    if (guestId.trim() && canFallbackToLegacy(error)) {
+      return postJson<
+        { guestId: string; nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
+        TournamentSnapshot
+      >("/api/v1/tournaments", {
+        guestId,
+        nickname,
+        roomName,
+        visibility,
+        ...(password ? { password } : {}),
+      });
+    }
+
+    throw error;
+  });
+}
+
+// Creates one waiting tournament and immediately seats the owner using the current session when available.
+export function createTournamentForCurrentGuest(
+  nickname: string,
+  roomName: string,
+  visibility: TournamentVisibility,
+  password?: string,
+  guestId?: string,
+): Promise<TournamentSnapshot> {
+  return postJson<
+    { nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
+    TournamentSnapshot
+  >(
+    "/api/v1/tournaments",
+    {
+      nickname,
+      roomName,
+      visibility,
+      ...(password ? { password } : {}),
+    },
+  ).catch((error) => {
+    if (guestId?.trim() && canFallbackToLegacy(error)) {
+      return createTournament(guestId, nickname, roomName, visibility, password);
+    }
+
+    throw error;
+  });
 }
 
 // Joins one waiting tournament with the current persisted guest identity and optional room password.
@@ -142,10 +223,41 @@ export function joinTournament(
   nickname: string,
   password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
-    guestId,
+  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
     nickname,
     ...(password ? { password } : {}),
+  }).catch((error) => {
+    if (guestId.trim() && canFallbackToLegacy(error)) {
+      return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(
+        `/api/v1/tournaments/${code}/join`,
+        {
+          guestId,
+          nickname,
+          ...(password ? { password } : {}),
+        },
+      );
+    }
+
+    throw error;
+  });
+}
+
+// Joins one waiting tournament using the current session when available.
+export function joinTournamentForCurrentGuest(
+  code: string,
+  nickname: string,
+  password?: string,
+  guestId?: string,
+): Promise<TournamentSnapshot> {
+  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
+    nickname,
+    ...(password ? { password } : {}),
+  }).catch((error) => {
+    if (guestId?.trim() && canFallbackToLegacy(error)) {
+      return joinTournament(code, guestId, nickname, password);
+    }
+
+    throw error;
   });
 }
 

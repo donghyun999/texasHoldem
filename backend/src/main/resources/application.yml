@@ -20,6 +20,12 @@ spring:
 
 server:
   port: ${PORT:${SERVER_PORT:8080}}
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${APP_SESSION_COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -36,6 +42,8 @@ app:
     in-hand-idle-ttl-seconds: ${APP_IN_HAND_IDLE_TTL_SECONDS:7200}
     action-timeout-seconds: ${APP_ACTION_TIMEOUT_SECONDS:20}
     hard-ttl-seconds: ${APP_TOURNAMENT_HARD_TTL_SECONDS:86400}
+    cleanup-fixed-delay-ms: ${APP_TOURNAMENT_CLEANUP_FIXED_DELAY_MS:30000}
+    cleanup-min-interval-ms: ${APP_TOURNAMENT_CLEANUP_MIN_INTERVAL_MS:15000}
     command-lock-slow-threshold-ms: ${APP_COMMAND_LOCK_SLOW_THRESHOLD_MS:150}
 
 logging:

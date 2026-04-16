@@ -15,7 +15,10 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -73,26 +76,16 @@ class PersistentTournamentStateStoreTest {
     void findsPendingHandResultsForRestartRecovery() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        var waitingTournament = new TournamentState("WAIT1");
-        var pendingTournament = new TournamentState("PEND1");
-        pendingTournament.status = TournamentStatus.HAND_RESULT;
-        pendingTournament.handResultEndsAtEpochMilli = 123_456L;
-        var expiredWithoutDeadlineTournament = new TournamentState("MISS1");
-        expiredWithoutDeadlineTournament.status = TournamentStatus.HAND_RESULT;
-
-        when(repository.findAll()).thenReturn(List.of(
-                new TournamentStateEntity("WAIT1", "waiting"),
-                new TournamentStateEntity("PEND1", "pending"),
-                new TournamentStateEntity("MISS1", "missing-deadline")
+        when(repository.findPendingHandResults()).thenReturn(List.of(
+                pendingHandResult("PEND1", 123_456L)
         ));
-        when(mapper.read("waiting")).thenReturn(waitingTournament);
-        when(mapper.read("pending")).thenReturn(pendingTournament);
-        when(mapper.read("missing-deadline")).thenReturn(expiredWithoutDeadlineTournament);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
         assertThat(store.findPendingHandResults())
                 .containsExactly(new TournamentStateStore.PendingHandResult("PEND1", 123_456L));
+        verify(repository).findPendingHandResults();
+        verify(repository, never()).findAll();
     }
 
     // Verifies that restart recovery also sees persisted finished tournaments waiting for cleanup.
@@ -100,26 +93,58 @@ class PersistentTournamentStateStoreTest {
     void findsPendingFinishedCleanupsForRestartRecovery() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        var waitingTournament = new TournamentState("WAIT1");
-        var finishedTournament = new TournamentState("DONE1");
-        finishedTournament.status = TournamentStatus.FINISHED;
-        finishedTournament.finishedCleanupAtEpochMilli = 654_321L;
-        var missingDeadlineTournament = new TournamentState("DONE2");
-        missingDeadlineTournament.status = TournamentStatus.FINISHED;
-
-        when(repository.findAll()).thenReturn(List.of(
-                new TournamentStateEntity("WAIT1", "waiting"),
-                new TournamentStateEntity("DONE1", "finished"),
-                new TournamentStateEntity("DONE2", "missing-deadline")
+        when(repository.findPendingFinishedCleanups()).thenReturn(List.of(
+                pendingFinishedCleanup("DONE1", 654_321L)
         ));
-        when(mapper.read("waiting")).thenReturn(waitingTournament);
-        when(mapper.read("finished")).thenReturn(finishedTournament);
-        when(mapper.read("missing-deadline")).thenReturn(missingDeadlineTournament);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
         assertThat(store.findPendingFinishedCleanups())
                 .containsExactly(new TournamentStateStore.PendingFinishedCleanup("DONE1", 654_321L));
+        verify(repository).findPendingFinishedCleanups();
+        verify(repository, never()).findAll();
+    }
+
+    // Verifies that active guest lookup is resolved by a targeted repository query instead of a full scan.
+    @Test
+    void findsActiveTournamentCodeByGuestIdWithoutFullScan() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        when(repository.findActiveTournamentCodeByGuestId("guest-1")).thenReturn("ACTIVE1");
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findActiveTournamentCodeByGuestId("guest-1")).isEqualTo("ACTIVE1");
+        verify(repository).findActiveTournamentCodeByGuestId("guest-1");
+        verify(repository, never()).findAll();
+    }
+
+    // Verifies that active room lookup is resolved by a targeted repository query instead of a full scan.
+    @Test
+    void findsActiveTournamentCodeByRoomNameWithoutFullScan() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        when(repository.findActiveTournamentCodeByRoomName("Room One")).thenReturn("ROOM1");
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findActiveTournamentCodeByRoomName("Room One")).isEqualTo("ROOM1");
+        verify(repository).findActiveTournamentCodeByRoomName("Room One");
+        verify(repository, never()).findAll();
+    }
+
+    // Verifies that the active-guest count is served by a native count query instead of scanning payloads.
+    @Test
+    void countsActiveGuestsWithoutFullScan() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        when(repository.countActiveGuests()).thenReturn(7L);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.countActiveGuests()).isEqualTo(7);
+        verify(repository).countActiveGuests();
+        verify(repository, never()).findAll();
     }
 
     // Verifies that waiting rooms of either visibility are surfaced in newest-first order for the home lobby.
@@ -158,11 +183,10 @@ class PersistentTournamentStateStoreTest {
         ReflectionTestUtils.setField(privateEntity, "updatedAt", LocalDateTime.now().minusMinutes(2));
         ReflectionTestUtils.setField(inHandEntity, "updatedAt", LocalDateTime.now().minusMinutes(3));
 
-        when(repository.findAll()).thenReturn(List.of(olderEntity, newestEntity, privateEntity, inHandEntity));
+        when(repository.findWaitingTournamentRows(6)).thenReturn(List.of(newestEntity, privateEntity, olderEntity));
         when(mapper.read("pub1")).thenReturn(olderPublicWaiting);
         when(mapper.read("pub2")).thenReturn(newestPublicWaiting);
         when(mapper.read("priv1")).thenReturn(privateWaiting);
-        when(mapper.read("hand1")).thenReturn(publicInHand);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
@@ -180,6 +204,25 @@ class PersistentTournamentStateStoreTest {
                         List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, 6, "PrivateOwner"),
                         List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
                 );
+        verify(repository).findWaitingTournamentRows(6);
+        verify(repository, never()).findAll();
+    }
+
+    // Verifies that restart recovery for in-hand action deadlines uses a targeted projection query.
+    @Test
+    void findsPendingActionTimeoutsForRestartRecoveryWithoutFullScan() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        when(repository.findPendingActionTimeouts()).thenReturn(List.of(
+                pendingActionTimeout("HAND1", 987_654L)
+        ));
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findPendingActionTimeouts())
+                .containsExactly(new TournamentStateStore.PendingActionTimeout("HAND1", 987_654L));
+        verify(repository).findPendingActionTimeouts();
+        verify(repository, never()).findAll();
     }
 
     // Verifies that waiting and in-hand tournaments can be identified as stale from updated_at timestamps.
@@ -187,33 +230,88 @@ class PersistentTournamentStateStoreTest {
     void findsStaleTournamentCodesFromUpdatedAtTtlPolicy() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        var waitingTournament = new TournamentState("WAIT1");
-        waitingTournament.status = TournamentStatus.WAITING;
-        var inHandTournament = new TournamentState("HAND1");
-        inHandTournament.status = TournamentStatus.IN_HAND;
-        var freshTournament = new TournamentState("FRESH1");
-        freshTournament.status = TournamentStatus.WAITING;
-        var finishedTournament = new TournamentState("DONE1");
-        finishedTournament.status = TournamentStatus.FINISHED;
-
-        var staleWaitingEntity = new TournamentStateEntity("WAIT1", "waiting");
-        var staleInHandEntity = new TournamentStateEntity("HAND1", "in-hand");
-        var freshEntity = new TournamentStateEntity("FRESH1", "fresh");
-        var finishedEntity = new TournamentStateEntity("DONE1", "finished");
-        ReflectionTestUtils.setField(staleWaitingEntity, "updatedAt", LocalDateTime.now().minusMinutes(45));
-        ReflectionTestUtils.setField(staleInHandEntity, "updatedAt", LocalDateTime.now().minusHours(3));
-        ReflectionTestUtils.setField(freshEntity, "updatedAt", LocalDateTime.now().minusMinutes(5));
-        ReflectionTestUtils.setField(finishedEntity, "updatedAt", LocalDateTime.now().minusDays(2));
-
-        when(repository.findAll()).thenReturn(List.of(staleWaitingEntity, staleInHandEntity, freshEntity, finishedEntity));
-        when(mapper.read("waiting")).thenReturn(waitingTournament);
-        when(mapper.read("in-hand")).thenReturn(inHandTournament);
-        when(mapper.read("fresh")).thenReturn(freshTournament);
-        when(mapper.read("finished")).thenReturn(finishedTournament);
+        doReturn(List.of("WAIT1", "HAND1", "DONE1")).when(repository).findStaleTournamentCodes(
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyLong(),
+                anyLong()
+        );
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
-        assertThat(store.findStaleTournamentCodes(System.currentTimeMillis(), 30 * 60 * 1_000L, 2 * 60 * 60 * 1_000L, 24 * 60 * 60 * 1_000L))
+        var waitingTtl = 30 * 60 * 1_000L;
+        var inHandTtl = 2 * 60 * 60 * 1_000L;
+        var hardTtl = 24 * 60 * 60 * 1_000L;
+        var now = System.currentTimeMillis();
+
+        assertThat(store.findStaleTournamentCodes(now, waitingTtl, inHandTtl, hardTtl))
                 .containsExactly("WAIT1", "HAND1", "DONE1");
+
+        var ttlCaptor = ArgumentCaptor.forClass(Long.class);
+        var cutoffCaptor = ArgumentCaptor.forClass(Long.class);
+        verify(repository).findStaleTournamentCodes(
+                ttlCaptor.capture(),
+                ttlCaptor.capture(),
+                ttlCaptor.capture(),
+                cutoffCaptor.capture(),
+                cutoffCaptor.capture(),
+                cutoffCaptor.capture()
+        );
+        assertThat(ttlCaptor.getAllValues()).containsExactly(waitingTtl, inHandTtl, hardTtl);
+        assertThat(cutoffCaptor.getAllValues()).hasSize(3);
+        verify(repository, never()).findAll();
+    }
+
+    private TournamentStateJpaRepository.PendingHandResultProjection pendingHandResult(String code, long deadline) {
+        return new PendingHandResultProjectionStub(code, deadline);
+    }
+
+    private TournamentStateJpaRepository.PendingActionTimeoutProjection pendingActionTimeout(String code, long deadline) {
+        return new PendingActionTimeoutProjectionStub(code, deadline);
+    }
+
+    private TournamentStateJpaRepository.PendingFinishedCleanupProjection pendingFinishedCleanup(String code, long deadline) {
+        return new PendingFinishedCleanupProjectionStub(code, deadline);
+    }
+
+    private record PendingHandResultProjectionStub(String code, long handResultEndsAtEpochMilli)
+            implements TournamentStateJpaRepository.PendingHandResultProjection {
+        @Override
+        public String getCode() {
+            return code;
+        }
+
+        @Override
+        public Long getHandResultEndsAtEpochMilli() {
+            return handResultEndsAtEpochMilli;
+        }
+    }
+
+    private record PendingActionTimeoutProjectionStub(String code, long actionDeadlineAtEpochMilli)
+            implements TournamentStateJpaRepository.PendingActionTimeoutProjection {
+        @Override
+        public String getCode() {
+            return code;
+        }
+
+        @Override
+        public Long getActionDeadlineAtEpochMilli() {
+            return actionDeadlineAtEpochMilli;
+        }
+    }
+
+    private record PendingFinishedCleanupProjectionStub(String code, long finishedCleanupAtEpochMilli)
+            implements TournamentStateJpaRepository.PendingFinishedCleanupProjection {
+        @Override
+        public String getCode() {
+            return code;
+        }
+
+        @Override
+        public Long getFinishedCleanupAtEpochMilli() {
+            return finishedCleanupAtEpochMilli;
+        }
     }
 }
