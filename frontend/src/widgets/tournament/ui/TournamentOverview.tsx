@@ -37,12 +37,6 @@ function getSyncSummary(syncState: string) {
         value: "REST snapshot loaded",
         tone: "border-sky-300/25 bg-sky-400/10 text-sky-50",
       };
-    case "DEMO FALLBACK":
-      return {
-        label: "Fallback",
-        value: "Demo state in use",
-        tone: "border-amber-300/25 bg-amber-400/10 text-amber-50",
-      };
     default:
       return {
         label: "Syncing",

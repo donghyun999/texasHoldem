@@ -10,6 +10,7 @@ import com.texasholdem.tournament.domain.GuestSession;
 import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.domain.TournamentVisibility;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class TournamentService {
     private final TournamentHandCommandFlow handCommandFlow;
 
     // Wires the tournament orchestrator to focused lifecycle and command flows.
+    @Autowired
     public TournamentService(
             TournamentIdentityFactory identityFactory,
             TournamentSnapshotFactory snapshotFactory,

@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 
 export function AppShell() {
   return (
@@ -25,16 +25,6 @@ export function AppShell() {
               }
             >
               로비
-            </NavLink>
-            <NavLink
-              to="/tournaments/DEMO1"
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 transition ${
-                  isActive ? "social-cta-secondary" : "social-chip text-zinc-100 hover:bg-white/10"
-                }`
-              }
-            >
-              테이블
             </NavLink>
           </nav>
         </div>

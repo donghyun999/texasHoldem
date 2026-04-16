@@ -22,14 +22,6 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      {
-        path: "table/:roomCode",
-        element: (
-          <Suspense fallback={null}>
-            <TablePage />
-          </Suspense>
-        ),
-      },
     ],
   },
 ]);

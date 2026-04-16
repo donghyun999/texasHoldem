@@ -251,9 +251,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         : "LIVE WS"
       : realtimeState === "CONNECTING" || realtimeState === "RECONNECTING"
         ? "SYNCING"
-        : snapshot
-          ? "LIVE SNAPSHOT"
-          : "DEMO FALLBACK";
+        : "LIVE SNAPSHOT";
 
   return {
     currentPlayer,
@@ -278,13 +276,12 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       }
 
       manualReconnectRequiredRef.current = true;
-
-    if (snapshot?.status === "WAITING") {
-      const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
-      commitSnapshot(optimisticSnapshot, { syncActiveSession: false });
-      setLastEventType("playerDisconnected");
-      syncActiveTournamentSessionCache(queryClient, guestId, null);
-    }
+      if (snapshot?.status === "WAITING") {
+        const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
+        commitSnapshot(optimisticSnapshot, { syncActiveSession: false });
+        setLastEventType("playerDisconnected");
+        syncActiveTournamentSessionCache(queryClient, guestId, null);
+      }
 
       void disconnectTournamentPlayer(normalizedCode, guestId)
         .then((event) => {

@@ -23,13 +23,13 @@ const visibilityOptions: Array<{ value: TournamentVisibility; label: string; des
     value: "PUBLIC",
     label: "공개 테이블",
     badge: "공개",
-    description: "로비에 표시되어 누구나 비밀번호 없이 바로 들어올 수 있습니다.",
+    description: "로비에 노출되고 누구나 비밀번호 없이 바로 들어올 수 있습니다.",
   },
   {
     value: "PRIVATE",
     label: "잠금 테이블",
     badge: "잠금",
-    description: "로비에 계속 표시되지만, 참가하려면 공유한 비밀번호가 필요합니다.",
+    description: "로비에 계속 보이지만 비밀번호를 아는 사람만 참가할 수 있습니다.",
   },
 ];
 
@@ -40,7 +40,7 @@ function toDisplayStatus(status: TournamentStatus) {
     case "IN_HAND":
       return "핸드 진행 중";
     case "HAND_RESULT":
-      return "쇼다운";
+      return "결과 정산";
     case "FINISHED":
       return "종료";
     default:
@@ -65,6 +65,8 @@ export function LobbyForm({
   onResumeTournament,
   onCreate,
 }: LobbyFormProps) {
+  const canCreate = createRoomName.trim().length > 0 && (roomVisibility !== "PRIVATE" || createPassword.trim().length > 0);
+
   return (
     <div className="social-surface social-surface-strong rounded-[2rem] p-5 shadow-2xl shadow-black/20 sm:p-6">
       <div className="flex items-start justify-between gap-3">
@@ -77,7 +79,6 @@ export function LobbyForm({
         </span>
       </div>
 
-
       {activeTournamentRoomName ? (
         <div className="mt-5 rounded-[1.4rem] border border-cyan-300/20 bg-[linear-gradient(135deg,_rgba(34,197,94,0.12),_rgba(10,18,16,0.94))] p-4 text-sm text-cyan-50">
           <p className="text-[11px] uppercase tracking-[0.22em] text-cyan-100/70">진행 중인 세션</p>
@@ -86,7 +87,7 @@ export function LobbyForm({
             {activeTournamentStatus ? ` · ${toDisplayStatus(activeTournamentStatus)}` : ""}
           </p>
           <p className="mt-2 leading-6 text-cyan-50/85">
-            이미 진행 중인 토너먼트가 있습니다. 새로 만들지 말고 여기서 바로 돌아가세요.
+            이미 진행 중인 토너먼트가 있습니다. 새로 만들지 말고 이어서 돌아가세요.
           </p>
           {onResumeTournament ? (
             <button type="button" onClick={onResumeTournament} className="social-cta-secondary mt-4 px-4 py-3 text-sm">
@@ -106,7 +107,8 @@ export function LobbyForm({
             className="social-input"
           />
         </label>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+
+        <div className="grid gap-3 md:grid-cols-2">
           {visibilityOptions.map((option) => {
             const selected = roomVisibility === option.value;
 
@@ -131,10 +133,46 @@ export function LobbyForm({
                     {option.badge}
                   </span>
                 </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">{option.description}</p>
               </button>
             );
           })}
         </div>
+
+        <div className="grid gap-4 rounded-[1.4rem] border border-white/10 bg-white/5 p-4">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-zinc-200">방 이름</span>
+            <input
+              value={createRoomName}
+              onChange={(event) => onCreateRoomNameChange(event.target.value)}
+              placeholder="예: 프라이데이 스택"
+              className="social-input"
+            />
+          </label>
+
+          {roomVisibility === "PRIVATE" ? (
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
+              <input
+                value={createPassword}
+                onChange={(event) => onCreatePasswordChange(event.target.value)}
+                placeholder="잠금 테이블 비밀번호"
+                type="password"
+                className="social-input"
+              />
+            </label>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={createDisabled || !canCreate}
+            className="social-cta px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busyLabel ? busyLabel : "테이블 만들기"}
+          </button>
+        </div>
+
         {busyLabel ? (
           <p className="rounded-[1.25rem] border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-50">
             {busyLabel}
@@ -146,7 +184,6 @@ export function LobbyForm({
             {errorMessage}
           </p>
         ) : null}
-
       </div>
     </div>
   );
