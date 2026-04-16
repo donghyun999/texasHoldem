@@ -4,6 +4,8 @@ import com.texasholdem.tournament.application.state.*;
 import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.PublicTournamentSummary;
+import com.texasholdem.tournament.domain.TournamentStatus;
+import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -75,6 +77,10 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
         return repository.findWaitingTournamentRows(maxPlayers).stream()
                 .map(TournamentStateEntity::getPayload)
                 .map(mapper::read)
+                .filter(tournament -> tournament.status == TournamentStatus.WAITING)
+                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
+                .filter(tournament -> !tournament.players.isEmpty())
+                .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
                         tournament.code,
                         resolveRoomName(tournament),

@@ -1,11 +1,11 @@
 # orchestrator 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-16 Asia/Seoul`
+  - `2026-04-17 Asia/Seoul`
 - 상태:
-  - `done`
+  - `active`
 - 현재 작업:
-  - frontend UI 단순화, 프론트 렌더 최적화, backend `tournament/application` 패키지 정리, 독립 verification handoff 수집 및 세션 종료 정리
+  - Railway 배포 재현 이슈 3건에 대한 backend/frontend 수정 상태를 복구했고, 로컬 targeted backend 회귀 검증까지 green으로 확인했다. 남은 일은 Railway 배포 환경 spot-check다
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -13,11 +13,13 @@
 - 현재 worktree 상태:
   - `exists`
 - 현재 소유 범위:
-  - 작업 분해, 소유권 배정, 통합, 최종 검토
+  - 작업 분해, 소유권 배정, handoff 수집, 통합 판단, 상태 문서 갱신
 - 현재 활성 역할:
   - 없음
 - 다음 세션에서 다시 생성할 역할:
-  - 작업에 따라 `backend-agent`, `frontend-agent`, `verification-agent`
+  - `backend-agent`
+  - `frontend-agent`
+  - `verification-agent`
 - 현재 task-owner 매핑:
   - 없음
 - 지금 수정 가능한 파일:
@@ -29,25 +31,52 @@
   - `frontend/**`
   - 구현 역할 에이전트가 소유 중인 hotspot 파일
 - 마지막 결정:
-  - frontend는 중앙 메타 제거, 로비 감량, 렌더 최적화를 완료했고, backend는 `tournament/application`을 `command/hand/persistence/runtime/snapshot/state`로 재정리한 뒤 targeted validation을 통과했다. verification-agent의 독립 검증도 frontend build와 backend targeted suite pass로 마무리됐다
+  - 배포 재현 기준으로 backend는 `findActiveTournamentCodeByGuestId` JSONB guest match를 직접 array scan으로 바꾸고 public lobby에 `visibility = PUBLIC` 필터를 넣었으며, create는 session guest 우선 경로로 정리했다. frontend는 hand/status transition에서 public snapshot만 받아 own hole cards가 비는 경우 viewer hydrate를 자동 호출하게 바꿨다
+- 수집한 마지막 handoff:
+  - `backend-agent`
+    - `GuestSessionResolver`, `TournamentStateJpaRepository`, `InMemoryTournamentStateStore`, `TournamentController`, `CreateTournamentRequest`와 관련 테스트 보강 상태를 확인했고, persistent store public lobby 방어 필터를 포함한 현재 backend 슬라이스로 narrow Gradle suite `BUILD SUCCESSFUL` 확인
+  - `frontend-agent`
+    - `use-tournament-realtime-snapshot.ts`의 viewer hydrate 보강이 현재 코드 경로상 충분하다고 판단했고, 추가 frontend 수정은 불필요하다고 보고
+  - `verification-agent`
+    - narrow backend targeted suite 재실행 결과 `GuestSessionResolverTest`, `TournamentControllerTest`, `PersistentTournamentStateStoreTest`, `TournamentServiceTest` 모두 pass 확인. Railway/API spot-check는 미실행
 - 다음 액션:
-  - 다음 세션에서 인증/인가 전환이 시작되면 `HttpOnly` 세션 쿠키 기준의 backend task를 새로 배정한다
-  - 필요 시 `use-tournament-realtime-snapshot` 분리를 별도 구조 작업으로 다시 검토한다
-  - 세션 시작 시 최신 `agent-status`와 diff를 먼저 확인한다
+  - backend patch가 반영된 배포 환경에서 create 직후 `lobby/public`, `/guests/me/active-tournament`, personalized snapshot API spot-check를 수행
+  - Railway UI에서 hand start/reload 이후 own hole cards 유지 여부를 재확인
+  - 배포 검증 결과를 기준으로 `docs/status.md`와 관련 상태 문서를 다시 정리
 - 막힌 점:
-  - 없음
+  - 로컬 코드/테스트 기준 막힌 점은 없다
 - 남은 리스크:
-  - `use-tournament-realtime-snapshot`는 여전히 websocket/session lifecycle 소유자라 후속 분리 여지가 남아 있다
-  - backend facade는 얇아졌지만 호환성 때문에 일부 retained field가 남아 있어 추가 정리는 별도 작업으로 다뤄야 한다
-  - 이번 디자인 라운드는 로비와 테이블 HUD 중심이라 `PlayerSeat`와 액션패널의 시각 톤은 후속 작업 여지가 남아 있다
-  - backend 패키지 분리 과정에서 일부 access modifier가 넓어져 후속 캡슐화 정리 여지가 남아 있다
+  - 로컬 smoke 검증은 여전히 Playwright `chrome-headless-shell.exe spawn EPERM` 환경 문제로 막혀 있다
+  - Railway 재배포 전에는 실제 production behavior recovery를 단정할 수 없다
+  - frontend는 build-only와 코드 경로 점검 중심이라, realtime/hydrate 회귀는 배포 환경 재확인이 남아 있다
 - 현재 미통합 변경:
-  - backend `tournament/application` 하위 패키지 재정리 move set
-  - frontend 중앙 메타 제거, 로비 감량, realtime/table 렌더 최적화 변경
-  - `docs/agent-status/*.md` 종료 상태 갱신
+  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
+  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
+  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/InMemoryTournamentStateStore.java`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
+  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`
+  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`
+  - `docs/session-restart-prompts.md` 로컬 수정
+  - `.gradle/`
+  - `.gradle-fresh/`
+  - `backend/.gradle-user/`
+  - `backend/.gradle-verification/`
+  - `cookies.txt`
 - 세션 재개 시 먼저 볼 파일:
   - `AGENTS.md`
   - `docs/multi-agent-cli-operations.md`
   - `docs/agent-roles.md`
   - `docs/agent-status/orchestrator.md`
-  - `docs/status.md`
+  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
+  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
+  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
+  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`

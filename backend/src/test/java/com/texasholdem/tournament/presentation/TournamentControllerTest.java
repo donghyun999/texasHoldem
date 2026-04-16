@@ -63,4 +63,42 @@ class TournamentControllerTest {
 
         verify(tournamentService).createTournament("guest-legacy", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
     }
+
+    @Test
+    void createTournamentUsesSessionGuestWhenGuestIdIsMissing() throws Exception {
+        when(tournamentService.createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
+                .thenReturn(null);
+
+        var session = new MockHttpSession();
+        session.setAttribute(GuestSessionAttributes.GUEST_ID, "guest-session");
+
+        mockMvc.perform(post("/api/v1/tournaments")
+                        .session(session)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(tournamentService).createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
+    }
+
+    @Test
+    void createTournamentPrefersSessionGuestWhenLegacyGuestIdIsStale() throws Exception {
+        when(tournamentService.createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
+                .thenReturn(null);
+
+        var session = new MockHttpSession();
+        session.setAttribute(GuestSessionAttributes.GUEST_ID, "guest-session");
+
+        mockMvc.perform(post("/api/v1/tournaments")
+                        .session(session)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"guestId":"guest-stale","nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(tournamentService).createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
+    }
 }

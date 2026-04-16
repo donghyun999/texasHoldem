@@ -37,6 +37,12 @@ public class GuestSessionResolver {
         return normalizedLegacyGuestId;
     }
 
+    @Nullable
+    public String resolveCreateGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
+        var sessionGuestId = currentGuestId(request);
+        return sessionGuestId != null ? sessionGuestId : normalize(legacyGuestId);
+    }
+
     public String requireGuestId(HttpServletRequest request) {
         var guestId = currentGuestId(request);
         if (guestId == null) {

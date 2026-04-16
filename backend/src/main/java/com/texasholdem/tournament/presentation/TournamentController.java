@@ -52,7 +52,7 @@ public class TournamentController {
             @Valid @RequestBody CreateTournamentRequest request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.resolveCreateGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(
                 tournamentService.createTournament(
                         guestId,

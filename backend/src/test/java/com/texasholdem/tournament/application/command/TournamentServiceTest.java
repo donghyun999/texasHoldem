@@ -60,6 +60,21 @@ class TournamentServiceTest {
         assertThat(activeTournament.status()).isEqualTo(TournamentStatus.WAITING);
     }
 
+    // Verifies that active-tournament lookup works for joined guests, not only table owners.
+    @Test
+    void findsActiveTournamentForJoinedGuest() {
+        var service = createService();
+        var snapshot = service.createTournament("guest-1", "Owner");
+        service.joinTournament(snapshot.code(), "guest-2", "Player2");
+
+        var activeTournament = service.findActiveTournament("guest-2");
+
+        assertThat(activeTournament).isNotNull();
+        assertThat(activeTournament.guestId()).isEqualTo("guest-2");
+        assertThat(activeTournament.tournamentCode()).isEqualTo(snapshot.code());
+        assertThat(activeTournament.status()).isEqualTo(TournamentStatus.WAITING);
+    }
+
     // Verifies that guests without a live seat do not report an active tournament.
     @Test
     void returnsNullWhenGuestHasNoActiveTournament() {
@@ -160,9 +175,9 @@ class TournamentServiceTest {
         assertThat(storedPassword).isNotEqualTo("letmein");
     }
 
-    // Verifies that waiting tables of either visibility are exposed through the lobby list.
+    // Verifies that the public lobby only includes public waiting rooms and ignores private ones.
     @Test
-    void listsWaitingTournamentsIncludingLockedTables() {
+    void listsOnlyPublicWaitingTournamentsForLobby() {
         var service = createService();
         service.createTournament("guest-1", "Owner", "PUB1", TournamentVisibility.PUBLIC);
         service.joinTournament("PUB1", "guest-2", "Player2");
@@ -176,9 +191,9 @@ class TournamentServiceTest {
         var summaries = service.listPublicWaitingTournaments();
 
         assertThat(summaries).extracting(PublicTournamentSummary::code)
-                .containsExactly("PRIV1", "PUB1");
+                .containsExactly("PUB1");
         assertThat(summaries).extracting(PublicTournamentSummary::visibility)
-                .containsExactly(TournamentVisibility.PRIVATE, TournamentVisibility.PUBLIC);
+                .containsExactly(TournamentVisibility.PUBLIC);
     }
 
     // Verifies that locked tables reject joins when the supplied password is missing or wrong.
@@ -209,14 +224,11 @@ class TournamentServiceTest {
         assertThat(summaries).isEmpty();
     }
 
-    // Verifies that full locked waiting rooms also disappear from the joinable lobby list.
+    // Verifies that private waiting rooms never appear in the public lobby, even before they are full.
     @Test
-    void excludesFullLockedWaitingTournamentsFromLobbyList() {
+    void excludesPrivateWaitingTournamentsFromLobbyList() {
         var service = createService();
-        var snapshot = service.createTournament("guest-1", "Owner", "Locked Full", "letmein", TournamentVisibility.PRIVATE);
-        for (var playerNumber = 2; playerNumber <= 6; playerNumber++) {
-            service.joinTournament(snapshot.code(), "guest-" + playerNumber, "Player" + playerNumber, "letmein");
-        }
+        service.createTournament("guest-1", "Owner", "Locked Room", "letmein", TournamentVisibility.PRIVATE);
 
         var summaries = service.listPublicWaitingTournaments();
 

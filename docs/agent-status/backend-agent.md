@@ -1,11 +1,11 @@
 # backend-agent 상태
 
 - 마지막 갱신 시각:
-  - `2026-04-16 Asia/Seoul`
+  - `2026-04-17 Asia/Seoul`
 - 상태:
-  - `done`
+  - `idle`
 - 현재 작업:
-  - `TournamentService.java` production 복구, `tournament/application` 하위 패키지 정리, backend validation handoff 완료
+  - Railway 배포 이슈 대응 backend 슬라이스를 복구했고, focused backend 테스트 보강과 narrow Gradle suite 검증까지 마쳤다
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -22,17 +22,24 @@
   - `frontend/**`
   - 다른 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - backend move set은 `command`, `hand`, `persistence`, `runtime`, `snapshot`, `state` 기준으로 정리했고, `TournamentService`는 `backend/src/main/java/**` 아래 production 위치를 유지한다
+  - `findActiveTournamentCodeByGuestId`를 JSONB containment 대신 `jsonb_array_elements(...)->>'guestId'` 직접 매칭으로 바꿨고, public lobby query/in-memory store에 `visibility = PUBLIC` 필터를 맞췄다. create는 세션 guest 우선 해석 전용 resolver 경로를 쓰게 바꿔 body `guestId` 없이도 동작하도록 정리했다
 - 다음 액션:
-  - 후속 backend task에서는 인증/인가 구조 전환을 우선 검토한다
-  - 필요 시 넓어진 access modifier를 다시 좁히는 캡슐화 정리를 별도 작업으로 수행한다
-  - 추가 구조 변경이 생기면 targeted suite부터 다시 확인한다
+  - Railway 배포 후 `lobby/public`와 `/guests/me/active-tournament` API 동작을 spot-check로 재확인
+  - 필요 시 personalized snapshot/hole cards 회귀가 backend 응답 문제인지 추가 분리 진단
+  - 배포 환경에서 재현이 남으면 PostgreSQL 실제 데이터 기준으로 query 결과를 다시 점검
 - 막힌 점:
   - 없음
+- 남은 리스크:
+  - Railway 배포에서 `lobby/public`와 `/guests/me/active-tournament`가 실제로 회복됐는지 배포 후 재검증이 필요하다
+  - 로컬 targeted suite는 green이지만 production PostgreSQL 데이터 shape 차이는 아직 배포 전제다
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
-  - `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`
-  - `backend/src/main/java/com/texasholdem/tournament/application/TournamentHandEngine.java`
+  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
+  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStore.java`
+  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
   - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
-  - `backend/src/main/java/com/texasholdem/websocket/TournamentMessageController.java`
-  - `docs/state-flow.md`
+  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
+  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
+  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`

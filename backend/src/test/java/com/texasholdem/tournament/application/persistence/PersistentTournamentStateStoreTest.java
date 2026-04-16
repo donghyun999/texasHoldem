@@ -147,7 +147,7 @@ class PersistentTournamentStateStoreTest {
         verify(repository, never()).findAll();
     }
 
-    // Verifies that waiting rooms of either visibility are surfaced in newest-first order for the home lobby.
+    // Verifies that the persisted public lobby list only surfaces public waiting rooms in newest-first order.
     @Test
     void findsPublicWaitingTournamentsForLobbyList() {
         var repository = mock(TournamentStateJpaRepository.class);
@@ -201,7 +201,6 @@ class PersistentTournamentStateStoreTest {
                 ))
                 .containsExactly(
                         List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, 6, "NewestOwner"),
-                        List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, 6, "PrivateOwner"),
                         List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
                 );
         verify(repository).findWaitingTournamentRows(6);

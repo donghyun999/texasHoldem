@@ -45,6 +45,15 @@ class GuestSessionResolverTest {
     }
 
     @Test
+    void resolveCreateGuestIdPrefersSessionIdentityAndAllowsMissingLegacyGuestId() {
+        var sessionRequest = requestWithSession("guest-1", "Neo");
+
+        assertThat(resolver.resolveCreateGuestId(sessionRequest, null)).isEqualTo("guest-1");
+        assertThat(resolver.resolveCreateGuestId(sessionRequest, "guest-stale")).isEqualTo("guest-1");
+        assertThat(resolver.resolveCreateGuestId(new MockHttpServletRequest(), "guest-legacy")).isEqualTo("guest-legacy");
+    }
+
+    @Test
     void resolvesGuestIdFromWebsocketSessionAttributes() {
         var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         accessor.setSessionAttributes(new HashMap<>(java.util.Map.of(

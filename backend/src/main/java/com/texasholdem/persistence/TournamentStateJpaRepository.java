@@ -12,9 +12,10 @@ public interface TournamentStateJpaRepository extends JpaRepository<TournamentSt
             select code
             from tournament_state
             where coalesce(payload::jsonb ->> 'status', '') <> 'FINISHED'
-              and payload::jsonb @> jsonb_build_object(
-                'players',
-                jsonb_build_array(jsonb_build_object('guestId', :guestId))
+              and exists (
+                select 1
+                from jsonb_array_elements(coalesce(payload::jsonb -> 'players', '[]'::jsonb)) player
+                where player ->> 'guestId' = :guestId
               )
             limit 1
             """, nativeQuery = true)
@@ -46,6 +47,7 @@ public interface TournamentStateJpaRepository extends JpaRepository<TournamentSt
             select *
             from tournament_state
             where coalesce(payload::jsonb ->> 'status', '') = 'WAITING'
+              and coalesce(payload::jsonb ->> 'visibility', 'PRIVATE') = 'PUBLIC'
               and jsonb_array_length(coalesce(payload::jsonb -> 'players', '[]'::jsonb)) > 0
               and jsonb_array_length(coalesce(payload::jsonb -> 'players', '[]'::jsonb)) < :maxPlayers
             order by created_at desc

@@ -34,6 +34,22 @@ function buildViewerSnapshotKey(snapshot: TournamentSnapshot) {
   ].join("|");
 }
 
+function needsViewerHydration(snapshot: TournamentSnapshot | null, guestId: string) {
+  if (!snapshot || !guestId.trim()) {
+    return false;
+  }
+
+  if (snapshot.snapshotAudience === "VIEWER" || snapshot.selfHoleCards.length > 0) {
+    return false;
+  }
+
+  if (snapshot.status === "WAITING" || snapshot.status === "FINISHED") {
+    return false;
+  }
+
+  return snapshot.players.some((player) => player.guestId === guestId);
+}
+
 // Subscribes to one tournament topic and keeps the latest snapshot hot in memory.
 export function useTournamentRealtimeSnapshot(code: string, guestId: string, seedSnapshot?: TournamentSnapshot) {
   const queryClient = useQueryClient();
@@ -147,6 +163,25 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       hydrateViewerSnapshot();
     }
   });
+
+  // Restores the viewer-specific snapshot after hand/status transitions that arrive as public broker snapshots.
+  useEffect(() => {
+    if (!needsViewerHydration(snapshot, guestId)) {
+      return;
+    }
+
+    hydrateViewerSnapshot();
+  }, [
+    guestId,
+    hydrateViewerSnapshot,
+    snapshot?.code,
+    snapshot?.handNumber,
+    snapshot?.snapshotAudience,
+    snapshot?.stateVersion,
+    snapshot?.status,
+    snapshot?.selfHoleCards,
+    snapshot?.viewerHoleCardsIncluded,
+  ]);
 
   // Publishes one command only when the websocket transport is ready.
   const publishWhenConnected = useEffectEvent((publisher: (client: Client, code: string, guestId: string) => void) => {
