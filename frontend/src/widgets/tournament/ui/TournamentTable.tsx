@@ -239,8 +239,26 @@ function normalizeSeatIndex(index: number) {
   return (index + TOTAL_SEATS) % TOTAL_SEATS;
 }
 
-function buildDisplayedSeatIndexes(players: TournamentPlayer[], currentGuestId?: string) {
-  const currentPlayerSeat = players.find((player) => player.guestId === currentGuestId)?.seatIndex;
+function resolveDisplayedHeroGuestId(
+  players: TournamentPlayer[],
+  viewerGuestId?: string | null,
+  currentGuestId?: string,
+) {
+  const seatedGuestIds = new Set(players.map((player) => player.guestId));
+
+  if (viewerGuestId && seatedGuestIds.has(viewerGuestId)) {
+    return viewerGuestId;
+  }
+
+  if (currentGuestId && seatedGuestIds.has(currentGuestId)) {
+    return currentGuestId;
+  }
+
+  return viewerGuestId ?? currentGuestId;
+}
+
+function buildDisplayedSeatIndexes(players: TournamentPlayer[], heroGuestId?: string) {
+  const currentPlayerSeat = players.find((player) => player.guestId === heroGuestId)?.seatIndex;
   const rotationOffset =
     currentPlayerSeat === undefined ? 0 : normalizeSeatIndex(currentPlayerSeat - HERO_TABLE_POSITION_INDEX);
 
@@ -689,10 +707,14 @@ export function TournamentTable({
   const potChipTimeoutIdsRef = useRef<number[]>([]);
   const potCollectionTimeoutIdsRef = useRef<number[]>([]);
   const uiEffectTimeoutIdsRef = useRef<number[]>([]);
+  const displayedHeroGuestId = useMemo(
+    () => resolveDisplayedHeroGuestId(snapshot.players, snapshot.viewerGuestId, currentGuestId),
+    [currentGuestId, snapshot.players, snapshot.viewerGuestId],
+  );
   const seats = useMemo(() => buildSeatMap(snapshot.players), [snapshot.players]);
   const displayedSeatIndexes = useMemo(
-    () => buildDisplayedSeatIndexes(snapshot.players, currentGuestId),
-    [snapshot.players, currentGuestId],
+    () => buildDisplayedSeatIndexes(snapshot.players, displayedHeroGuestId),
+    [displayedHeroGuestId, snapshot.players],
   );
   const showdownHoleCardsByGuestId = useMemo(
     () => new Map(snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const)),
@@ -1135,7 +1157,11 @@ export function TournamentTable({
   ]);
 
   return (
-    <div className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,_rgba(6,16,13,0.98),_rgba(2,7,6,0.99))] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]">
+    <div
+      data-testid="tournament-table"
+      data-viewer-guest-id={displayedHeroGuestId ?? ""}
+      className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,_rgba(6,16,13,0.98),_rgba(2,7,6,0.99))] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]"
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.1),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(103,232,249,0.12),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(250,204,21,0.09),_transparent_22%),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
       <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#355f56] bg-[radial-gradient(circle_at_50%_34%,_rgba(103,232,249,0.22),_rgba(35,163,116,0.92)_38%,_rgba(7,33,26,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
       <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-white/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.08),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
@@ -1263,7 +1289,7 @@ export function TournamentTable({
               currentBigBlind={snapshot.currentLevel.bigBlind}
               stackDisplayMode={stackDisplayMode}
               showStackLabel={snapshot.status !== "WAITING"}
-              currentGuestId={currentGuestId}
+              currentGuestId={displayedHeroGuestId}
               selfHoleCards={snapshot.selfHoleCards}
               revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? EMPTY_CARDS : EMPTY_CARDS}
               actionFlash={seats[actualSeatIndex] ? seatActionFlashByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}

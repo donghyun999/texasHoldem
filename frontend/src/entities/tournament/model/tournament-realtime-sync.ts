@@ -33,25 +33,46 @@ export function parseTournamentEvent(message: IMessage) {
   }
 }
 
+export function resolveSnapshotViewerGuestId(snapshot: TournamentSnapshot | null, guestId: string) {
+  if (!snapshot) {
+    return guestId.trim();
+  }
+
+  const seatedGuestIds = new Set(snapshot.players.map((player) => player.guestId));
+  const viewerGuestId = snapshot.viewerGuestId?.trim() ?? "";
+  if (viewerGuestId && seatedGuestIds.has(viewerGuestId)) {
+    return viewerGuestId;
+  }
+
+  const localGuestId = guestId.trim();
+  if (localGuestId && seatedGuestIds.has(localGuestId)) {
+    return localGuestId;
+  }
+
+  return viewerGuestId || localGuestId;
+}
+
 // Finds the local browser player in the latest tournament snapshot.
 export function findCurrentPlayer(snapshot: TournamentSnapshot | null, guestId: string) {
   if (!snapshot) {
     return null;
   }
 
-  return snapshot.players.find((player) => player.guestId === guestId) ?? null;
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+  return snapshot.players.find((player) => player.guestId === resolvedViewerGuestId) ?? null;
 }
 
 // Mirrors the waiting-room leave result locally while the REST fallback completes.
 export function buildWaitingLeaveSnapshot(snapshot: TournamentSnapshot, guestId: string) {
-  const leavingPlayer = snapshot.players.find((player) => player.guestId === guestId);
+  const leavingGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+  const leavingPlayer = snapshot.players.find((player) => player.guestId === leavingGuestId);
   if (!leavingPlayer) {
     return snapshot;
   }
 
   return {
     ...snapshot,
-    players: snapshot.players.filter((player) => player.guestId !== guestId),
+    players: snapshot.players.filter((player) => player.guestId !== leavingGuestId),
     tableMessage: `${leavingPlayer.nickname} left the waiting room.`,
   };
 }
@@ -127,15 +148,16 @@ export function syncActiveTournamentSessionCache(
   guestId: string,
   snapshot: TournamentSnapshot | null,
 ) {
-  if (!guestId.trim()) {
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+  if (!resolvedViewerGuestId) {
     return;
   }
 
-  const localPlayer = findCurrentPlayer(snapshot, guestId);
+  const localPlayer = findCurrentPlayer(snapshot, resolvedViewerGuestId);
   const activeTournament: ActiveTournamentSession | null =
     snapshot && localPlayer && snapshot.status !== "FINISHED"
       ? {
-          guestId,
+          guestId: resolvedViewerGuestId,
           tournamentCode: snapshot.code,
           roomName: snapshot.roomName,
           status: snapshot.status,

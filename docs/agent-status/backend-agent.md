@@ -5,7 +5,7 @@
 - 상태:
   - `idle`
 - 현재 작업:
-  - Railway 배포 이슈 대응 backend 슬라이스를 복구했고, focused backend 테스트 보강과 narrow Gradle suite 검증까지 마쳤다
+  - 로비 정책 변경으로 private waiting room도 로비에 노출되게 했고, password-gated join은 유지한 상태로 focused backend 검증까지 마쳤다
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -24,14 +24,14 @@
 - 마지막 결정:
   - `findActiveTournamentCodeByGuestId`를 JSONB containment 대신 `jsonb_array_elements(...)->>'guestId'` 직접 매칭으로 바꿨고, public lobby query/in-memory store에 `visibility = PUBLIC` 필터를 맞췄다. create는 세션 guest 우선 해석 전용 resolver 경로를 쓰게 바꿔 body `guestId` 없이도 동작하도록 정리했다
 - 다음 액션:
-  - Railway 배포 후 `lobby/public`와 `/guests/me/active-tournament` API 동작을 spot-check로 재확인
-  - 필요 시 personalized snapshot/hole cards 회귀가 backend 응답 문제인지 추가 분리 진단
-  - 배포 환경에서 재현이 남으면 PostgreSQL 실제 데이터 기준으로 query 결과를 다시 점검
+  - running app 또는 배포 환경에서 private waiting room이 로비 응답에 포함되는지 spot-check
+  - 필요 시 `findPublicWaitingTournaments` 계열 메서드명/주석을 정책 의미에 맞게 rename
+  - 배포 환경에서 비밀번호 join 오류/성공 응답을 다시 점검
 - 막힌 점:
   - 없음
 - 남은 리스크:
-  - Railway 배포에서 `lobby/public`와 `/guests/me/active-tournament`가 실제로 회복됐는지 배포 후 재검증이 필요하다
-  - 로컬 targeted suite는 green이지만 production PostgreSQL 데이터 shape 차이는 아직 배포 전제다
+  - 로컬 targeted suite는 green이지만 running app/Railway 응답은 아직 미확인이다
+  - 메서드명은 여전히 “public only”처럼 읽혀 정책 의미와 어긋난다
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`

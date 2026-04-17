@@ -6,6 +6,7 @@ import type { TournamentSnapshot } from "@/entities/tournament/model/types";
 import { findCreatedRoomPassword } from "@/features/lobby/model/created-room-passwords";
 import { WaitingRoomDirectJoinPanel } from "@/features/lobby/ui/WaitingRoomDirectJoinPanel";
 import { WaitingRoomInvitePanel } from "@/features/lobby/ui/WaitingRoomInvitePanel";
+import { resolveSnapshotViewerGuestId } from "@/entities/tournament/model/tournament-realtime-sync";
 import { useTournamentRealtimeSnapshot } from "@/entities/tournament/model/use-tournament-realtime-snapshot";
 import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot, joinTournament } from "@/shared/api/http";
@@ -44,8 +45,11 @@ export function TablePage() {
   const wasSeatedRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
 
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
   const currentPlayer =
-    realtimeSnapshot.currentPlayer ?? snapshot?.players.find((player) => player.guestId === guestId) ?? null;
+    realtimeSnapshot.currentPlayer ??
+    snapshot?.players.find((player) => player.guestId === resolvedViewerGuestId) ??
+    null;
   const createdRoomPassword = snapshot
     ? createdRoomPasswordFromState ?? findCreatedRoomPassword(snapshot.code)
     : createdRoomPasswordFromState;
@@ -129,7 +133,7 @@ export function TablePage() {
       snapshot?.status === "WAITING" &&
       !currentPlayer &&
       !joinMutation.isPending &&
-      !!guestId.trim() &&
+      !!resolvedViewerGuestId &&
       !!nickname.trim() &&
       (snapshot?.visibility === "PUBLIC" || !!joinPassword.trim());
 
@@ -142,10 +146,10 @@ export function TablePage() {
   }, [
     autoJoinRequested,
     currentPlayer,
-    guestId,
     joinMutation.isPending,
     joinPassword,
     nickname,
+    resolvedViewerGuestId,
     snapshot?.status,
     snapshot?.visibility,
   ]);
@@ -153,6 +157,18 @@ export function TablePage() {
   const directJoinError =
     joinValidationError ||
     (joinMutation.error instanceof Error && joinMutation.error.message ? joinMutation.error.message : null);
+  const expectedViewerGuestId = guestId.trim();
+  const hasCreateNavigationContext = createdRoomPasswordFromState !== null;
+  const waitingForViewerSeatResolution =
+    snapshot?.status === "WAITING" &&
+    !currentPlayer &&
+    !!expectedViewerGuestId &&
+    (hasCreateNavigationContext ||
+      autoJoinRequested ||
+      joinMutation.isPending ||
+      snapshotQuery.isFetching ||
+      realtimeSnapshot.realtimeState === "CONNECTING" ||
+      realtimeSnapshot.realtimeState === "RECONNECTING");
 
   if (!snapshot) {
     return (
@@ -163,11 +179,30 @@ export function TablePage() {
     );
   }
 
-  const showDirectJoinPanel = snapshot.status === "WAITING" && !currentPlayer;
+  const showDirectJoinPanel = snapshot.status === "WAITING" && !currentPlayer && !waitingForViewerSeatResolution;
 
   return (
     <section className="space-y-6">
       <WaitingRoomInvitePanel snapshot={snapshot} currentPlayer={currentPlayer} createdRoomPassword={createdRoomPassword} />
+      {waitingForViewerSeatResolution ? (
+        <section className="social-surface rounded-[1.8rem] border-cyan-200/20 p-5 shadow-xl shadow-black/20">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-black tracking-tight text-white">
+                {hasCreateNavigationContext ? "Setting up your table" : "Restoring your seat"}
+              </h3>
+            </div>
+            <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+              Syncing
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">
+            {hasCreateNavigationContext
+              ? "Your room was created. Waiting for the personalized seat view before showing owner controls."
+              : "Waiting for this browser to recover its player seat before showing join or table controls."}
+          </p>
+        </section>
+      ) : null}
       {showDirectJoinPanel ? (
         <WaitingRoomDirectJoinPanel
           snapshot={snapshot}
@@ -193,7 +228,7 @@ export function TablePage() {
       ) : null}
       <TournamentTable
         snapshot={snapshot}
-        currentGuestId={guestId}
+        currentGuestId={resolvedViewerGuestId}
         stackDisplayMode={stackDisplayMode}
         onStackDisplayModeChange={setStackDisplayMode}
         actionBar={

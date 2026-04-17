@@ -223,23 +223,14 @@ export function joinTournament(
   nickname: string,
   password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
-    nickname,
-    ...(password ? { password } : {}),
-  }).catch((error) => {
-    if (guestId.trim() && canFallbackToLegacy(error)) {
-      return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(
-        `/api/v1/tournaments/${code}/join`,
-        {
-          guestId,
-          nickname,
-          ...(password ? { password } : {}),
-        },
-      );
-    }
-
-    throw error;
-  });
+  return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(
+    `/api/v1/tournaments/${code}/join`,
+    {
+      guestId,
+      nickname,
+      ...(password ? { password } : {}),
+    },
+  );
 }
 
 // Joins one waiting tournament using the current session when available.

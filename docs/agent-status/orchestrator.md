@@ -5,7 +5,7 @@
 - 상태:
   - `active`
 - 현재 작업:
-  - Railway 배포 재현 이슈 3건에 대한 backend/frontend 수정 상태를 복구했고, 로컬 targeted backend 회귀 검증까지 green으로 확인했다. 남은 일은 Railway 배포 환경 spot-check다
+  - 로비 정책을 `로비 노출 + 비밀번호 입장`으로 바꾸는 backend/frontend handoff를 수집했고, targeted backend tests와 frontend build까지 green으로 확인했다
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -34,32 +34,28 @@
   - 배포 재현 기준으로 backend는 `findActiveTournamentCodeByGuestId` JSONB guest match를 직접 array scan으로 바꾸고 public lobby에 `visibility = PUBLIC` 필터를 넣었으며, create는 session guest 우선 경로로 정리했다. frontend는 hand/status transition에서 public snapshot만 받아 own hole cards가 비는 경우 viewer hydrate를 자동 호출하게 바꿨다
 - 수집한 마지막 handoff:
   - `backend-agent`
-    - `GuestSessionResolver`, `TournamentStateJpaRepository`, `InMemoryTournamentStateStore`, `TournamentController`, `CreateTournamentRequest`와 관련 테스트 보강 상태를 확인했고, persistent store public lobby 방어 필터를 포함한 현재 backend 슬라이스로 narrow Gradle suite `BUILD SUCCESSFUL` 확인
+    - 로비 목록의 `PUBLIC` 전용 필터를 제거해 waiting 상태의 `PUBLIC`/`PRIVATE` 방이 모두 로비에 나오게 했고, private join 비밀번호 검증은 유지했다. `TournamentServiceTest`, `PersistentTournamentStateStoreTest` targeted suite `BUILD SUCCESSFUL`
   - `frontend-agent`
-    - `use-tournament-realtime-snapshot.ts`의 viewer hydrate 보강이 현재 코드 경로상 충분하다고 판단했고, 추가 frontend 수정은 불필요하다고 보고
+    - `PublicTournamentList.tsx`에 private room 전용 소형 자물쇠 마커를 카드 우측 상단 끝에 추가했고, 기존 비밀번호 프롬프트 join 흐름은 유지했다
   - `verification-agent`
-    - narrow backend targeted suite 재실행 결과 `GuestSessionResolverTest`, `TournamentControllerTest`, `PersistentTournamentStateStoreTest`, `TournamentServiceTest` 모두 pass 확인. Railway/API spot-check는 미실행
+    - `TournamentServiceTest`, `PersistentTournamentStateStoreTest` pass 및 `npm run build` pass 확인. 런타임 smoke와 Railway 검증은 미실행
 - 다음 액션:
-  - backend patch가 반영된 배포 환경에서 create 직후 `lobby/public`, `/guests/me/active-tournament`, personalized snapshot API spot-check를 수행
-  - Railway UI에서 hand start/reload 이후 own hole cards 유지 여부를 재확인
-  - 배포 검증 결과를 기준으로 `docs/status.md`와 관련 상태 문서를 다시 정리
+  - 실행 중인 앱에서 private waiting room이 로비에 실제 노출되는지 smoke 확인
+  - private room lock icon 렌더링, 비밀번호 프롬프트, 오입력 오류 처리를 UI에서 확인
+  - 필요 시 `findPublicWaitingTournaments` 계열 메서드명을 정책 의미에 맞게 정리
 - 막힌 점:
   - 로컬 코드/테스트 기준 막힌 점은 없다
 - 남은 리스크:
   - 로컬 smoke 검증은 여전히 Playwright `chrome-headless-shell.exe spawn EPERM` 환경 문제로 막혀 있다
-  - Railway 재배포 전에는 실제 production behavior recovery를 단정할 수 없다
-  - frontend는 build-only와 코드 경로 점검 중심이라, realtime/hydrate 회귀는 배포 환경 재확인이 남아 있다
+  - 런타임 UI 동작과 Railway/PostgreSQL 배포 환경 동작은 아직 미확인이다
+  - `findPublicWaitingTournaments` / `listPublicWaitingTournaments` 메서드명은 현재 동작 의미와 어긋난다
 - 현재 미통합 변경:
-  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
   - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
   - `backend/src/main/java/com/texasholdem/tournament/application/persistence/InMemoryTournamentStateStore.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
-  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
+  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStore.java`
   - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
   - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`
-  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`
+  - `frontend/src/features/lobby/ui/PublicTournamentList.tsx`
   - `docs/session-restart-prompts.md` 로컬 수정
   - `.gradle/`
   - `.gradle-fresh/`

@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class TournamentServiceTest {
 
@@ -175,7 +176,7 @@ class TournamentServiceTest {
         assertThat(storedPassword).isNotEqualTo("letmein");
     }
 
-    // Verifies that the public lobby only includes public waiting rooms and ignores private ones.
+    // Verifies that the home lobby includes waiting rooms of both visibilities but still skips active tables.
     @Test
     void listsOnlyPublicWaitingTournamentsForLobby() {
         var service = createService();
@@ -191,9 +192,9 @@ class TournamentServiceTest {
         var summaries = service.listPublicWaitingTournaments();
 
         assertThat(summaries).extracting(PublicTournamentSummary::code)
-                .containsExactly("PUB1");
+                .containsExactly("PRIV1", "PUB1");
         assertThat(summaries).extracting(PublicTournamentSummary::visibility)
-                .containsExactly(TournamentVisibility.PUBLIC);
+                .containsExactly(TournamentVisibility.PRIVATE, TournamentVisibility.PUBLIC);
     }
 
     // Verifies that locked tables reject joins when the supplied password is missing or wrong.
@@ -224,15 +225,17 @@ class TournamentServiceTest {
         assertThat(summaries).isEmpty();
     }
 
-    // Verifies that private waiting rooms never appear in the public lobby, even before they are full.
+    // Verifies that private waiting rooms are listed in the lobby while remaining password-gated on join.
     @Test
-    void excludesPrivateWaitingTournamentsFromLobbyList() {
+    void includesPrivateWaitingTournamentsInLobbyList() {
         var service = createService();
-        service.createTournament("guest-1", "Owner", "Locked Room", "letmein", TournamentVisibility.PRIVATE);
+        var snapshot = service.createTournament("guest-1", "Owner", "Locked Room", "letmein", TournamentVisibility.PRIVATE);
 
         var summaries = service.listPublicWaitingTournaments();
 
-        assertThat(summaries).isEmpty();
+        assertThat(summaries)
+                .extracting(PublicTournamentSummary::code, PublicTournamentSummary::visibility)
+                .containsExactly(tuple(snapshot.code(), TournamentVisibility.PRIVATE));
     }
 
     // Verifies that waiting-room joins no longer reshuffle list order away from creation recency.

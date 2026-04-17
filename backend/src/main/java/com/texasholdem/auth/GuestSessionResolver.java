@@ -43,6 +43,22 @@ public class GuestSessionResolver {
         return sessionGuestId != null ? sessionGuestId : normalize(legacyGuestId);
     }
 
+    public String requireResolvedGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
+        var guestId = resolveGuestId(request, legacyGuestId);
+        if (guestId == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
+        }
+        return guestId;
+    }
+
+    public String requireCreateGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
+        var guestId = resolveCreateGuestId(request, legacyGuestId);
+        if (guestId == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
+        }
+        return guestId;
+    }
+
     public String requireGuestId(HttpServletRequest request) {
         var guestId = currentGuestId(request);
         if (guestId == null) {
@@ -64,6 +80,14 @@ public class GuestSessionResolver {
         }
 
         return normalizedLegacyGuestId;
+    }
+
+    public String requireResolvedGuestId(SimpMessageHeaderAccessor accessor, @Nullable String legacyGuestId) {
+        var guestId = resolveGuestId(accessor, legacyGuestId);
+        if (guestId == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
+        }
+        return guestId;
     }
 
     public String requireGuestId(SimpMessageHeaderAccessor accessor) {

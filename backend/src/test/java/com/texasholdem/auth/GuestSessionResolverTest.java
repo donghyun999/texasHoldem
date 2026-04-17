@@ -54,6 +54,20 @@ class GuestSessionResolverTest {
     }
 
     @Test
+    void requireResolvedGuestIdRejectsMissingSessionAndLegacyGuestId() {
+        assertThatThrownBy(() -> resolver.requireResolvedGuestId(new MockHttpServletRequest(), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Guest identity is required.");
+    }
+
+    @Test
+    void requireCreateGuestIdRejectsMissingSessionAndLegacyGuestId() {
+        assertThatThrownBy(() -> resolver.requireCreateGuestId(new MockHttpServletRequest(), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Guest identity is required.");
+    }
+
+    @Test
     void resolvesGuestIdFromWebsocketSessionAttributes() {
         var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         accessor.setSessionAttributes(new HashMap<>(java.util.Map.of(

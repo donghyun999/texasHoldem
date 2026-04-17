@@ -110,13 +110,23 @@ class PersistentTournamentStateStoreTest {
     void findsActiveTournamentCodeByGuestIdWithoutFullScan() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        when(repository.findActiveTournamentCodeByGuestId("guest-1")).thenReturn("ACTIVE1");
+        var activeTournament = new TournamentState("ACTIVE1");
+        activeTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner", 0));
+        activeTournament.status = TournamentStatus.WAITING;
+        var finishedTournament = new TournamentState("DONE1");
+        finishedTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner", 0));
+        finishedTournament.status = TournamentStatus.FINISHED;
+        when(repository.findAll()).thenReturn(List.of(
+                new TournamentStateEntity("DONE1", "done1"),
+                new TournamentStateEntity("ACTIVE1", "active1")
+        ));
+        when(mapper.read("active1")).thenReturn(activeTournament);
+        when(mapper.read("done1")).thenReturn(finishedTournament);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
         assertThat(store.findActiveTournamentCodeByGuestId("guest-1")).isEqualTo("ACTIVE1");
-        verify(repository).findActiveTournamentCodeByGuestId("guest-1");
-        verify(repository, never()).findAll();
+        verify(repository).findAll();
     }
 
     // Verifies that active room lookup is resolved by a targeted repository query instead of a full scan.
@@ -124,13 +134,16 @@ class PersistentTournamentStateStoreTest {
     void findsActiveTournamentCodeByRoomNameWithoutFullScan() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        when(repository.findActiveTournamentCodeByRoomName("Room One")).thenReturn("ROOM1");
+        var activeTournament = new TournamentState("ROOM1");
+        activeTournament.roomName = "Room One";
+        activeTournament.status = TournamentStatus.WAITING;
+        when(repository.findAll()).thenReturn(List.of(new TournamentStateEntity("ROOM1", "room1")));
+        when(mapper.read("room1")).thenReturn(activeTournament);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
         assertThat(store.findActiveTournamentCodeByRoomName("Room One")).isEqualTo("ROOM1");
-        verify(repository).findActiveTournamentCodeByRoomName("Room One");
-        verify(repository, never()).findAll();
+        verify(repository).findAll();
     }
 
     // Verifies that the active-guest count is served by a native count query instead of scanning payloads.
@@ -138,16 +151,26 @@ class PersistentTournamentStateStoreTest {
     void countsActiveGuestsWithoutFullScan() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
-        when(repository.countActiveGuests()).thenReturn(7L);
+        var firstTournament = new TournamentState("ROOM1");
+        firstTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner", 0));
+        firstTournament.players.add(new TournamentPlayerState("guest-2", "Player2", 1));
+        var secondTournament = new TournamentState("ROOM2");
+        secondTournament.players.add(TournamentPlayerState.owner("guest-2", "Owner2", 0));
+        secondTournament.players.add(new TournamentPlayerState("guest-3", "Player3", 1));
+        when(repository.findAll()).thenReturn(List.of(
+                new TournamentStateEntity("ROOM1", "room1"),
+                new TournamentStateEntity("ROOM2", "room2")
+        ));
+        when(mapper.read("room1")).thenReturn(firstTournament);
+        when(mapper.read("room2")).thenReturn(secondTournament);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
-        assertThat(store.countActiveGuests()).isEqualTo(7);
-        verify(repository).countActiveGuests();
-        verify(repository, never()).findAll();
+        assertThat(store.countActiveGuests()).isEqualTo(3);
+        verify(repository).findAll();
     }
 
-    // Verifies that the persisted public lobby list only surfaces public waiting rooms in newest-first order.
+    // Verifies that the persisted lobby list surfaces waiting rooms of both visibilities in newest-first order.
     @Test
     void findsPublicWaitingTournamentsForLobbyList() {
         var repository = mock(TournamentStateJpaRepository.class);
@@ -183,10 +206,11 @@ class PersistentTournamentStateStoreTest {
         ReflectionTestUtils.setField(privateEntity, "updatedAt", LocalDateTime.now().minusMinutes(2));
         ReflectionTestUtils.setField(inHandEntity, "updatedAt", LocalDateTime.now().minusMinutes(3));
 
-        when(repository.findWaitingTournamentRows(6)).thenReturn(List.of(newestEntity, privateEntity, olderEntity));
+        when(repository.findAll()).thenReturn(List.of(olderEntity, privateEntity, newestEntity, inHandEntity));
         when(mapper.read("pub1")).thenReturn(olderPublicWaiting);
         when(mapper.read("pub2")).thenReturn(newestPublicWaiting);
         when(mapper.read("priv1")).thenReturn(privateWaiting);
+        when(mapper.read("hand1")).thenReturn(publicInHand);
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
@@ -201,10 +225,10 @@ class PersistentTournamentStateStoreTest {
                 ))
                 .containsExactly(
                         List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, 6, "NewestOwner"),
+                        List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, 6, "PrivateOwner"),
                         List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
                 );
-        verify(repository).findWaitingTournamentRows(6);
-        verify(repository, never()).findAll();
+        verify(repository).findAll();
     }
 
     // Verifies that restart recovery for in-hand action deadlines uses a targeted projection query.

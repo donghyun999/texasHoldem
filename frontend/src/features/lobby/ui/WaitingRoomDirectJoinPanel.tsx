@@ -53,6 +53,7 @@ export function WaitingRoomDirectJoinPanel({
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-zinc-200">닉네임</span>
           <input
+            data-testid="direct-join-nickname-input"
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
             placeholder="플레이어 이름"
@@ -64,6 +65,7 @@ export function WaitingRoomDirectJoinPanel({
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
             <input
+              data-testid="direct-join-password-input"
               type="password"
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
@@ -83,6 +85,7 @@ export function WaitingRoomDirectJoinPanel({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
+          data-testid="direct-join-submit"
           onClick={onJoin}
           disabled={joinPending}
           className="social-cta-secondary px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-50"

@@ -371,6 +371,11 @@ function PlayerSeatView({
   if (!isHeroSeat) {
     return (
       <div
+        data-testid={`seat-${seatIndex}`}
+        data-seat-index={seatIndex}
+        data-table-position-index={tablePositionIndex}
+        data-guest-id={player.guestId}
+        data-self-seat={isSelfSeat ? "true" : "false"}
         className={`relative flex w-[4.25rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
       >
         {actionFlash ? (
@@ -420,7 +425,14 @@ function PlayerSeatView({
   }
 
   return (
-    <div className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}>
+    <div
+      data-testid="hero-seat-anchor"
+      data-seat-index={seatIndex}
+      data-table-position-index={tablePositionIndex}
+      data-guest-id={player.guestId}
+      data-self-seat={isSelfSeat ? "true" : "false"}
+      className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}
+    >
       {actionFlash ? (
         <div
           key={actionFlash.id}

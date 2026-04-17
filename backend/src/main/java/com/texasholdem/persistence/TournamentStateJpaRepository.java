@@ -47,7 +47,6 @@ public interface TournamentStateJpaRepository extends JpaRepository<TournamentSt
             select *
             from tournament_state
             where coalesce(payload::jsonb ->> 'status', '') = 'WAITING'
-              and coalesce(payload::jsonb ->> 'visibility', 'PRIVATE') = 'PUBLIC'
               and jsonb_array_length(coalesce(payload::jsonb -> 'players', '[]'::jsonb)) > 0
               and jsonb_array_length(coalesce(payload::jsonb -> 'players', '[]'::jsonb)) < :maxPlayers
             order by created_at desc

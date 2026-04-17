@@ -3,6 +3,8 @@ package com.texasholdem.tournament.presentation;
 import com.texasholdem.auth.GuestSessionAttributes;
 import com.texasholdem.auth.GuestSessionResolver;
 import com.texasholdem.tournament.application.command.TournamentService;
+import com.texasholdem.tournament.application.snapshot.TournamentBroadcast;
+import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentVisibility;
 import com.texasholdem.websocket.TournamentTopicPublisher;
 import org.junit.jupiter.api.Test;
@@ -100,5 +102,33 @@ class TournamentControllerTest {
                 .andExpect(status().isOk());
 
         verify(tournamentService).createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
+    }
+
+    @Test
+    void joinTournamentFallsBackToLegacyGuestIdWhenSessionIsMissing() throws Exception {
+        when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-legacy", "Player2", null))
+                .thenReturn(new TournamentBroadcast(java.util.List.of(
+                        new TournamentEvent("tournamentSnapshot", null, java.util.Map.of())
+                )));
+
+        mockMvc.perform(post("/api/v1/tournaments/ABCD1/join")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"guestId":"guest-legacy","nickname":"Player2"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(tournamentService).joinTournamentBroadcast("ABCD1", "guest-legacy", "Player2", null);
+    }
+
+    @Test
+    void joinTournamentRejectsMissingGuestIdentity() throws Exception {
+                mockMvc.perform(post("/api/v1/tournaments/ABCD1/join")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"nickname":"Player2"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason("Guest identity is required."));
     }
 }

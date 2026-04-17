@@ -97,7 +97,6 @@ public final class InMemoryTournamentStateStore implements TournamentStateStore 
                 .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
-                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> !tournament.players.isEmpty())
                 .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(

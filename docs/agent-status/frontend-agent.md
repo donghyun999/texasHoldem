@@ -5,7 +5,7 @@
 - 상태:
   - `idle`
 - 현재 작업:
-  - hand start 이후 본인 hole cards가 비는 회귀를 `use-tournament-realtime-snapshot.ts`에서 viewer hydrate 보강으로 수정했고, 현재 코드 경로 기준 추가 frontend follow-up은 없다고 정리했다
+  - `PublicTournamentList.tsx`에 private room 전용 소형 자물쇠 마커를 추가했고, 기존 비밀번호 프롬프트 기반 join 흐름은 유지했다
 - 현재 브랜치:
   - `main`
 - 현재 worktree:
@@ -24,15 +24,14 @@
 - 마지막 결정:
   - public websocket snapshot이 hand start 직후 들어와도 seated player의 `selfHoleCards`가 비어 있으면 viewer REST hydrate를 자동으로 트리거하게 만들어 reconnect 외 상태 전환에서도 hole cards를 복구하도록 했다
 - 다음 액션:
-  - backend patch 배포 후 Railway에서 hand start/reload 시 own hole cards 유지 여부를 실제 UI로 재확인
-  - 필요 시 `tournament-realtime-sync.ts` merge 조건을 추가 보강
-  - frontend 테스트 러너 부재를 감안해 향후 realtime hook 회귀 테스트 전략을 별도로 정리
+  - 실제 실행 UI에서 private room lock marker가 리스트 오른쪽 끝에서 자연스럽게 보이는지 확인
+  - private room 비밀번호 프롬프트와 오입력 오류 메시지 흐름을 수동 확인
+  - 필요 시 마커 위치/간격을 소폭 조정
 - 막힌 점:
   - 없음
 - 남은 리스크:
-  - frontend package에 확립된 테스트 러너가 없어 이번 fix는 build-only와 코드 경로 검토 중심 검증이다
-  - viewer hydrate가 상태 전환 시점에 1회 추가 REST 요청을 보낼 수 있다
-  - backend personalized snapshot이 배포에서 다시 public으로 내려오면 frontend 단독으로는 hole cards를 복구할 수 없다
+  - frontend package에 확립된 테스트 러너가 없어 이번 fix는 build-only 검증이다
+  - lock marker 렌더링과 password prompt UX는 아직 런타임에서 직접 확인하지 않았다
 - 세션 재개 시 먼저 볼 파일:
   - `docs/agent-status/orchestrator.md`
   - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`

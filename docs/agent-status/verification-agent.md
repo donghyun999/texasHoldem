@@ -5,7 +5,7 @@
 - 상태:
   - `idle`
 - 현재 작업:
-  - narrow backend targeted suite를 재실행해 로컬 회귀 검증 green까지 확인했고, Railway/API spot-check는 아직 수행하지 않았다
+  - 로비 정책 변경에 대해 `TournamentServiceTest`, `PersistentTournamentStateStoreTest`, `npm run build`까지 green으로 확인했고, 런타임 smoke는 아직 수행하지 않았다
 - 현재 브랜치:
   - 없음
 - 현재 worktree:
@@ -24,11 +24,11 @@
   - `frontend/src/**`
   - 구현 에이전트가 소유한 hotspot 파일
 - 마지막 결정:
-  - 이번 수정에 필요한 최소 검증 경로는 `GuestSessionResolverTest`, `TournamentControllerTest`, `PersistentTournamentStateStoreTest`, `TournamentServiceTest` targeted 실행까지로 우선 닫았고, 배포 환경 검증은 별도 단계로 남겼다
+  - 이번 수정에 필요한 최소 검증 경로는 `TournamentServiceTest`, `PersistentTournamentStateStoreTest`, `npm run build`로 닫았고, 런타임/배포 검증은 별도 단계로 남겼다
 - 다음 액션:
-  - Railway 배포 후 create 직후 `lobby/public`, `/guests/me/active-tournament`, personalized snapshot을 함께 확인
+  - running app 또는 배포 환경에서 private room 로비 노출, lock marker, 비밀번호 입장 흐름을 smoke 확인
   - 브라우저 smoke가 필요하면 Playwright `spawn EPERM` 문제를 먼저 해소하거나 API/manual spot-check로 대체
-  - 배포 검증 결과를 기준으로 남은 회귀 리스크를 문서에 반영
+  - 검증 결과를 기준으로 남은 정책/UX 리스크를 문서에 반영
 - 막힌 점:
   - 없음
 - 남은 리스크:

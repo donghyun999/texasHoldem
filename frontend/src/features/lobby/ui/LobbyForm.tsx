@@ -101,6 +101,7 @@ export function LobbyForm({
         <label className="block">
           <span className="mb-2 block text-sm font-medium text-zinc-200">닉네임</span>
           <input
+            data-testid="lobby-nickname-input"
             value={nickname}
             onChange={(event) => onNicknameChange(event.target.value)}
             placeholder="플레이어 이름"
@@ -116,6 +117,7 @@ export function LobbyForm({
               <button
                 key={option.value}
                 type="button"
+                data-testid={`visibility-option-${option.value.toLowerCase()}`}
                 onClick={() => onRoomVisibilityChange(option.value)}
                 className={`rounded-[1.35rem] border p-4 text-left transition ${
                   selected
@@ -143,6 +145,7 @@ export function LobbyForm({
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-zinc-200">방 이름</span>
             <input
+              data-testid="create-room-name-input"
               value={createRoomName}
               onChange={(event) => onCreateRoomNameChange(event.target.value)}
               placeholder="예: 프라이데이 스택"
@@ -154,6 +157,7 @@ export function LobbyForm({
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-zinc-200">비밀번호</span>
               <input
+                data-testid="create-room-password-input"
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
                 placeholder="잠금 테이블 비밀번호"
@@ -165,6 +169,7 @@ export function LobbyForm({
 
           <button
             type="button"
+            data-testid="create-room-submit"
             onClick={onCreate}
             disabled={createDisabled || !canCreate}
             className="social-cta px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"

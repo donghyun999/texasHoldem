@@ -52,7 +52,7 @@ public class TournamentController {
             @Valid @RequestBody CreateTournamentRequest request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveCreateGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireCreateGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(
                 tournamentService.createTournament(
                         guestId,
@@ -87,7 +87,7 @@ public class TournamentController {
             @Valid @RequestBody JoinTournamentRequest request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         var broadcast = tournamentService.joinTournamentBroadcast(code, guestId, request.nickname(), request.password());
         topicPublisher.publish(code, broadcast);
         return ApiResponse.ok(broadcast.primaryEvent().snapshot());
@@ -103,7 +103,7 @@ public class TournamentController {
                 tournamentService.joinPrivateTournament(
                         request.roomName(),
                         request.password(),
-                        guestSessionResolver.resolveGuestId(httpRequest, request.guestId()),
+                        guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId()),
                         request.nickname()
                 )
         );
@@ -116,7 +116,7 @@ public class TournamentController {
             @Valid @RequestBody TournamentReadyMessage request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(
                 tournamentService.changeReady(request.resolveCode(code), guestId, request.ready()).primaryEvent()
         );
@@ -129,7 +129,7 @@ public class TournamentController {
             @Valid @RequestBody TournamentConnectionMessage request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(tournamentService.disconnectPlayer(request.resolveCode(code), guestId).primaryEvent());
     }
 
@@ -140,7 +140,7 @@ public class TournamentController {
             @Valid @RequestBody TournamentConnectionMessage request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), guestId).primaryEvent());
     }
 
@@ -151,7 +151,7 @@ public class TournamentController {
             @Valid @RequestBody TournamentConnectionMessage request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(tournamentService.returnPlayerToPlay(request.resolveCode(code), guestId).primaryEvent());
     }
 
@@ -162,7 +162,7 @@ public class TournamentController {
             @Valid @RequestBody TournamentStartMessage request,
             HttpServletRequest httpRequest
     ) {
-        var guestId = guestSessionResolver.resolveGuestId(httpRequest, request.guestId());
+        var guestId = guestSessionResolver.requireResolvedGuestId(httpRequest, request.guestId());
         return ApiResponse.ok(tournamentService.startTournament(request.resolveCode(code), guestId).primaryEvent());
     }
 }

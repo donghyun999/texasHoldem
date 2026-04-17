@@ -5,9 +5,9 @@ import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentStatus;
-import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Component
@@ -56,29 +56,41 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
     // Scans persisted tournament payloads for one unfinished seat held by the guest.
     @Override
     public String findActiveTournamentCodeByGuestId(String guestId) {
-        return repository.findActiveTournamentCodeByGuestId(guestId);
+        return scanPersistedTournaments().stream()
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
+                .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
+                .map(tournament -> tournament.code)
+                .findFirst()
+                .orElse(null);
     }
 
     // Scans persisted tournament payloads for one unfinished room-title match.
     @Override
     public String findActiveTournamentCodeByRoomName(String roomName) {
-        return repository.findActiveTournamentCodeByRoomName(roomName);
+        return scanPersistedTournaments().stream()
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
+                .filter(tournament -> resolveRoomName(tournament).equalsIgnoreCase(roomName))
+                .map(tournament -> tournament.code)
+                .findFirst()
+                .orElse(null);
     }
 
     // Counts every guest seat that still belongs to a non-finished tournament.
     @Override
     public int countActiveGuests() {
-        return Math.toIntExact(repository.countActiveGuests());
+        return Math.toIntExact(scanPersistedTournaments().stream()
+                .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
+                .flatMap(tournament -> tournament.players.stream())
+                .map(player -> player.guestId)
+                .distinct()
+                .count());
     }
 
     // Lists persisted waiting rooms in newest-first order for the home lobby.
     @Override
     public List<PublicTournamentSummary> findPublicWaitingTournaments(int maxPlayers) {
-        return repository.findWaitingTournamentRows(maxPlayers).stream()
-                .map(TournamentStateEntity::getPayload)
-                .map(mapper::read)
+        return scanPersistedTournaments().stream()
                 .filter(tournament -> tournament.status == TournamentStatus.WAITING)
-                .filter(tournament -> tournament.visibility == TournamentVisibility.PUBLIC)
                 .filter(tournament -> !tournament.players.isEmpty())
                 .filter(tournament -> tournament.players.size() < maxPlayers)
                 .map(tournament -> new PublicTournamentSummary(
@@ -151,6 +163,17 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
 
     private String resolveRoomName(TournamentState tournament) {
         return tournament.roomName == null || tournament.roomName.isBlank() ? tournament.code : tournament.roomName;
+    }
+
+    private List<TournamentState> scanPersistedTournaments() {
+        return repository.findAll().stream()
+                .sorted(Comparator
+                        .comparing(TournamentStateEntity::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(TournamentStateEntity::getCode)
+                        .reversed())
+                .map(TournamentStateEntity::getPayload)
+                .map(mapper::read)
+                .toList();
     }
 
     private long cutoffEpochMilli(long nowEpochMilli, long ttlMillis) {

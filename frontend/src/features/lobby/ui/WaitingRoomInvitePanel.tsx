@@ -46,7 +46,7 @@ export function WaitingRoomInvitePanel({
   }
 
   return (
-    <div className="social-surface rounded-[1.8rem] border-amber-200/20 p-5 shadow-xl shadow-black/20">
+    <div data-testid="waiting-room-invite-panel" className="social-surface rounded-[1.8rem] border-amber-200/20 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl font-black tracking-tight text-white">친구에게 방을 공유하세요</h3>
@@ -66,7 +66,7 @@ export function WaitingRoomInvitePanel({
 
       <div className="mt-4 rounded-[1.35rem] border border-white/10 bg-black/20 px-4 py-3">
         <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">초대 링크</p>
-        <p className="mt-2 break-all text-sm text-zinc-100">{inviteUrl}</p>
+        <p data-testid="invite-link-value" className="mt-2 break-all text-sm text-zinc-100">{inviteUrl}</p>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
