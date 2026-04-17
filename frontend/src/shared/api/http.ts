@@ -196,24 +196,7 @@ export function createTournamentForCurrentGuest(
   password?: string,
   guestId?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<
-    { nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
-    TournamentSnapshot
-  >(
-    "/api/v1/tournaments",
-    {
-      nickname,
-      roomName,
-      visibility,
-      ...(password ? { password } : {}),
-    },
-  ).catch((error) => {
-    if (guestId?.trim() && canFallbackToLegacy(error)) {
-      return createTournament(guestId, nickname, roomName, visibility, password);
-    }
-
-    throw error;
-  });
+  return createTournament(guestId?.trim() ?? "", nickname, roomName, visibility, password);
 }
 
 // Joins one waiting tournament with the current persisted guest identity and optional room password.

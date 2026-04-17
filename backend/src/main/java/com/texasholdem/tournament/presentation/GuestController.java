@@ -41,7 +41,7 @@ public class GuestController {
     // Returns the current active tournament for the session-backed guest identity.
     @GetMapping("/me/active-tournament")
     public ApiResponse<ActiveTournamentSession> getMyActiveTournament(HttpServletRequest httpRequest) {
-        return ApiResponse.ok(tournamentService.findActiveTournament(guestSessionResolver.requireGuestId(httpRequest)));
+        return ApiResponse.ok(tournamentService.findActiveTournament(guestSessionResolver.requireResolvedGuestId(httpRequest, null)));
     }
 
     // Returns the current active tournament already occupied by the guest, when one exists.

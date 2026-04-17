@@ -79,6 +79,16 @@ class GuestSessionResolverTest {
         assertThat(resolver.resolveGuestId(accessor, null)).isEqualTo("guest-ws");
     }
 
+    @Test
+    void requireResolvedGuestIdRejectsMissingWebsocketIdentity() {
+        var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+        accessor.setSessionAttributes(new HashMap<>());
+
+        assertThatThrownBy(() -> resolver.requireResolvedGuestId(accessor, null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Guest identity is required.");
+    }
+
     private MockHttpServletRequest requestWithSession(String guestId, String nickname) {
         var request = new MockHttpServletRequest();
         var session = new MockHttpSession();

@@ -67,4 +67,11 @@ class GuestControllerTest {
 
         verify(tournamentService).findActiveTournament("guest-1");
     }
+
+    @Test
+    void meActiveTournamentReturnsBadRequestWhenSessionIsMissing() throws Exception {
+        mockMvc.perform(get("/api/v1/guests/me/active-tournament"))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason("Guest identity is required."));
+    }
 }

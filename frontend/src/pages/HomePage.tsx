@@ -66,7 +66,7 @@ export function HomePage() {
   });
   const activeTournamentQuery = useQuery<ActiveTournamentSession | null, Error>({
     queryKey: buildActiveTournamentKey(),
-    queryFn: () => getActiveTournamentForCurrentGuest(),
+    queryFn: () => getActiveTournamentForCurrentGuest(guestId),
     retry: false,
   });
   const waitingRoomListQuery = useQuery({

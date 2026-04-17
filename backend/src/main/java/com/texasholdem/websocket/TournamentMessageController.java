@@ -34,7 +34,7 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.ready")
     public void ready(@Valid @Payload TournamentReadyMessage message, SimpMessageHeaderAccessor accessor) {
         var code = message.resolveCode(null);
-        var broadcast = tournamentService.changeReady(code, guestSessionResolver.resolveGuestId(accessor, message.guestId()), message.ready());
+        var broadcast = tournamentService.changeReady(code, guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()), message.ready());
         topicPublisher.publish(code, broadcast);
     }
 
@@ -42,7 +42,7 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.disconnect")
     public void disconnect(@Valid @Payload TournamentConnectionMessage message, SimpMessageHeaderAccessor accessor) {
         var code = message.resolveCode(null);
-        var broadcast = tournamentService.disconnectPlayer(code, guestSessionResolver.resolveGuestId(accessor, message.guestId()));
+        var broadcast = tournamentService.disconnectPlayer(code, guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()));
         topicPublisher.publish(code, broadcast);
     }
 
@@ -50,7 +50,7 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.reconnect")
     public void reconnect(@Valid @Payload TournamentConnectionMessage message, SimpMessageHeaderAccessor accessor) {
         var code = message.resolveCode(null);
-        var broadcast = tournamentService.reconnectPlayer(code, guestSessionResolver.resolveGuestId(accessor, message.guestId()));
+        var broadcast = tournamentService.reconnectPlayer(code, guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()));
         topicPublisher.publish(code, broadcast);
     }
 
@@ -58,7 +58,7 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.return-to-play")
     public void returnToPlay(@Valid @Payload TournamentConnectionMessage message, SimpMessageHeaderAccessor accessor) {
         var code = message.resolveCode(null);
-        var broadcast = tournamentService.returnPlayerToPlay(code, guestSessionResolver.resolveGuestId(accessor, message.guestId()));
+        var broadcast = tournamentService.returnPlayerToPlay(code, guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()));
         topicPublisher.publish(code, broadcast);
     }
 
@@ -66,7 +66,7 @@ public class TournamentMessageController {
     @MessageMapping("/tournament.start")
     public void start(@Valid @Payload TournamentStartMessage message, SimpMessageHeaderAccessor accessor) {
         var code = message.resolveCode(null);
-        var broadcast = tournamentService.startTournament(code, guestSessionResolver.resolveGuestId(accessor, message.guestId()));
+        var broadcast = tournamentService.startTournament(code, guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()));
         topicPublisher.publish(code, broadcast);
     }
 
@@ -75,7 +75,7 @@ public class TournamentMessageController {
     public void action(@Valid @Payload GameActionMessage message, SimpMessageHeaderAccessor accessor) {
         var broadcast = tournamentService.applyAction(
                 message.code(),
-                guestSessionResolver.resolveGuestId(accessor, message.guestId()),
+                guestSessionResolver.requireResolvedGuestId(accessor, message.guestId()),
                 message.action(),
                 message.amount()
         );

@@ -105,6 +105,17 @@ class TournamentControllerTest {
     }
 
     @Test
+    void createTournamentRejectsMissingGuestIdentity() throws Exception {
+        mockMvc.perform(post("/api/v1/tournaments")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason("Guest identity is required."));
+    }
+
+    @Test
     void joinTournamentFallsBackToLegacyGuestIdWhenSessionIsMissing() throws Exception {
         when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-legacy", "Player2", null))
                 .thenReturn(new TournamentBroadcast(java.util.List.of(

@@ -10,6 +10,7 @@ import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessageType;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.Map;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TournamentMessageControllerTest {
 
@@ -48,6 +50,16 @@ class TournamentMessageControllerTest {
 
         verify(tournamentService).applyAction("ABCD1", "guest-ws", "FOLD", null);
         verify(topicPublisher).publish("ABCD1", broadcast);
+    }
+
+    @Test
+    void readyRejectsMissingWebsocketGuestIdentity() {
+        var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+        accessor.setSessionAttributes(new HashMap<>());
+
+        assertThatThrownBy(() -> controller.ready(new TournamentReadyMessage("ABCD1", null, true), accessor))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Guest identity is required.");
     }
 
     private SimpMessageHeaderAccessor accessorWithGuest(String guestId) {
