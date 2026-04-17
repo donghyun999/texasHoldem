@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -54,7 +55,7 @@ public final class InMemoryTournamentStateStore implements TournamentStateStore 
                 .map(StoredPayload::payload)
                 .map(mapper::read)
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
-                .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
+                .filter(tournament -> tournament.players.stream().anyMatch(player -> Objects.equals(player.guestId, guestId)))
                 .map(tournament -> tournament.code)
                 .findFirst()
                 .orElse(null);
@@ -82,6 +83,7 @@ public final class InMemoryTournamentStateStore implements TournamentStateStore 
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
                 .flatMap(tournament -> tournament.players.stream())
                 .map(player -> player.guestId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .count();
     }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public final class PersistentTournamentStateStore implements TournamentStateStore {
@@ -58,7 +59,7 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
     public String findActiveTournamentCodeByGuestId(String guestId) {
         return scanPersistedTournaments().stream()
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
-                .filter(tournament -> tournament.players.stream().anyMatch(player -> player.guestId.equals(guestId)))
+                .filter(tournament -> tournament.players.stream().anyMatch(player -> Objects.equals(player.guestId, guestId)))
                 .map(tournament -> tournament.code)
                 .findFirst()
                 .orElse(null);
@@ -82,6 +83,7 @@ public final class PersistentTournamentStateStore implements TournamentStateStor
                 .filter(tournament -> tournament.status != TournamentStatus.FINISHED)
                 .flatMap(tournament -> tournament.players.stream())
                 .map(player -> player.guestId)
+                .filter(Objects::nonNull)
                 .distinct()
                 .count());
     }

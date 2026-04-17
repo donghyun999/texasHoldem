@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TournamentStateJpaRepository extends JpaRepository<TournamentStateEntity, String> {
 
@@ -82,6 +83,10 @@ public interface TournamentStateJpaRepository extends JpaRepository<TournamentSt
               and coalesce((payload::jsonb ->> 'finishedCleanupAtEpochMilli')::bigint, 0) > 0
             """, nativeQuery = true)
     List<PendingFinishedCleanupProjection> findPendingFinishedCleanups();
+
+    <__TMP__> __TMP__ existsById();
+
+    Optional<Object> findById(String code);
 
     interface PendingHandResultProjection {
         String getCode();

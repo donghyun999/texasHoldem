@@ -5,6 +5,7 @@ import com.texasholdem.persistence.TournamentStateEntity;
 import com.texasholdem.persistence.TournamentStateJpaRepository;
 import com.texasholdem.tournament.domain.TournamentStatus;
 import com.texasholdem.tournament.domain.TournamentVisibility;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +24,54 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PersistentTournamentStateStoreTest {
+
+    @Test
+    void loadHandlesLegacyPayloadWithNullCollections() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = new TournamentStatePersistenceMapper(new ObjectMapper(), new TournamentRules());
+        when(repository.findById("LEGACY1")).thenReturn(Optional.of(new TournamentStateEntity("LEGACY1", """
+                {
+                  "code": "LEGACY1",
+                  "roomName": "Legacy Room",
+                  "status": "WAITING",
+                  "players": [
+                    {
+                      "guestId": null,
+                      "nickname": "LegacyOwner",
+                      "seatIndex": 0,
+                      "stack": 0,
+                      "status": "SEATED",
+                      "owner": true,
+                      "connected": true,
+                      "participating": false,
+                      "acting": false,
+                      "totalContribution": 0,
+                      "roundContribution": 0,
+                      "awaitingAction": false,
+                      "raiseRightsAvailable": null,
+                      "afk": null,
+                      "holeCards": null
+                    }
+                  ],
+                  "sidePots": null,
+                  "boardCards": null,
+                  "hiddenBoardCards": null,
+                  "showdownPots": null,
+                  "showdownHands": null,
+                  "recentlyBustedGuestIds": null,
+                  "availableActions": null
+                }
+                """)));
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        var tournament = store.load("LEGACY1");
+
+        assertThat(tournament).isNotNull();
+        assertThat(tournament.players).hasSize(1);
+        assertThat(tournament.players.get(0).guestId).isNull();
+        assertThat(tournament.availableActions).isEmpty();
+    }
 
     // Verifies that each persisted tournament snapshot carries a fresh storage timestamp.
     @Test
@@ -129,6 +178,29 @@ class PersistentTournamentStateStoreTest {
         verify(repository).findAll();
     }
 
+    @Test
+    void ignoresLegacyPlayersWithNullGuestIdDuringActiveGuestLookup() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        var legacyTournament = new TournamentState("LEGACY1");
+        legacyTournament.status = TournamentStatus.WAITING;
+        legacyTournament.players.add(new TournamentPlayerState(null, "LegacyPlayer", 0));
+        var activeTournament = new TournamentState("ACTIVE1");
+        activeTournament.status = TournamentStatus.WAITING;
+        activeTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner", 0));
+        when(repository.findAll()).thenReturn(List.of(
+                new TournamentStateEntity("LEGACY1", "legacy1"),
+                new TournamentStateEntity("ACTIVE1", "active1")
+        ));
+        when(mapper.read("legacy1")).thenReturn(legacyTournament);
+        when(mapper.read("active1")).thenReturn(activeTournament);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.findActiveTournamentCodeByGuestId("guest-1")).isEqualTo("ACTIVE1");
+        verify(repository).findAll();
+    }
+
     // Verifies that active room lookup is resolved by a targeted repository query instead of a full scan.
     @Test
     void findsActiveTournamentCodeByRoomNameWithoutFullScan() {
@@ -167,6 +239,29 @@ class PersistentTournamentStateStoreTest {
         var store = new PersistentTournamentStateStore(repository, mapper);
 
         assertThat(store.countActiveGuests()).isEqualTo(3);
+        verify(repository).findAll();
+    }
+
+    @Test
+    void countActiveGuestsIgnoresLegacyNullGuestIds() {
+        var repository = mock(TournamentStateJpaRepository.class);
+        var mapper = mock(TournamentStatePersistenceMapper.class);
+        var firstTournament = new TournamentState("ROOM1");
+        firstTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner", 0));
+        firstTournament.players.add(new TournamentPlayerState(null, "LegacyPlayer", 1));
+        var secondTournament = new TournamentState("ROOM2");
+        secondTournament.players.add(TournamentPlayerState.owner("guest-1", "Owner2", 0));
+        secondTournament.players.add(new TournamentPlayerState("guest-2", "Player2", 1));
+        when(repository.findAll()).thenReturn(List.of(
+                new TournamentStateEntity("ROOM1", "room1"),
+                new TournamentStateEntity("ROOM2", "room2")
+        ));
+        when(mapper.read("room1")).thenReturn(firstTournament);
+        when(mapper.read("room2")).thenReturn(secondTournament);
+
+        var store = new PersistentTournamentStateStore(repository, mapper);
+
+        assertThat(store.countActiveGuests()).isEqualTo(2);
         verify(repository).findAll();
     }
 

@@ -14,7 +14,9 @@ import com.texasholdem.tournament.domain.TournamentVisibility;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Component
 public final class TournamentStatePersistenceMapper {
@@ -119,14 +121,14 @@ public final class TournamentStatePersistenceMapper {
         tournament.levelIndex = payload.levelIndex();
         tournament.levelActivatedAtEpochSecond = payload.levelActivatedAtEpochSecond();
         tournament.mainPot = payload.mainPot();
-        tournament.sidePots = new ArrayList<>(payload.sidePots());
+        tournament.sidePots = mutableList(payload.sidePots());
         tournament.round = payload.round();
         tournament.currentBet = payload.currentBet();
         tournament.lastFullRaiseSize = payload.lastFullRaiseSize() == null
                 ? inferLastFullRaiseSize(payload)
                 : payload.lastFullRaiseSize();
-        tournament.boardCards = new ArrayList<>(payload.boardCards());
-        tournament.hiddenBoardCards = new ArrayList<>(payload.hiddenBoardCards());
+        tournament.boardCards = mutableList(payload.boardCards());
+        tournament.hiddenBoardCards = mutableList(payload.hiddenBoardCards());
         tournament.dealerSeat = payload.dealerSeat();
         tournament.smallBlindSeat = payload.smallBlindSeat();
         tournament.bigBlindSeat = payload.bigBlindSeat();
@@ -143,16 +145,13 @@ public final class TournamentStatePersistenceMapper {
         tournament.finishedCleanupAtEpochMilli = payload.finishedCleanupAtEpochMilli() == null
                 ? 0
                 : payload.finishedCleanupAtEpochMilli();
-        tournament.showdownPots = new ArrayList<>(payload.showdownPots());
-        tournament.showdownHands = payload.showdownHands() == null
-                ? new ArrayList<>()
-                : new ArrayList<>(payload.showdownHands());
-        tournament.recentlyBustedGuestIds = payload.recentlyBustedGuestIds() == null
-                ? new ArrayList<>()
-                : new ArrayList<>(payload.recentlyBustedGuestIds());
-        tournament.availableActions = new ArrayList<>(payload.availableActions());
+        tournament.showdownPots = mutableList(payload.showdownPots());
+        tournament.showdownHands = mutableList(payload.showdownHands());
+        tournament.recentlyBustedGuestIds = mutableList(payload.recentlyBustedGuestIds());
+        tournament.availableActions = mutableList(payload.availableActions());
         tournament.tableMessage = payload.tableMessage();
-        payload.players().stream()
+        safeList(payload.players()).stream()
+                .filter(Objects::nonNull)
                 .map(this::fromPayload)
                 .forEach(tournament.players::add);
         return tournament;
@@ -174,13 +173,14 @@ public final class TournamentStatePersistenceMapper {
                 ? payload.awaitingAction()
                 : payload.raiseRightsAvailable();
         player.afk = payload.afk() != null && payload.afk();
-        player.holeCards = new ArrayList<>(payload.holeCards());
+        player.holeCards = mutableList(payload.holeCards());
         return player;
     }
 
     // Older payloads do not track the last full raise size, so fall back to the biggest observed jump.
     private int inferLastFullRaiseSize(PersistedTournamentState payload) {
-        var distinctPositiveContributions = payload.players().stream()
+        var distinctPositiveContributions = safeList(payload.players()).stream()
+                .filter(Objects::nonNull)
                 .map(PersistedTournamentPlayerState::roundContribution)
                 .filter(contribution -> contribution > 0)
                 .distinct()
@@ -197,6 +197,14 @@ public final class TournamentStatePersistenceMapper {
             return Math.max(rules.bigBlindFor(payload.levelIndex()), payload.currentBet());
         }
         return rules.bigBlindFor(payload.levelIndex());
+    }
+
+    private <T> List<T> mutableList(List<T> values) {
+        return new ArrayList<>(safeList(values));
+    }
+
+    private <T> List<T> safeList(List<T> values) {
+        return values == null ? Collections.emptyList() : values;
     }
 
     private record PersistedTournamentState(
