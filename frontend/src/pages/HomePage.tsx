@@ -16,6 +16,7 @@ import {
   getActiveTournamentForCurrentGuest,
   getBackendStatus,
   getPublicWaitingTournaments,
+  isUnauthorizedError,
   joinTournament,
 } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
@@ -52,7 +53,7 @@ type TableNavigationState = {
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { nickname, setNickname, ensureGuestSession } = useGuestSession();
+  const { nickname, setNickname, ensureGuestSession, isBootstrappingGuest } = useGuestSession();
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
   const [createRoomName, setCreateRoomName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
@@ -66,7 +67,18 @@ export function HomePage() {
   });
   const activeTournamentQuery = useQuery<ActiveTournamentSession | null, Error>({
     queryKey: buildActiveTournamentKey(),
-    queryFn: getActiveTournamentForCurrentGuest,
+    queryFn: async () => {
+      try {
+        return await getActiveTournamentForCurrentGuest();
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    enabled: !isBootstrappingGuest,
     retry: false,
   });
   const waitingRoomListQuery = useQuery({
@@ -125,6 +137,7 @@ export function HomePage() {
   });
 
   const controlsDisabled =
+    isBootstrappingGuest ||
     !!activeTournament ||
     activeTournamentQuery.isPending ||
     createMutation.isPending ||

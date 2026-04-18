@@ -22,7 +22,9 @@ export function TablePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const tournamentCode = params.tournamentCode ?? "";
-  const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession({ autoBootstrap: false });
+  const { guestId, nickname, setNickname, ensureGuestSession, isBootstrappingGuest } = useGuestSession({
+    autoBootstrap: false,
+  });
   const inviteSearchParams = new URLSearchParams(location.search);
   const invitePasswordFromUrl = inviteSearchParams.get("password")?.trim() ?? "";
   const autoJoinRequested = inviteSearchParams.get("join") === "1";
@@ -163,7 +165,8 @@ export function TablePage() {
     snapshot?.status === "WAITING" &&
     !currentPlayer &&
     !!expectedViewerGuestId &&
-    (hasCreateNavigationContext ||
+    (isBootstrappingGuest ||
+      hasCreateNavigationContext ||
       autoJoinRequested ||
       joinMutation.isPending ||
       snapshotQuery.isFetching ||
@@ -199,7 +202,9 @@ export function TablePage() {
           <p className="mt-3 text-sm leading-6 text-zinc-300">
             {hasCreateNavigationContext
               ? "Your room was created. Waiting for the personalized seat view before showing owner controls."
-              : "Waiting for this browser to recover its player seat before showing join or table controls."}
+              : isBootstrappingGuest
+                ? "Checking whether this browser still has a valid guest session before restoring the seat."
+                : "Waiting for this browser to recover its player seat before showing join or table controls."}
           </p>
         </section>
       ) : null}

@@ -36,6 +36,10 @@ type HttpError = Error & {
   path: string;
 };
 
+export function isUnauthorizedError(error: unknown): error is HttpError {
+  return typeof error === "object" && error !== null && "status" in error && (error as HttpError).status === 401;
+}
+
 // Extracts the most useful server-side failure message for the UI.
 async function buildError(response: Response, path: string) {
   try {
