@@ -69,9 +69,9 @@ class GuestControllerTest {
     }
 
     @Test
-    void meActiveTournamentReturnsBadRequestWhenSessionIsMissing() throws Exception {
+    void meActiveTournamentReturnsUnauthorizedWhenSessionIsMissing() throws Exception {
         mockMvc.perform(get("/api/v1/guests/me/active-tournament"))
-                .andExpect(status().isBadRequest())
-                .andExpect(status().reason("Guest identity is required."));
+                .andExpect(status().isUnauthorized())
+                .andExpect(status().reason("Guest session is required."));
     }
 }

@@ -30,7 +30,7 @@ export function TablePage() {
   const cachedSnapshot = queryClient.getQueryData<TournamentSnapshot>(snapshotQueryKey);
   const snapshotQuery = useQuery({
     queryKey: snapshotQueryKey,
-    queryFn: () => getTournamentSnapshot(tournamentCode, guestId),
+    queryFn: () => getTournamentSnapshot(tournamentCode),
     initialData: cachedSnapshot,
     refetchOnMount: "always",
     retry: false,
@@ -70,7 +70,7 @@ export function TablePage() {
       guestId: string;
       nickname: string;
       password?: string;
-    }) => joinTournament(snapshot?.code ?? tournamentCode, guestId, nickname, password),
+    }) => joinTournament(snapshot?.code ?? tournamentCode, nickname, password),
     onSuccess: (joinedSnapshot, variables) => {
       queryClient.setQueryData(buildTournamentSnapshotKey(joinedSnapshot.code, variables.guestId), joinedSnapshot);
       queryClient.setQueryData(buildActiveTournamentKey(), {

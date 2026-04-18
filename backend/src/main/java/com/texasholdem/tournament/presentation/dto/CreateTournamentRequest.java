@@ -5,8 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record CreateTournamentRequest(
-        @Size(max = 40)
-        String guestId,
         @NotBlank
         @Size(max = 20)
         String nickname,

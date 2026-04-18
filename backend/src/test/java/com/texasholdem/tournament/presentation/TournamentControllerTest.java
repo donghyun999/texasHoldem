@@ -52,22 +52,18 @@ class TournamentControllerTest {
     }
 
     @Test
-    void createTournamentFallsBackToLegacyGuestIdWhenNoSessionExists() throws Exception {
-        when(tournamentService.createTournament("guest-legacy", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
+    void getTournamentAllowsAnonymousSnapshotFetch() throws Exception {
+        when(tournamentService.getTournament("ABCD1", null))
                 .thenReturn(null);
 
-        mockMvc.perform(post("/api/v1/tournaments")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"guestId":"guest-legacy","nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
-                                """))
+        mockMvc.perform(get("/api/v1/tournaments/ABCD1"))
                 .andExpect(status().isOk());
 
-        verify(tournamentService).createTournament("guest-legacy", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
+        verify(tournamentService).getTournament("ABCD1", null);
     }
 
     @Test
-    void createTournamentUsesSessionGuestWhenGuestIdIsMissing() throws Exception {
+    void createTournamentUsesSessionGuestIdentity() throws Exception {
         when(tournamentService.createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
                 .thenReturn(null);
 
@@ -86,60 +82,45 @@ class TournamentControllerTest {
     }
 
     @Test
-    void createTournamentPrefersSessionGuestWhenLegacyGuestIdIsStale() throws Exception {
-        when(tournamentService.createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
-                .thenReturn(null);
-
-        var session = new MockHttpSession();
-        session.setAttribute(GuestSessionAttributes.GUEST_ID, "guest-session");
-
-        mockMvc.perform(post("/api/v1/tournaments")
-                        .session(session)
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"guestId":"guest-stale","nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
-                                """))
-                .andExpect(status().isOk());
-
-        verify(tournamentService).createTournament("guest-session", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
-    }
-
-    @Test
-    void createTournamentRejectsMissingGuestIdentity() throws Exception {
+    void createTournamentRejectsMissingGuestSession() throws Exception {
         mockMvc.perform(post("/api/v1/tournaments")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(status().reason("Guest identity is required."));
+                .andExpect(status().isUnauthorized())
+                .andExpect(status().reason("Guest session is required."));
     }
 
     @Test
-    void joinTournamentFallsBackToLegacyGuestIdWhenSessionIsMissing() throws Exception {
-        when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-legacy", "Player2", null))
+    void joinTournamentUsesSessionGuestIdentity() throws Exception {
+        when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-session", "Player2", null))
                 .thenReturn(new TournamentBroadcast(java.util.List.of(
                         new TournamentEvent("tournamentSnapshot", null, java.util.Map.of())
                 )));
 
+        var session = new MockHttpSession();
+        session.setAttribute(GuestSessionAttributes.GUEST_ID, "guest-session");
+
         mockMvc.perform(post("/api/v1/tournaments/ABCD1/join")
+                        .session(session)
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"guestId":"guest-legacy","nickname":"Player2"}
+                                {"nickname":"Player2"}
                                 """))
                 .andExpect(status().isOk());
 
-        verify(tournamentService).joinTournamentBroadcast("ABCD1", "guest-legacy", "Player2", null);
+        verify(tournamentService).joinTournamentBroadcast("ABCD1", "guest-session", "Player2", null);
     }
 
     @Test
-    void joinTournamentRejectsMissingGuestIdentity() throws Exception {
+    void joinTournamentRejectsMissingGuestSession() throws Exception {
                 mockMvc.perform(post("/api/v1/tournaments/ABCD1/join")
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"nickname":"Player2"}
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(status().reason("Guest identity is required."));
+                .andExpect(status().isUnauthorized())
+                .andExpect(status().reason("Guest session is required."));
     }
 }

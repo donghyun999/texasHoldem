@@ -52,7 +52,7 @@ type TableNavigationState = {
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession();
+  const { nickname, setNickname, ensureGuestSession } = useGuestSession();
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
   const [createRoomName, setCreateRoomName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
@@ -66,7 +66,7 @@ export function HomePage() {
   });
   const activeTournamentQuery = useQuery<ActiveTournamentSession | null, Error>({
     queryKey: buildActiveTournamentKey(),
-    queryFn: () => getActiveTournamentForCurrentGuest(guestId),
+    queryFn: getActiveTournamentForCurrentGuest,
     retry: false,
   });
   const waitingRoomListQuery = useQuery({
@@ -94,7 +94,7 @@ export function HomePage() {
       roomName: string;
       visibility: TournamentVisibility;
       password?: string;
-    }) => createTournament(guestId, nickname, roomName, visibility, password),
+    }) => createTournament(nickname, roomName, visibility, password),
     onSuccess: (snapshot, variables) => {
       if (variables.visibility === "PRIVATE" && variables.password) {
         rememberCreatedRoomPassword(snapshot.code, variables.password);
@@ -117,7 +117,7 @@ export function HomePage() {
       guestId: string;
       nickname: string;
       password?: string;
-    }) => joinTournament(code, guestId, nickname, password),
+    }) => joinTournament(code, nickname, password),
     onSuccess: (snapshot, variables) => {
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
       handleTournamentEntry(snapshot, variables.guestId);

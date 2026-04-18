@@ -141,7 +141,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    void getTournamentSnapshot(normalizedCode, resolvedViewerGuestId)
+    void getTournamentSnapshot(normalizedCode)
       .then((viewerSnapshot) => {
         lastHydratedSnapshotKeyRef.current = currentSnapshotKey;
         const mergedSnapshot = mergeSnapshotForViewer(snapshotRef.current, viewerSnapshot);
@@ -191,13 +191,13 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
   ]);
 
   // Publishes one command only when the websocket transport is ready.
-  const publishWhenConnected = useEffectEvent((publisher: (client: Client, code: string, guestId: string) => void) => {
+  const publishWhenConnected = useEffectEvent((publisher: (client: Client, code: string) => void) => {
     const client = clientRef.current;
     if (!client?.connected || !normalizedCode || !resolvedViewerGuestId) {
       return false;
     }
 
-    publisher(client, normalizedCode, resolvedViewerGuestId);
+    publisher(client, normalizedCode);
     return true;
   });
 
@@ -248,8 +248,8 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    publishWhenConnected((client, code, currentGuestId) => {
-      sendTournamentConnection(client, "/app/tournament.reconnect", code, currentGuestId);
+    publishWhenConnected((client, code) => {
+      sendTournamentConnection(client, "/app/tournament.reconnect", code);
     });
   }, [currentPlayer, realtimeState]);
 
@@ -263,7 +263,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    void disconnectTournamentPlayer(currentCode, currentGuestId, { keepalive: true });
+    void disconnectTournamentPlayer(currentCode, { keepalive: true });
   }
 
   // Keeps waiting-room and finished-table route exits aligned with server leave semantics without folding in-hand refreshes.
@@ -302,14 +302,14 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     syncState,
     canPublish: realtimeState === "CONNECTED",
     sendReady: (ready: boolean) =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentReady(client, currentCode, currentGuestId, ready);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentReady(client, currentCode, ready);
       }),
     sendDisconnect: () => {
       const client = clientRef.current;
       if (client?.connected && normalizedCode && resolvedViewerGuestId) {
         manualReconnectRequiredRef.current = true;
-        sendTournamentConnection(client, "/app/tournament.disconnect", normalizedCode, resolvedViewerGuestId);
+        sendTournamentConnection(client, "/app/tournament.disconnect", normalizedCode);
         return;
       }
 
@@ -325,7 +325,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         syncActiveTournamentSessionCache(queryClient, resolvedViewerGuestId, null);
       }
 
-      void disconnectTournamentPlayer(normalizedCode, resolvedViewerGuestId)
+      void disconnectTournamentPlayer(normalizedCode)
         .then((event) => {
           applyTournamentEvent(event);
         })
@@ -334,21 +334,21 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         });
     },
     sendReconnect: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
+      publishWhenConnected((client, currentCode) => {
         manualReconnectRequiredRef.current = false;
-        sendTournamentConnection(client, "/app/tournament.reconnect", currentCode, currentGuestId);
+        sendTournamentConnection(client, "/app/tournament.reconnect", currentCode);
       }),
     sendReturnToPlay: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode, currentGuestId);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode);
       }),
     sendStart: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentStart(client, currentCode, currentGuestId);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentStart(client, currentCode);
       }),
     sendAction: (action: string, amount?: number) =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentAction(client, currentCode, currentGuestId, action, amount);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentAction(client, currentCode, action, amount);
       }),
   };
 }

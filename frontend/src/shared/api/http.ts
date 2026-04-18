@@ -57,10 +57,6 @@ async function buildError(response: Response, path: string) {
   }
 }
 
-function canFallbackToLegacy(error: unknown) {
-  return error instanceof Error && "status" in error && typeof (error as HttpError).status === "number" && [400, 404, 405].includes((error as HttpError).status);
-}
-
 // Reads a typed API payload and normalizes transport failures into one error path.
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -111,39 +107,14 @@ export function createGuestSession(nickname: string): Promise<GuestSession> {
   return postJson<{ nickname: string }, GuestSession>("/api/v1/guests", { nickname });
 }
 
-// Finds the active non-finished tournament for the current session, falling back to legacy guest identity when needed.
-export async function getActiveTournamentForCurrentGuest(legacyGuestId?: string): Promise<ActiveTournamentSession | null> {
-  try {
-    return await fetchJson<ActiveTournamentSession | null>("/api/v1/guests/me/active-tournament");
-  } catch (error) {
-    if (legacyGuestId?.trim() && canFallbackToLegacy(error)) {
-      return getActiveTournamentForGuest(legacyGuestId);
-    }
-
-    if (canFallbackToLegacy(error)) {
-      return null;
-    }
-
-    throw error;
-  }
+// Finds the active non-finished tournament for the current cookie-backed session.
+export function getActiveTournamentForCurrentGuest(): Promise<ActiveTournamentSession | null> {
+  return fetchJson<ActiveTournamentSession | null>("/api/v1/guests/me/active-tournament");
 }
 
-// Finds the active non-finished tournament already occupied by one guest, when present.
-export function getActiveTournamentForGuest(guestId: string): Promise<ActiveTournamentSession | null> {
-  return fetchJson<ActiveTournamentSession | null>(`/api/v1/guests/${guestId}/active-tournament`);
-}
-
-// Fetches the latest tournament snapshot from the backend API using the current session when available.
-export function getTournamentSnapshot(code: string, guestId?: string): Promise<TournamentSnapshot> {
-  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}`).catch((error) => {
-    if (guestId?.trim() && canFallbackToLegacy(error)) {
-      const params = new URLSearchParams();
-      params.set("guestId", guestId.trim());
-      return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}?${params.toString()}`);
-    }
-
-    throw error;
-  });
+// Fetches the latest tournament snapshot using the current cookie-backed session.
+export function getTournamentSnapshot(code: string): Promise<TournamentSnapshot> {
+  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}`);
 }
 
 // Fetches the current list of joinable waiting rooms for the lobby.
@@ -153,7 +124,6 @@ export function getPublicWaitingTournaments(): Promise<PublicTournamentSummary[]
 
 // Creates one waiting tournament and immediately seats the owner.
 export function createTournament(
-  guestId: string,
   nickname: string,
   roomName: string,
   visibility: TournamentVisibility,
@@ -170,80 +140,28 @@ export function createTournament(
       visibility,
       ...(password ? { password } : {}),
     },
-  ).catch((error) => {
-    if (guestId.trim() && canFallbackToLegacy(error)) {
-      return postJson<
-        { guestId: string; nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
-        TournamentSnapshot
-      >("/api/v1/tournaments", {
-        guestId,
-        nickname,
-        roomName,
-        visibility,
-        ...(password ? { password } : {}),
-      });
-    }
-
-    throw error;
-  });
+  );
 }
 
-// Creates one waiting tournament and immediately seats the owner using the current session when available.
-export function createTournamentForCurrentGuest(
-  nickname: string,
-  roomName: string,
-  visibility: TournamentVisibility,
-  password?: string,
-  guestId?: string,
-): Promise<TournamentSnapshot> {
-  return createTournament(guestId?.trim() ?? "", nickname, roomName, visibility, password);
-}
-
-// Joins one waiting tournament with the current persisted guest identity and optional room password.
+// Joins one waiting tournament with the current cookie-backed session and optional room password.
 export function joinTournament(
   code: string,
-  guestId: string,
   nickname: string,
   password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; password?: string }, TournamentSnapshot>(
+  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(
     `/api/v1/tournaments/${code}/join`,
     {
-      guestId,
       nickname,
       ...(password ? { password } : {}),
     },
   );
 }
 
-// Joins one waiting tournament using the current session when available.
-export function joinTournamentForCurrentGuest(
-  code: string,
-  nickname: string,
-  password?: string,
-  guestId?: string,
-): Promise<TournamentSnapshot> {
-  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
-    nickname,
-    ...(password ? { password } : {}),
-  }).catch((error) => {
-    if (guestId?.trim() && canFallbackToLegacy(error)) {
-      return joinTournament(code, guestId, nickname, password);
-    }
-
-    throw error;
-  });
-}
-
 // Notifies the backend that one player left the current tournament page.
 export function disconnectTournamentPlayer(
   code: string,
-  guestId: string,
   init?: RequestInit,
 ): Promise<TournamentEvent> {
-  return postJson<{ guestId: string }, TournamentEvent>(
-    `/api/v1/tournaments/${code}/disconnect`,
-    { guestId },
-    init,
-  );
+  return postJson<Record<string, never>, TournamentEvent>(`/api/v1/tournaments/${code}/disconnect`, {}, init);
 }

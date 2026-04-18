@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,12 +40,6 @@ public class GuestController {
     // Returns the current active tournament for the session-backed guest identity.
     @GetMapping("/me/active-tournament")
     public ApiResponse<ActiveTournamentSession> getMyActiveTournament(HttpServletRequest httpRequest) {
-        return ApiResponse.ok(tournamentService.findActiveTournament(guestSessionResolver.requireResolvedGuestId(httpRequest, null)));
-    }
-
-    // Returns the current active tournament already occupied by the guest, when one exists.
-    @GetMapping("/{guestId}/active-tournament")
-    public ApiResponse<ActiveTournamentSession> getActiveTournament(@PathVariable String guestId) {
-        return ApiResponse.ok(tournamentService.findActiveTournament(guestId));
+        return ApiResponse.ok(tournamentService.findActiveTournament(guestSessionResolver.requireGuestId(httpRequest)));
     }
 }

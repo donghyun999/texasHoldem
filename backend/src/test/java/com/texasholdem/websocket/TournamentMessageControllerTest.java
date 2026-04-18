@@ -29,24 +29,24 @@ class TournamentMessageControllerTest {
             new TournamentMessageController(tournamentService, topicPublisher, guestSessionResolver);
 
     @Test
-    void readyUsesWebsocketSessionIdentityWhenPayloadGuestIdIsOmitted() {
+    void readyUsesWebsocketSessionIdentity() {
         var accessor = accessorWithGuest("guest-ws");
         var broadcast = broadcast();
         when(tournamentService.changeReady("ABCD1", "guest-ws", true)).thenReturn(broadcast);
 
-        controller.ready(new TournamentReadyMessage("ABCD1", null, true), accessor);
+        controller.ready(new TournamentReadyMessage("ABCD1", true), accessor);
 
         verify(tournamentService).changeReady("ABCD1", "guest-ws", true);
         verify(topicPublisher).publish("ABCD1", broadcast);
     }
 
     @Test
-    void actionUsesWebsocketSessionIdentityWhenPayloadGuestIdIsOmitted() {
+    void actionUsesWebsocketSessionIdentity() {
         var accessor = accessorWithGuest("guest-ws");
         var broadcast = broadcast();
         when(tournamentService.applyAction("ABCD1", "guest-ws", "FOLD", null)).thenReturn(broadcast);
 
-        controller.action(new GameActionMessage("ABCD1", null, "FOLD", null), accessor);
+        controller.action(new GameActionMessage("ABCD1", "FOLD", null), accessor);
 
         verify(tournamentService).applyAction("ABCD1", "guest-ws", "FOLD", null);
         verify(topicPublisher).publish("ABCD1", broadcast);
@@ -57,9 +57,9 @@ class TournamentMessageControllerTest {
         var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         accessor.setSessionAttributes(new HashMap<>());
 
-        assertThatThrownBy(() -> controller.ready(new TournamentReadyMessage("ABCD1", null, true), accessor))
+        assertThatThrownBy(() -> controller.ready(new TournamentReadyMessage("ABCD1", true), accessor))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Guest identity is required.");
+                .hasMessageContaining("Guest session is required.");
     }
 
     private SimpMessageHeaderAccessor accessorWithGuest(String guestId) {

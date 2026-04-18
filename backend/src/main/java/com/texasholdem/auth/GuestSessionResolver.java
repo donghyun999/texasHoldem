@@ -4,13 +4,12 @@ import com.texasholdem.tournament.domain.GuestSession;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.lang.Nullable;
-import org.springframework.stereotype.Component;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Component
@@ -23,40 +22,8 @@ public class GuestSessionResolver {
     }
 
     @Nullable
-    public String resolveGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
-        var sessionGuestId = currentGuestId(request);
-        var normalizedLegacyGuestId = normalize(legacyGuestId);
-
-        if (sessionGuestId != null) {
-            if (normalizedLegacyGuestId != null && !sessionGuestId.equals(normalizedLegacyGuestId)) {
-                throw new ResponseStatusException(BAD_REQUEST, "Guest identity mismatch.");
-            }
-            return sessionGuestId;
-        }
-
-        return normalizedLegacyGuestId;
-    }
-
-    @Nullable
-    public String resolveCreateGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
-        var sessionGuestId = currentGuestId(request);
-        return sessionGuestId != null ? sessionGuestId : normalize(legacyGuestId);
-    }
-
-    public String requireResolvedGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
-        var guestId = resolveGuestId(request, legacyGuestId);
-        if (guestId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
-        }
-        return guestId;
-    }
-
-    public String requireCreateGuestId(HttpServletRequest request, @Nullable String legacyGuestId) {
-        var guestId = resolveCreateGuestId(request, legacyGuestId);
-        if (guestId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
-        }
-        return guestId;
+    public String resolveGuestId(HttpServletRequest request) {
+        return currentGuestId(request);
     }
 
     public String requireGuestId(HttpServletRequest request) {
@@ -68,26 +35,8 @@ public class GuestSessionResolver {
     }
 
     @Nullable
-    public String resolveGuestId(SimpMessageHeaderAccessor accessor, @Nullable String legacyGuestId) {
-        var sessionGuestId = currentGuestId(accessor);
-        var normalizedLegacyGuestId = normalize(legacyGuestId);
-
-        if (sessionGuestId != null) {
-            if (normalizedLegacyGuestId != null && !sessionGuestId.equals(normalizedLegacyGuestId)) {
-                throw new ResponseStatusException(BAD_REQUEST, "Guest identity mismatch.");
-            }
-            return sessionGuestId;
-        }
-
-        return normalizedLegacyGuestId;
-    }
-
-    public String requireResolvedGuestId(SimpMessageHeaderAccessor accessor, @Nullable String legacyGuestId) {
-        var guestId = resolveGuestId(accessor, legacyGuestId);
-        if (guestId == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Guest identity is required.");
-        }
-        return guestId;
+    public String resolveGuestId(SimpMessageHeaderAccessor accessor) {
+        return currentGuestId(accessor);
     }
 
     public String requireGuestId(SimpMessageHeaderAccessor accessor) {

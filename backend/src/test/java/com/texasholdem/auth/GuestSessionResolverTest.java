@@ -29,42 +29,22 @@ class GuestSessionResolverTest {
     }
 
     @Test
-    void prefersSessionIdentityAndRejectsMismatchedLegacyIdentity() {
+    void resolvesOptionalHttpIdentityFromSession() {
         var request = requestWithSession("guest-1", "Neo");
 
-        assertThat(resolver.resolveGuestId(request, "guest-1")).isEqualTo("guest-1");
-        assertThatThrownBy(() -> resolver.resolveGuestId(request, "guest-2"))
+        assertThat(resolver.resolveGuestId(request)).isEqualTo("guest-1");
+    }
+
+    @Test
+    void resolvesOptionalHttpIdentityAsNullWhenSessionIsMissing() {
+        assertThat(resolver.resolveGuestId(new MockHttpServletRequest())).isNull();
+    }
+
+    @Test
+    void requireGuestIdRejectsMissingHttpSessionIdentity() {
+        assertThatThrownBy(() -> resolver.requireGuestId(new MockHttpServletRequest()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Guest identity mismatch.");
-    }
-
-    @Test
-    void fallsBackToLegacyGuestIdWhenSessionIsMissing() {
-        assertThat(resolver.resolveGuestId(new MockHttpServletRequest(), "guest-legacy"))
-                .isEqualTo("guest-legacy");
-    }
-
-    @Test
-    void resolveCreateGuestIdPrefersSessionIdentityAndAllowsMissingLegacyGuestId() {
-        var sessionRequest = requestWithSession("guest-1", "Neo");
-
-        assertThat(resolver.resolveCreateGuestId(sessionRequest, null)).isEqualTo("guest-1");
-        assertThat(resolver.resolveCreateGuestId(sessionRequest, "guest-stale")).isEqualTo("guest-1");
-        assertThat(resolver.resolveCreateGuestId(new MockHttpServletRequest(), "guest-legacy")).isEqualTo("guest-legacy");
-    }
-
-    @Test
-    void requireResolvedGuestIdRejectsMissingSessionAndLegacyGuestId() {
-        assertThatThrownBy(() -> resolver.requireResolvedGuestId(new MockHttpServletRequest(), null))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Guest identity is required.");
-    }
-
-    @Test
-    void requireCreateGuestIdRejectsMissingSessionAndLegacyGuestId() {
-        assertThatThrownBy(() -> resolver.requireCreateGuestId(new MockHttpServletRequest(), null))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Guest identity is required.");
+                .hasMessageContaining("Guest session is required.");
     }
 
     @Test
@@ -76,17 +56,17 @@ class GuestSessionResolverTest {
         )));
 
         assertThat(resolver.requireGuestId(accessor)).isEqualTo("guest-ws");
-        assertThat(resolver.resolveGuestId(accessor, null)).isEqualTo("guest-ws");
+        assertThat(resolver.resolveGuestId(accessor)).isEqualTo("guest-ws");
     }
 
     @Test
-    void requireResolvedGuestIdRejectsMissingWebsocketIdentity() {
+    void requireGuestIdRejectsMissingWebsocketIdentity() {
         var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         accessor.setSessionAttributes(new HashMap<>());
 
-        assertThatThrownBy(() -> resolver.requireResolvedGuestId(accessor, null))
+        assertThatThrownBy(() -> resolver.requireGuestId(accessor))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Guest identity is required.");
+                .hasMessageContaining("Guest session is required.");
     }
 
     private MockHttpServletRequest requestWithSession(String guestId, String nickname) {
