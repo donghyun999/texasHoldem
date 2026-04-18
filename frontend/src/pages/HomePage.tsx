@@ -92,6 +92,9 @@ export function HomePage() {
   const waitingRooms = waitingRoomListQuery.data ?? [];
   const liveOpenRooms = waitingRooms.filter((room) => room.visibility === "PUBLIC").length;
   const liveLockedRooms = waitingRooms.length - liveOpenRooms;
+  const isCheckingActiveTournament =
+    !isBootstrappingGuest &&
+    activeTournamentQuery.fetchStatus === "fetching";
 
   const createMutation = useMutation({
     mutationFn: ({
@@ -139,11 +142,9 @@ export function HomePage() {
   const controlsDisabled =
     isBootstrappingGuest ||
     !!activeTournament ||
-    activeTournamentQuery.isPending ||
+    isCheckingActiveTournament ||
     createMutation.isPending ||
     joinMutation.isPending;
-
-  const isCheckingActiveTournament = activeTournamentQuery.isPending;
   const busyLabel = createMutation.isPending
     ? "테이블을 만드는 중..."
     : joinMutation.isPending
