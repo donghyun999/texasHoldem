@@ -140,7 +140,6 @@ export function HomePage() {
   });
 
   const controlsDisabled =
-    isBootstrappingGuest ||
     !!activeTournament ||
     isCheckingActiveTournament ||
     createMutation.isPending ||
