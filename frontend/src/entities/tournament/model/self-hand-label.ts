@@ -11,7 +11,9 @@ export function describeSelfHandLabel(boardCards: string[], holeCards: string[])
   }
 
   if (boardCards.length < 3) {
-    return parseCard(holeCards[0]).rank === parseCard(holeCards[1]).rank ? "One Pair" : "High Card";
+    return parseCard(holeCards[0]).rank === parseCard(holeCards[1]).rank
+      ? `${rankLabel(parseCard(holeCards[0]).rank)} 원페어`
+      : `${rankLabel(Math.max(parseCard(holeCards[0]).rank, parseCard(holeCards[1]).rank))} 하이카드`;
   }
 
   return describeScore(evaluateScore(boardCards, holeCards));
@@ -40,25 +42,28 @@ function evaluateScore(boardCards: string[], holeCards: string[]) {
 }
 
 function describeScore(score: number) {
+  const firstRank = valueAt(score, 0);
+  const secondRank = valueAt(score, 1);
+
   switch (category(score)) {
     case 8:
-      return "Straight Flush";
+      return `${rankLabel(firstRank)} 스트레이트 플러시`;
     case 7:
-      return "Four of a Kind";
+      return `${rankLabel(firstRank)} 포카드`;
     case 6:
-      return "Full House";
+      return `${rankLabel(firstRank)}, ${rankLabel(secondRank)} 풀하우스`;
     case 5:
-      return "Flush";
+      return `${rankLabel(firstRank)} 플러시`;
     case 4:
-      return "Straight";
+      return `${rankLabel(firstRank)} 스트레이트`;
     case 3:
-      return "Three of a Kind";
+      return `${rankLabel(firstRank)} 트리플`;
     case 2:
-      return "Two Pair";
+      return `${rankLabel(firstRank)}, ${rankLabel(secondRank)} 투페어`;
     case 1:
-      return "One Pair";
+      return `${rankLabel(firstRank)} 원페어`;
     default:
-      return "High Card";
+      return `${rankLabel(firstRank)} 하이카드`;
   }
 }
 
@@ -158,6 +163,25 @@ function buildScore(categoryValue: number, values: number[]) {
 
 function category(score: number) {
   return score >> 20;
+}
+
+function valueAt(score: number, index: number) {
+  return (score >> (16 - index * 4)) & 0xf;
+}
+
+function rankLabel(rank: number) {
+  switch (rank) {
+    case 14:
+      return "A";
+    case 13:
+      return "K";
+    case 12:
+      return "Q";
+    case 11:
+      return "J";
+    default:
+      return rank === 0 ? "" : String(rank);
+  }
 }
 
 function parseCard(card: string): ParsedCard {

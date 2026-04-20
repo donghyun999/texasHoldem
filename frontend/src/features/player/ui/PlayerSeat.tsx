@@ -433,7 +433,7 @@ function PlayerSeatView({
       })
     : "";
   const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
-  const translatedHandLabel = isCurrentPlayer ? toHandLabelKorean(selfHandLabel) : null;
+  const displayedHandLabel = isCurrentPlayer ? selfHandLabel : null;
   const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
   const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";
   const actionTimerTone = getSeatActionTimerTone(actionTimerProgress);
@@ -558,10 +558,10 @@ function PlayerSeatView({
           </div>
         </div>
       </div>
-      {translatedHandLabel ? (
+      {displayedHandLabel ? (
         <div className="mt-1.5">
           <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-[10px] font-semibold text-cyan-50 shadow-md shadow-black/20 sm:text-[11px]">
-            {translatedHandLabel}
+            {displayedHandLabel}
           </span>
         </div>
       ) : null}

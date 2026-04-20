@@ -22,10 +22,12 @@ public final class PokerHandEvaluator {
         }
 
         if (boardCards == null || boardCards.size() < 3) {
-            return isPocketPair(holeCards) ? "One Pair" : "High Card";
+            return isPocketPair(holeCards)
+                    ? rankLabel(parseCard(holeCards.get(0)).rank()) + " 원페어"
+                    : rankLabel(highestHoleRank(holeCards)) + " 하이카드";
         }
 
-        return describe(evaluate(boardCards, holeCards));
+        return describeDetailed(evaluate(boardCards, holeCards));
     }
 
     // Scores the best five-card hand from a board plus one player's hole cards.
@@ -74,6 +76,23 @@ public final class PokerHandEvaluator {
             case 2 -> "Two Pair";
             case 1 -> "One Pair";
             default -> "High Card";
+        };
+    }
+
+    private String describeDetailed(long score) {
+        var firstRank = valueAt(score, 0);
+        var secondRank = valueAt(score, 1);
+
+        return switch (category(score)) {
+            case 8 -> rankLabel(firstRank) + " 스트레이트 플러시";
+            case 7 -> rankLabel(firstRank) + " 포카드";
+            case 6 -> rankLabel(firstRank) + ", " + rankLabel(secondRank) + " 풀하우스";
+            case 5 -> rankLabel(firstRank) + " 플러시";
+            case 4 -> rankLabel(firstRank) + " 스트레이트";
+            case 3 -> rankLabel(firstRank) + " 트리플";
+            case 2 -> rankLabel(firstRank) + ", " + rankLabel(secondRank) + " 투페어";
+            case 1 -> rankLabel(firstRank) + " 원페어";
+            default -> rankLabel(firstRank) + " 하이카드";
         };
     }
 
@@ -179,8 +198,26 @@ public final class PokerHandEvaluator {
         return (int) (score >> 20);
     }
 
+    private int valueAt(long score, int index) {
+        return (int) ((score >> (16 - (index * 4))) & 0xF);
+    }
+
     private boolean isPocketPair(List<String> holeCards) {
         return parseCard(holeCards.get(0)).rank() == parseCard(holeCards.get(1)).rank();
+    }
+
+    private int highestHoleRank(List<String> holeCards) {
+        return Math.max(parseCard(holeCards.get(0)).rank(), parseCard(holeCards.get(1)).rank());
+    }
+
+    private String rankLabel(int rank) {
+        return switch (rank) {
+            case 14 -> "A";
+            case 13 -> "K";
+            case 12 -> "Q";
+            case 11 -> "J";
+            default -> rank == 0 ? "" : Integer.toString(rank);
+        };
     }
 
     // Parses a compact rank-suit card string into numeric form.

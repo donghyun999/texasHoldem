@@ -126,7 +126,7 @@ const previewSnapshot: TournamentSnapshot = {
   chipsToCall: 0,
   minimumRaiseTo: 40,
   tableMessage: "Flop is out. Side bet markers should clear the board edge.",
-  selfHandLabel: "One Pair",
+  selfHandLabel: "6 원페어",
   selfHoleCards: ["2D", "6C"],
 };
 
