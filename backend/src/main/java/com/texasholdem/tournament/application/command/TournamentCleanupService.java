@@ -1,6 +1,8 @@
 package com.texasholdem.tournament.application.command;
 
 import com.texasholdem.tournament.application.persistence.TournamentStateStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +11,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public final class TournamentCleanupService {
+
+    private static final Logger log = LoggerFactory.getLogger(TournamentCleanupService.class);
 
     private final TournamentStateStore stateStore;
     private final long waitingIdleTtlMillis;
@@ -47,6 +51,15 @@ public final class TournamentCleanupService {
                 waitingIdleTtlMillis,
                 inHandIdleTtlMillis,
                 hardTtlMillis
+        );
+        if (staleCodes.isEmpty()) {
+            return;
+        }
+
+        log.info(
+                "Tournament cleanup removed {} stale tournaments. sampleCodes={}",
+                staleCodes.size(),
+                staleCodes.stream().limit(5).toList()
         );
         staleCodes.forEach(stateStore::delete);
     }

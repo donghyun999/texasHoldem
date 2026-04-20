@@ -199,13 +199,22 @@ function SeatCardFan({
   muted?: boolean;
 }) {
   const normalizedCards = cards.length === 2 ? cards : ["XX", "XX"];
-  const frameClass = hero ? "h-16 w-[4.5rem] sm:h-22 sm:w-24" : "h-11 w-12 sm:h-15 sm:w-16";
+  const faceUp = normalizedCards.some((card) => card !== "XX");
+  const frameClass = hero
+    ? "h-16 w-[4.5rem] sm:h-22 sm:w-24"
+    : faceUp
+      ? "h-11 w-[3.85rem] sm:h-15 sm:w-[5.1rem]"
+      : "h-11 w-12 sm:h-15 sm:w-16";
   const leftClass = hero
     ? "absolute left-0 top-1 rotate-[-9deg] sm:left-1 sm:top-1"
-    : "absolute left-0 top-0.5 rotate-[-11deg]";
+    : faceUp
+      ? "absolute left-1/2 top-0.5 -translate-x-[72%] rotate-[-7deg] sm:-translate-x-[76%] sm:rotate-[-8deg]"
+      : "absolute left-0 top-0.5 rotate-[-11deg]";
   const rightClass = hero
     ? "absolute right-0 top-1 rotate-[9deg] sm:right-1 sm:top-1"
-    : "absolute right-0 top-0.5 rotate-[11deg]";
+    : faceUp
+      ? "absolute left-1/2 top-0.5 -translate-x-[28%] rotate-[7deg] sm:-translate-x-[24%] sm:rotate-[8deg]"
+      : "absolute right-0 top-0.5 rotate-[11deg]";
 
   return (
     <div className={`relative ${frameClass} ${muted ? "opacity-55" : ""}`}>

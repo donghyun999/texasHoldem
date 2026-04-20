@@ -5,11 +5,15 @@ import com.texasholdem.tournament.application.state.*;
 import com.texasholdem.tournament.application.snapshot.*;
 import com.texasholdem.tournament.domain.PlayerStatus;
 import com.texasholdem.tournament.domain.TournamentStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.Map;
 
 public final class TournamentHandCommandFlow {
+
+    private static final Logger log = LoggerFactory.getLogger(TournamentHandCommandFlow.class);
 
     private final TournamentCommandSupport support;
     private final TournamentSnapshotFactory snapshotFactory;
@@ -109,6 +113,7 @@ public final class TournamentHandCommandFlow {
                 return false;
             }
 
+            log.info("Tournament cleanup removed finished tournament {} after result retention window.", tournament.code);
             support.deleteTournament(tournament.code);
             return true;
         });
