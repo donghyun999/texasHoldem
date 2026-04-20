@@ -2,6 +2,7 @@ import type { IMessage } from "@stomp/stompjs";
 import type { QueryClient } from "@tanstack/react-query";
 import { syncPublicTournamentListCache } from "@/entities/tournament/model/lobby-cache";
 import { buildActiveTournamentKey, buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
+import { describeSelfHandLabel } from "@/entities/tournament/model/self-hand-label";
 import type { ActiveTournamentSession, TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
 
 function areSameActiveTournamentSession(
@@ -120,6 +121,7 @@ export function mergeSnapshotForViewer(
     return {
       ...nextSnapshot,
       chipsToCall: 0,
+      selfHandLabel: null,
       selfHoleCards: [],
     };
   }
@@ -138,6 +140,7 @@ export function mergeSnapshotForViewer(
     viewerGuestId: currentSnapshot.viewerGuestId,
     viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
     chipsToCall: currentSnapshot.chipsToCall,
+    selfHandLabel: describeSelfHandLabel(nextSnapshot.boardCards, currentSnapshot.selfHoleCards),
     selfHoleCards: currentSnapshot.selfHoleCards,
   };
 }

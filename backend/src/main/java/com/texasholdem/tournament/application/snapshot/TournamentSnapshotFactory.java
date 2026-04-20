@@ -17,14 +17,17 @@ import java.util.stream.Collectors;
 public final class TournamentSnapshotFactory {
 
     private final TournamentRules rules;
+    private final PokerHandEvaluator handEvaluator;
     private final long actionTimeoutSeconds;
 
     // Wires snapshot assembly to the shared tournament rules.
     public TournamentSnapshotFactory(
             TournamentRules rules,
+            PokerHandEvaluator handEvaluator,
             @Value("${app.tournament.action-timeout-seconds:20}") long actionTimeoutSeconds
     ) {
         this.rules = rules;
+        this.handEvaluator = handEvaluator;
         this.actionTimeoutSeconds = Math.max(0, actionTimeoutSeconds);
     }
 
@@ -37,6 +40,7 @@ public final class TournamentSnapshotFactory {
     public TournamentSnapshot toSnapshot(TournamentState tournament, String viewerGuestId) {
         var normalizedViewerGuestId = normalizeViewerGuestId(viewerGuestId);
         var viewerHoleCards = viewerHoleCards(tournament, normalizedViewerGuestId);
+        var viewerHandLabel = viewerHandLabel(tournament, viewerHoleCards);
         var viewerChipsToCall = viewerChipsToCall(tournament, normalizedViewerGuestId);
         var viewerMinimumRaiseTo = viewerMinimumRaiseTo(tournament, normalizedViewerGuestId);
         var currentLevel = rules.currentLevel(tournament.levelIndex);
@@ -90,6 +94,7 @@ public final class TournamentSnapshotFactory {
                 viewerChipsToCall,
                 viewerMinimumRaiseTo,
                 tournament.tableMessage,
+                viewerHandLabel,
                 viewerHoleCards
         );
     }
@@ -122,6 +127,14 @@ public final class TournamentSnapshotFactory {
                 .findFirst()
                 .map(player -> List.copyOf(player.holeCards))
                 .orElseGet(List::of);
+    }
+
+    private String viewerHandLabel(TournamentState tournament, List<String> viewerHoleCards) {
+        if (viewerHoleCards.isEmpty()) {
+            return null;
+        }
+
+        return handEvaluator.describeCurrentHand(tournament.boardCards, viewerHoleCards);
     }
 
     private int viewerChipsToCall(TournamentState tournament, String viewerGuestId) {

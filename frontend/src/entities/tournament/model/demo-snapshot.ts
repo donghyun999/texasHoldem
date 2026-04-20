@@ -131,6 +131,7 @@ export function createDemoTournamentSnapshot(code: string, roomName = "금요 �
     chipsToCall: 50,
     minimumRaiseTo: 100,
     tableMessage: "Noah is up. Call 50 more to continue, and a side pot is active.",
+    selfHandLabel: "One Pair",
     selfHoleCards: ["QS", "QH"],
   };
 }

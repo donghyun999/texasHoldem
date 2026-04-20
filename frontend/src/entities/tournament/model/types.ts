@@ -97,6 +97,7 @@ export type TournamentSnapshot = {
   chipsToCall: number;
   minimumRaiseTo: number;
   tableMessage: string;
+  selfHandLabel: string | null;
   selfHoleCards: string[];
 };
 

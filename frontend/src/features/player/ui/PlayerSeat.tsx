@@ -15,6 +15,7 @@ type PlayerSeatProps = {
   stackDisplayMode: StackDisplayMode;
   showStackLabel?: boolean;
   currentGuestId?: string;
+  selfHandLabel?: string | null;
   selfHoleCards?: string[];
   revealedHoleCards?: string[];
   showActionTimer?: boolean;
@@ -300,6 +301,31 @@ function haveSamePlayer(left?: TournamentPlayer, right?: TournamentPlayer) {
   );
 }
 
+function toHandLabelKorean(label: string | null | undefined) {
+  switch (label) {
+    case "High Card":
+      return "하이카드";
+    case "One Pair":
+      return "원페어";
+    case "Two Pair":
+      return "투페어";
+    case "Three of a Kind":
+      return "트리플";
+    case "Straight":
+      return "스트레이트";
+    case "Flush":
+      return "플러시";
+    case "Full House":
+      return "풀하우스";
+    case "Four of a Kind":
+      return "포카드";
+    case "Straight Flush":
+      return "스트레이트 플러시";
+    default:
+      return null;
+  }
+}
+
 function haveSameActionFlash(
   left: PlayerSeatProps["actionFlash"],
   right: PlayerSeatProps["actionFlash"],
@@ -327,6 +353,7 @@ function areEqualPlayerSeatProps(left: PlayerSeatProps, right: PlayerSeatProps) 
     left.stackDisplayMode === right.stackDisplayMode &&
     left.showStackLabel === right.showStackLabel &&
     left.currentGuestId === right.currentGuestId &&
+    left.selfHandLabel === right.selfHandLabel &&
     haveSameCards(left.selfHoleCards ?? [], right.selfHoleCards ?? []) &&
     haveSameCards(left.revealedHoleCards ?? [], right.revealedHoleCards ?? []) &&
     left.showActionTimer === right.showActionTimer &&
@@ -354,6 +381,7 @@ function PlayerSeatView({
   stackDisplayMode,
   showStackLabel = true,
   currentGuestId,
+  selfHandLabel = null,
   selfHoleCards = [],
   revealedHoleCards = [],
   showActionTimer = false,
@@ -405,6 +433,7 @@ function PlayerSeatView({
       })
     : "";
   const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
+  const translatedHandLabel = isCurrentPlayer ? toHandLabelKorean(selfHandLabel) : null;
   const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
   const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";
   const actionTimerTone = getSeatActionTimerTone(actionTimerProgress);
@@ -529,6 +558,13 @@ function PlayerSeatView({
           </div>
         </div>
       </div>
+      {translatedHandLabel ? (
+        <div className="mt-1.5">
+          <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-[10px] font-semibold text-cyan-50 shadow-md shadow-black/20 sm:text-[11px]">
+            {translatedHandLabel}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

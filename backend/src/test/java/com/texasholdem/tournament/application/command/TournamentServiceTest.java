@@ -1133,7 +1133,7 @@ class TournamentServiceTest {
     void reconnectsDisconnectedPlayerAfterPersistenceReload() {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -1377,7 +1377,7 @@ class TournamentServiceTest {
     void refreshesLatestPersistedTournamentBeforeLockedCommandAcrossServiceInstances() {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -1465,7 +1465,7 @@ class TournamentServiceTest {
     void restoresPersistedTournamentStateAcrossServiceInstances() {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
@@ -1626,7 +1626,7 @@ class TournamentServiceTest {
     ) {
         var rules = new TournamentRules();
         var identityFactory = new TournamentIdentityFactory();
-        var snapshotFactory = new TournamentSnapshotFactory(rules, 20);
+        var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);

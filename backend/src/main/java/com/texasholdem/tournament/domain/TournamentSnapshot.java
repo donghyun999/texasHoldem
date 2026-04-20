@@ -35,6 +35,7 @@ public record TournamentSnapshot(
         int chipsToCall,
         int minimumRaiseTo,
         String tableMessage,
+        String selfHandLabel,
         List<String> selfHoleCards
 ) {
 }

@@ -1379,6 +1379,7 @@ export function TournamentTable({
               stackDisplayMode={stackDisplayMode}
               showStackLabel={snapshot.status !== "WAITING"}
               currentGuestId={displayedHeroGuestId}
+              selfHandLabel={snapshot.selfHandLabel}
               selfHoleCards={snapshot.selfHoleCards}
               revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? EMPTY_CARDS : EMPTY_CARDS}
               actionFlash={seats[actualSeatIndex] ? seatActionFlashByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}

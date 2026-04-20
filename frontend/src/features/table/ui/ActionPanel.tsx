@@ -449,17 +449,14 @@ function ActionTimer({
   }
 
   return (
-    <div className={`${paused ? "mt-2" : ""} rounded-2xl border border-white/10 bg-white/5 px-3 py-2`}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{actionTimerLabel}</span>
-        <span className="text-sm font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
-      </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div
-          className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
-          style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
-        />
-      </div>
+    <div className="mb-1.5 overflow-hidden rounded-full bg-white/10" aria-label={`${actionTimerLabel}: ${formatActionTimerLabel(secondsRemaining)} remaining`}>
+      <span className="sr-only">
+        {actionTimerLabel}: {formatActionTimerLabel(secondsRemaining)} remaining
+      </span>
+      <div
+        className={`h-1.5 rounded-full transition-[width] duration-200 ${actionTimerTone}`}
+        style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
+      />
     </div>
   );
 }
@@ -692,13 +689,22 @@ export function ActionPanel({
 
   return (
     <>
-      <div
-        className={`relative border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
-          shouldUseStickyTray
-            ? "fixed inset-x-3 bottom-3 z-[70] rounded-[1.6rem] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] sm:static sm:inset-auto sm:z-auto sm:rounded-[1.4rem] sm:p-3"
-            : "rounded-[1.4rem] p-2.5 sm:p-3"
-        }`}
-      >
+      <div className={shouldUseStickyTray ? "fixed inset-x-3 bottom-3 z-[70] sm:static sm:inset-auto sm:z-auto" : ""}>
+        <MemoizedActionTimer
+          actionDeadlineAtEpochMilli={actionDeadlineAtEpochMilli}
+          actionTimeoutSeconds={actionTimeoutSeconds}
+          paused={paused}
+          tournamentStatus={tournamentStatus}
+          currentPlayer={currentPlayer}
+        />
+
+        <div
+          className={`relative border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
+            shouldUseStickyTray
+              ? "rounded-[1.6rem] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] sm:rounded-[1.4rem] sm:p-3"
+              : "rounded-[1.4rem] p-2.5 sm:p-3"
+          }`}
+        >
         {paused ? (
           <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
             <div className="flex items-center justify-between gap-3">
@@ -712,14 +718,6 @@ export function ActionPanel({
             </p>
           </div>
         ) : null}
-
-        <MemoizedActionTimer
-          actionDeadlineAtEpochMilli={actionDeadlineAtEpochMilli}
-          actionTimeoutSeconds={actionTimeoutSeconds}
-          paused={paused}
-          tournamentStatus={tournamentStatus}
-          currentPlayer={currentPlayer}
-        />
 
         {shouldShowInHandControls ? (
           <div className="relative mt-2.5 grid grid-cols-3 gap-2">
@@ -944,6 +942,7 @@ export function ActionPanel({
         ) : (
           <p className="mt-3 px-1 text-xs text-zinc-300">{idleMessage}</p>
         )}
+        </div>
       </div>
 
     </>

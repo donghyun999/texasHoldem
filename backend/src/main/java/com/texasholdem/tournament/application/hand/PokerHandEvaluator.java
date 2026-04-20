@@ -15,6 +15,19 @@ public final class PokerHandEvaluator {
 
     private static final String RANKS = "23456789TJQKA";
 
+    // Describes the viewer's best made hand for live UI display across every street.
+    public String describeCurrentHand(List<String> boardCards, List<String> holeCards) {
+        if (holeCards == null || holeCards.size() != 2) {
+            return null;
+        }
+
+        if (boardCards == null || boardCards.size() < 3) {
+            return isPocketPair(holeCards) ? "One Pair" : "High Card";
+        }
+
+        return describe(evaluate(boardCards, holeCards));
+    }
+
     // Scores the best five-card hand from a board plus one player's hole cards.
     long evaluate(List<String> boardCards, List<String> holeCards) {
         var cards = new ArrayList<Card>();
@@ -164,6 +177,10 @@ public final class PokerHandEvaluator {
     // Extracts the hand category nibble from the packed showdown score.
     private int category(long score) {
         return (int) (score >> 20);
+    }
+
+    private boolean isPocketPair(List<String> holeCards) {
+        return parseCard(holeCards.get(0)).rank() == parseCard(holeCards.get(1)).rank();
     }
 
     // Parses a compact rank-suit card string into numeric form.
