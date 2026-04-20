@@ -1,39 +1,44 @@
-# frontend-agent 상태
+# frontend-agent status
 
-- 마지막 갱신 시각:
-  - `2026-04-17 Asia/Seoul`
-- 상태:
-  - `idle`
-- 현재 작업:
-  - `PublicTournamentList.tsx`에 private room 전용 소형 자물쇠 마커를 추가했고, 기존 비밀번호 프롬프트 기반 join 흐름은 유지했다
-- 현재 브랜치:
-  - `main`
-- 현재 worktree:
-  - `C:\Users\user\texasHoldem`
-- 현재 worktree 상태:
-  - `exists`
-- 현재 소유 범위:
-  - `frontend/src/**`
-  - 필요 시 `frontend/index.html`
-  - 필요 시 `frontend/package.json`
-- 지금 수정 가능한 파일:
-  - frontend 전용 파일만
-- 지금 수정하면 안 되는 파일:
-  - `backend/**`
-  - 다른 에이전트가 소유한 hotspot 파일
-- 마지막 결정:
-  - public websocket snapshot이 hand start 직후 들어와도 seated player의 `selfHoleCards`가 비어 있으면 viewer REST hydrate를 자동으로 트리거하게 만들어 reconnect 외 상태 전환에서도 hole cards를 복구하도록 했다
-- 다음 액션:
-  - 실제 실행 UI에서 private room lock marker가 리스트 오른쪽 끝에서 자연스럽게 보이는지 확인
-  - private room 비밀번호 프롬프트와 오입력 오류 메시지 흐름을 수동 확인
-  - 필요 시 마커 위치/간격을 소폭 조정
-- 막힌 점:
-  - 없음
-- 남은 리스크:
-  - frontend package에 확립된 테스트 러너가 없어 이번 fix는 build-only 검증이다
-  - lock marker 렌더링과 password prompt UX는 아직 런타임에서 직접 확인하지 않았다
-- 세션 재개 시 먼저 볼 파일:
-  - `docs/agent-status/orchestrator.md`
-  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`
-  - `frontend/src/entities/tournament/model/tournament-realtime-sync.ts`
-  - `frontend/src/pages/TablePage.tsx`
+- last_updated: `2026-04-17 Asia/Seoul`
+- status: `closed`
+- branch: `main`
+- worktree: `C:\Users\user\texasHoldem`
+
+## Scope Owned This Session
+
+- `frontend/src/**`
+- selected frontend config/e2e harness files from earlier in the session
+
+## Completed Work
+
+- Earlier in the session:
+  - aligned active-tournament fallback in `HomePage.tsx`
+  - cleaned create helper flow in `http.ts`
+  - maintained prior viewer/self identity fixes and owner blank-state mitigation
+- Final assessment for the confirmed legacy backend payload bug:
+  - no additional frontend patch was required before re-verification
+
+## Current Frontend View
+
+- Existing fallback work should be sufficient once backend `500` errors are actually removed.
+- Remaining frontend risk is separate from the legacy payload bug:
+  - hole cards may still disappear during transition windows
+  - likely paths:
+    - `use-tournament-realtime-snapshot.ts`
+    - `tournament-realtime-sync.ts`
+    - `TablePage.tsx`
+    - `TournamentTable.tsx`
+    - `PlayerSeat.tsx`
+
+## Remaining Frontend Risks
+
+- Public snapshot to viewer hydrate timing may still fail after hand start, reload, or reconnect.
+- Backend transition events may still be delivering public snapshots, which frontend can only partially heal.
+
+## Next Frontend Action
+
+- After backend stability is confirmed, run focused live verification on:
+  - owner hole cards after hand start
+  - reload/reconnect recovery
+  - viewer/self identity continuity

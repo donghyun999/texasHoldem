@@ -11,7 +11,10 @@
 - 토너먼트 MVP 구현 단계
 - 로컬 개발 목표는 네이티브 PostgreSQL 사용
 - 최종 배포 목표는 Docker 전환 가능 상태 유지
-- Railway staging은 로컬 PostgreSQL 워크플로우를 깨지 않은 채 배포되어 있고, 최신 frontend asset/result UX는 smoke 검증되었다. 배포 frontend 기준 6인 플레이 검증도 seat 5 hole-card 렌더링 중심으로 통과했다
+- Railway staging은 로컬 PostgreSQL 워크플로우를 깨지 않은 채 배포되어 있다
+- 최신 Railway backend 배포에는 cross-site guest session을 위한 `SameSite=None; Secure` 쿠키 설정이 반영되어 있다
+- 2026-04-18 KST 기준 Railway 공개 배포에서는 6인 create, join, start, in-hand 진입, 단일 action state advance까지 다시 확인되었다
+- 다만 같은 날짜 기준 연속 무한 Railway smoke는 `POST /api/v1/tournaments`에서 반복적으로 `503 Service Unavailable`을 보이고 있어 create capacity / cleanup 안정성을 우선 추적 중이다
 
 ## 완료된 작업
 
@@ -57,17 +60,23 @@
 - Railway 공개 도메인에서 create, join, ready, start, all-in, call, showdown, showdown hand-label 렌더링까지 smoke 검증 완료
 - 배포 frontend URL 기준 Railway 6인 브라우저 smoke 검증 완료, 두 번의 full-table run에서 seat 5 missing-card / wrong-card 이슈 재현 없음
 - Railway용 smoke script를 `scripts/` 아래로 정리하고 공통 config helper를 공유하도록 개선했으며, continuous runner는 explicit opt-in env flag가 있어야 시작되도록 변경
+- 현재 공개 Railway UI와 세션 모델에 맞춘 6인 live continuous smoke runner를 `scripts/railway-six-player-live-continuous.cjs`로 추가했고, wrapper는 `scripts/start-railway-live-loop.cmd`에 두었다
 - 남은 active player가 모두 AFK일 때 hand를 soft-pause하여 turn/blind timer를 멈추고, 현재 actor가 return-to-play 할 때까지 기다리도록 구현
 - 로비에서 잠금방 참여 규칙과 호스트 공유 안내를 더 직접적으로 보여주도록 private-room UX를 정리
 - `use-tournament-realtime-snapshot.ts`에서 snapshot merge, event parse, cache sync 보조 로직을 분리해 realtime 책임을 조금 더 명확히 정리
 - `TournamentTable`의 중앙 상태 카피를 `WAITING`, `IN_HAND`, `HAND_RESULT` 중심으로 더 분명히 나눠 읽기 우선순위를 개선
 - `TournamentService`를 더 얇은 facade로 유지하고 command-specific flow를 focused collaborator로 분리
 - frontend 비주얼 톤을 `WPL`에 가까운 social-poker 스타일로 조정하고, 로비와 테이블 HUD에 공통 `social-*` 디자인 토큰을 도입
+- Railway 배포 frontend를 대상으로 2026-04-17 KST 기준 6브라우저 direct-join 검증과 스크린샷 수집을 다시 수행했고, 최신 산출물은 `test-results/railway-six-player-case-fixed-20260417-082249951Z/summary.json`에 남겨 두었다
+- 2026-04-18 KST 기준 Railway 공개 배포에서 6인 create / join / ready / start 이후 `IN_HAND` 상태 전환과 `Call 20` 처리에 따른 `stateVersion` 증가를 다시 확인했고, 관련 산출물은 `test-results/railway-six-player-rest-verified-2026-04-18T04-58-49-282Z/`, `test-results/railway-six-player-action-check-2026-04-18T05-01-11-468Z/`, `test-results/railway-numbers-check-2026-04-18T06-17-23-384Z/`에 남겨 두었다
+- BB 표시/입력 로직을 별도로 점검해 `chips -> BB` 표기와 기본 변환은 맞음을 확인했고, trailing decimal 입력(`2.`)이 즉시 유효값으로 해석되는 UX 하자 후보를 확인했다
 
 ## 현재 집중 영역
 
 - MVP가 로컬 PostgreSQL 기준으로 계속 정상 동작하도록 유지
 - 최종 Docker 배포로 넘어갈 수 있는 경로를 깨끗하게 유지
+- Railway 배포 환경에서 6인 create / join / start / in-hand action 흐름의 안정성을 계속 검증
+- Railway 공개 배포의 create path에서 반복되는 `503 Service Unavailable` 원인을 capacity / cleanup / stale tournament 관점에서 추적
 - reconnect 및 persistence 동작 보강
 - 잠금방 affordance와 생성 후 공유 안내 중심의 남은 로비 UX 다듬기
 - backend betting state, snapshot action, persisted hand state를 spec과 계속 정렬
@@ -77,10 +86,11 @@
 
 ## 다음 작업
 
-- 잠금방 메시지, 비밀번호 입력, 호스트 공유 안내 중심의 로비 UX 정리
+- 무한 Railway live smoke에서 반복되는 `POST /api/v1/tournaments` `503 Service Unavailable` 원인을 확인
+- active-player capacity, stale row cleanup, waiting tournament TTL이 실제 배포 create path에서 어떻게 상호작용하는지 점검
+- BB mode calculator UX에서 trailing decimal 입력과 slider / preset 체감이 자연스러운지 후속 보강 여부 판단
+- 공개 배포의 의미 있는 gameplay/UI 변경 이후에만 6인 Railway smoke를 다시 고정 증빙으로 채집
 - 새로 발견되는 edge case가 있는지 reconnect 및 persistence 최종 점검
-- create, join, leave, resume, reconnect 흐름을 아우르는 최종 브라우저 smoke test
-- 다음 의미 있는 gameplay/UI 변경 이후에만 Railway smoke 재실행
 - 어떤 기능이 MVP 범위 밖인지에 대한 최종 closeout review
 - local / Docker 프로필 전환이 쉽도록 런타임 설정 정리 계속
 - multi-browser / staged deployment smoke 조건에서 cross-instance tournament command lock 검증
@@ -103,7 +113,7 @@
 - 로컬 브라우저 개발 호스트는 이제 REST와 WebSocket에 하나의 origin allowlist를 공유하므로 `127.0.0.1:5173`에서 STOMP handshake가 설정 때문에 실패하지 않는다
 - 최근 smoke check로 REST mirror endpoint와 frontend fallback disconnect 간 validation mismatch를 찾아 수정했다
 - 같은 smoke check에서 frontend dev `StrictMode` 초기 table entry 시 auto-disconnect 버그도 수정했다
-- 최신 브라우저 검증에서는 create, join, ready, start, waiting-room leave, disconnect, reconnect 전반에서 `LIVE WS` 상태가 안정적으로 유지되는 것이 확인되었다
+- 로컬/기존 smoke 기준으로는 create, join, ready, start, waiting-room leave, disconnect, reconnect 전반의 기본 흐름을 확인했지만, 최신 Railway 배포 재검증 결과는 그 신뢰를 그대로 유지하지 못한다
 - waiting-room participant list는 REST join이 websocket snapshot broadcast를 fan-out 하므로 즉시 갱신된다
 - waiting-room list 의미도 더 엄격해졌다. 홈 목록은 좌석이 남은 `WAITING` room만 나타내고, leave/start/finish 시 table-driven cache sync가 stale entry를 즉시 제거한다
 - room code는 플레이어 입력 UX에서 사라졌지만 라우팅과 서버 API에서는 여전히 내부 안정 식별자다
@@ -115,12 +125,14 @@
 - 이번 구조 변경 이후에도 frontend build와 `TournamentServiceTest` targeted suite는 통과했다
 - 최신 WPL 방향 visual pass 이후에도 frontend build는 통과했다
 - active-player capacity는 persisted `updated_at` 기반 stale-row safety valve를 가지므로 abandoned tournament가 반복적인 `503 at capacity` 실패를 일으킬 가능성이 줄었다
-- Railway용 배포 설정은 local profile과 분리되어 있고, 현재 public frontend 배포는 expected showdown/result 동작까지 수동 검증이 끝났다
-- 최신 배포 6인 브라우저 smoke에서는 seat 5 self-hole-card 렌더링 이슈가 재현되지 않았고, 상세 내용은 `docs/railway-six-player-smoke.md`에 기록되어 있다
+- Railway용 배포 설정은 local profile과 분리되어 있고, `railway` profile은 이제 cross-site 세션 쿠키를 명시적으로 지원한다
+- 2026-04-18 KST 기준 현재 공개 Railway 배포는 최소한 6인 create / join / start / preflop action 한 단계까지는 정상 동작을 다시 확인했다
+- 같은 날짜 기준 연속 live smoke는 create 단계에서 반복적인 `503`을 보여 주므로, 현재 배포 리스크의 중심은 in-hand correctness보다 create path 안정성이다
 - table state 계약은 명시적 hand/state 식별자를 가지므로 public WebSocket snapshot과 personalized REST snapshot이 경합할 때 frontend의 상태/board heuristic 의존을 줄인다
 - tournament command는 현재 PostgreSQL 기반 per-table lock 아래에서 최신 persisted table state를 reload한 뒤 mutation 또는 timer transition을 적용하므로, backend instance가 1 JVM을 넘을 때 stale-cache overwrite 리스크를 줄인다
 - Railway smoke harness는 MVP 회귀 도구로 유지 가능하지만, 여전히 일반 Playwright 프레임워크가 아니라 현재 UI 라벨, local storage, snapshot 계약 세부사항에 의도적으로 결합되어 있다
 - AFK 정책은 partial AFK와 full-table AFK를 구분한다. 개별 AFK seat는 auto-check/fold 되지만, 모든 active player가 AFK이면 hand는 자동 소진되지 않고 pause 된다
+- 현재 명시적인 Railway 배포 리스크는 두 축이다: create path의 간헐적 `503`, 그리고 BB calculator 입력 경험의 trailing decimal / slider 세부 UX
 
 ## MVP 마무리 범위
 

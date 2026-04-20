@@ -1,43 +1,45 @@
-# verification-agent 상태
+# verification-agent status
 
-- 마지막 갱신 시각:
-  - `2026-04-17 Asia/Seoul`
-- 상태:
-  - `idle`
-- 현재 작업:
-  - 로비 정책 변경에 대해 `TournamentServiceTest`, `PersistentTournamentStateStoreTest`, `npm run build`까지 green으로 확인했고, 런타임 smoke는 아직 수행하지 않았다
-- 현재 브랜치:
-  - 없음
-- 현재 worktree:
-  - 없음
-- 현재 worktree 상태:
-  - `not-created`
-- 현재 소유 범위:
-  - 기본은 read-only
-  - 필요 시 `scripts/**`
-  - 필요 시 테스트 harness 파일
-- 지금 수정 가능한 파일:
-  - 기본적으로 없음
-  - 오케스트레이터가 명시적으로 허용한 검증 스크립트만 가능
-- 지금 수정하면 안 되는 파일:
-  - `backend/src/main/java/**`
-  - `frontend/src/**`
-  - 구현 에이전트가 소유한 hotspot 파일
-- 마지막 결정:
-  - 이번 수정에 필요한 최소 검증 경로는 `TournamentServiceTest`, `PersistentTournamentStateStoreTest`, `npm run build`로 닫았고, 런타임/배포 검증은 별도 단계로 남겼다
-- 다음 액션:
-  - running app 또는 배포 환경에서 private room 로비 노출, lock marker, 비밀번호 입장 흐름을 smoke 확인
-  - 브라우저 smoke가 필요하면 Playwright `spawn EPERM` 문제를 먼저 해소하거나 API/manual spot-check로 대체
-  - 검증 결과를 기준으로 남은 정책/UX 리스크를 문서에 반영
-- 막힌 점:
-  - 없음
-- 남은 리스크:
-  - local Playwright browser launch `spawn EPERM` 때문에 deployed browser smoke가 여전히 불안정하다
-  - frontend realtime/hydrate 회귀는 현재 build와 deployed smoke 중심으로만 검증된다
-  - Railway/API spot-check를 아직 수행하지 않아 production behavior recovery는 미확정이다
-- 세션 재개 시 먼저 볼 파일:
-  - `docs/agent-status/orchestrator.md`
-  - `backend/build.gradle`
-  - `frontend/package.json`
-  - `scripts/railway-six-player-smoke.cjs`
-  - `docs/status.md`
+- last_updated: `2026-04-17 Asia/Seoul`
+- status: `closed`
+
+## Scope Owned This Session
+
+- live API/browser verification
+- request/response baseline collection
+- failure correlation for backend investigation
+
+## Completed Work
+
+- Repeatedly reproduced live failures for:
+  - `POST /api/v1/tournaments`
+  - `POST /api/v1/tournaments/{code}/join`
+  - `GET /api/v1/guests/{guestId}/active-tournament`
+  - `GET /api/v1/guests/me/active-tournament`
+- Repeatedly confirmed `GET /api/v1/tournaments/lobby/public` stayed `200`.
+- Collected request ids and timing windows used for Railway log correlation.
+- Confirmed the null-safe fix had not yet changed live behavior at the time of the last re-check before session close.
+
+## Limits Encountered
+
+- Browser automation remained blocked by Playwright launch `spawn EPERM`.
+- Because backend `500` errors remained the primary blocker, later end-to-end scenarios such as `P2~P6`, `ready/start`, and reliable hole-card UI checks could not be completed in this session.
+
+## Next Verification Action
+
+1. Re-run live checks after redeploy of `0d3ce1a`.
+2. Verify in order:
+   - `create`
+   - `active-tournament` legacy lookup
+   - `active-tournament` session lookup
+   - `join`
+   - `lobby/public`
+3. If backend stabilizes, continue to:
+   - `P2~P6`
+   - `ready/start`
+   - hole-card visibility after hand start / reload / reconnect
+
+## Remaining Risks
+
+- Another malformed production payload shape may still exist beyond null `guestId`.
+- Hole-card regression remains unverified because server-side blockers interrupted deeper UI flow checks.

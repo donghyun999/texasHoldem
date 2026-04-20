@@ -199,12 +199,14 @@ function CompactMeta({
   metaTone,
   hero = false,
   highlight = false,
+  hideMetaOnMobile = false,
 }: {
   nickname: string;
   metaLabel: string;
   metaTone: string;
   hero?: boolean;
   highlight?: boolean;
+  hideMetaOnMobile?: boolean;
 }) {
   return (
     <div
@@ -219,7 +221,11 @@ function CompactMeta({
         {nickname}
       </p>
       {metaLabel ? (
-        <p className={`mt-0.5 leading-none text-zinc-100/90 ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}>
+        <p
+          className={`mt-0.5 leading-none text-zinc-100/90 ${
+            hideMetaOnMobile ? "hidden sm:block" : ""
+          } ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}
+        >
           {metaLabel}
         </p>
       ) : null}
@@ -376,12 +382,12 @@ function PlayerSeatView({
         data-table-position-index={tablePositionIndex}
         data-guest-id={player.guestId}
         data-self-seat={isSelfSeat ? "true" : "false"}
-        className={`relative flex w-[4.25rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
+        className={`relative flex w-[3.9rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
       >
         {actionFlash ? (
           <div
             key={actionFlash.id}
-            className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[4.25rem] -translate-x-1/2 -translate-y-[116%] truncate whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-[5.5rem] sm:px-2 sm:py-1 sm:text-[8px] ${getSeatActionFlashTone(actionFlash.tone)}`}
+            className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[3.9rem] -translate-x-1/2 -translate-y-[116%] truncate whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-[5.5rem] sm:px-2 sm:py-1 sm:text-[8px] ${getSeatActionFlashTone(actionFlash.tone)}`}
           >
             {actionFlash.label}
           </div>
@@ -401,14 +407,14 @@ function PlayerSeatView({
             </div>
           </div>
         </div>
-        <div className="mt-1 flex min-h-4 flex-wrap items-center justify-center gap-1">
+        <div className="mt-0.5 flex min-h-3.5 flex-wrap items-center justify-center gap-0.5 sm:mt-1 sm:min-h-4 sm:gap-1">
           {compactBadges.map((badge) => (
             <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
           ))}
           {statusBadge ? <SeatTag label={statusBadge} /> : null}
         </div>
-        <div className="mt-1 w-full">
-          <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} />
+        <div className="mt-0.5 w-full sm:mt-1">
+          <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} hideMetaOnMobile />
         </div>
         {showActionTimer ? (
           <div className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full">

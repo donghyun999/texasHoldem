@@ -197,37 +197,6 @@ function getSizedActionLabel(action: string | null) {
   return "Size";
 }
 
-function buildSizeButtonCaption({
-  sizeAction,
-  minimumRaiseTo,
-  currentPlayer,
-  bigBlind,
-  stackDisplayMode,
-}: {
-  sizeAction: string | null;
-  minimumRaiseTo: number;
-  currentPlayer: TournamentPlayer | null;
-  bigBlind: number;
-  stackDisplayMode: StackDisplayMode;
-}) {
-  if (!sizeAction || !currentPlayer) {
-    return null;
-  }
-
-  const maxCommitment = getMaxCommitment(currentPlayer);
-  if (sizeAction === "BET" || sizeAction === "RAISE") {
-    return `Min ${formatAmountDisplay({
-      amount: Math.max(currentPlayer.roundContribution + 1, minimumRaiseTo),
-      bigBlind,
-      mode: stackDisplayMode,
-    })}`;
-  }
-
-  return maxCommitment > 0
-    ? `Max ${formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}`
-    : null;
-}
-
 function buildSizedSubmitLabel({
   action,
   amount,
@@ -593,7 +562,6 @@ export function ActionPanel({
     mode: stackDisplayMode,
   });
   const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
-  const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
   const shouldShowInHandControls =
     tournamentStatus === "IN_HAND" &&
     !paused &&
@@ -604,13 +572,6 @@ export function ActionPanel({
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, paused, pauseReason, canPublish, message });
   const maxCommitment = getMaxCommitment(currentPlayer);
   const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
-  const sizeButtonCaption = buildSizeButtonCaption({
-    sizeAction,
-    minimumRaiseTo,
-    currentPlayer,
-    bigBlind,
-    stackDisplayMode,
-  });
   const targetHelper = buildTargetHelperMessage({
     action: sizeAction,
     amount: parsedTargetAmount,
@@ -792,16 +753,9 @@ export function ActionPanel({
                     : undefined
               }
               disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+              className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
             >
               <span>{sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}</span>
-              {sizeAction && sizeButtonCaption ? (
-                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">{sizeButtonCaption}</span>
-              ) : allInAction && currentPlayer ? (
-                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">
-                  To {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
-                </span>
-              ) : null}
             </button>
 
             {isSizingOpen && sizeAction ? (

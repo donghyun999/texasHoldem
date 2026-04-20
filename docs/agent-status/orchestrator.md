@@ -1,78 +1,72 @@
-# orchestrator 상태
+# orchestrator status
 
-- 마지막 갱신 시각:
-  - `2026-04-17 Asia/Seoul`
-- 상태:
-  - `active`
-- 현재 작업:
-  - 로비 정책을 `로비 노출 + 비밀번호 입장`으로 바꾸는 backend/frontend handoff를 수집했고, targeted backend tests와 frontend build까지 green으로 확인했다
-- 현재 브랜치:
-  - `main`
-- 현재 worktree:
-  - `C:\Users\user\texasHoldem`
-- 현재 worktree 상태:
-  - `exists`
-- 현재 소유 범위:
-  - 작업 분해, 소유권 배정, handoff 수집, 통합 판단, 상태 문서 갱신
-- 현재 활성 역할:
-  - 없음
-- 다음 세션에서 다시 생성할 역할:
-  - `backend-agent`
-  - `frontend-agent`
-  - `verification-agent`
-- 현재 task-owner 매핑:
-  - 없음
-- 지금 수정 가능한 파일:
-  - `AGENTS.md`
-  - `docs/**`
-  - `docs/agent-status/**`
-- 지금 수정하면 안 되는 파일:
-  - `backend/**`
-  - `frontend/**`
-  - 구현 역할 에이전트가 소유 중인 hotspot 파일
-- 마지막 결정:
-  - 배포 재현 기준으로 backend는 `findActiveTournamentCodeByGuestId` JSONB guest match를 직접 array scan으로 바꾸고 public lobby에 `visibility = PUBLIC` 필터를 넣었으며, create는 session guest 우선 경로로 정리했다. frontend는 hand/status transition에서 public snapshot만 받아 own hole cards가 비는 경우 viewer hydrate를 자동 호출하게 바꿨다
-- 수집한 마지막 handoff:
-  - `backend-agent`
-    - 로비 목록의 `PUBLIC` 전용 필터를 제거해 waiting 상태의 `PUBLIC`/`PRIVATE` 방이 모두 로비에 나오게 했고, private join 비밀번호 검증은 유지했다. `TournamentServiceTest`, `PersistentTournamentStateStoreTest` targeted suite `BUILD SUCCESSFUL`
-  - `frontend-agent`
-    - `PublicTournamentList.tsx`에 private room 전용 소형 자물쇠 마커를 카드 우측 상단 끝에 추가했고, 기존 비밀번호 프롬프트 join 흐름은 유지했다
-  - `verification-agent`
-    - `TournamentServiceTest`, `PersistentTournamentStateStoreTest` pass 및 `npm run build` pass 확인. 런타임 smoke와 Railway 검증은 미실행
-- 다음 액션:
-  - 실행 중인 앱에서 private waiting room이 로비에 실제 노출되는지 smoke 확인
-  - private room lock icon 렌더링, 비밀번호 프롬프트, 오입력 오류 처리를 UI에서 확인
-  - 필요 시 `findPublicWaitingTournaments` 계열 메서드명을 정책 의미에 맞게 정리
-- 막힌 점:
-  - 로컬 코드/테스트 기준 막힌 점은 없다
-- 남은 리스크:
-  - 로컬 smoke 검증은 여전히 Playwright `chrome-headless-shell.exe spawn EPERM` 환경 문제로 막혀 있다
-  - 런타임 UI 동작과 Railway/PostgreSQL 배포 환경 동작은 아직 미확인이다
-  - `findPublicWaitingTournaments` / `listPublicWaitingTournaments` 메서드명은 현재 동작 의미와 어긋난다
-- 현재 미통합 변경:
-  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
-  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/InMemoryTournamentStateStore.java`
-  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStore.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
-  - `frontend/src/features/lobby/ui/PublicTournamentList.tsx`
-  - `docs/session-restart-prompts.md` 로컬 수정
-  - `.gradle/`
-  - `.gradle-fresh/`
-  - `backend/.gradle-user/`
-  - `backend/.gradle-verification/`
-  - `cookies.txt`
-- 세션 재개 시 먼저 볼 파일:
-  - `AGENTS.md`
-  - `docs/multi-agent-cli-operations.md`
-  - `docs/agent-roles.md`
-  - `docs/agent-status/orchestrator.md`
-  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
-  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
-  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
-  - `frontend/src/entities/tournament/model/use-tournament-realtime-snapshot.ts`
+- last_updated: `2026-04-17 Asia/Seoul`
+- status: `closing`
+- branch: `main`
+- worktree: `C:\Users\user\texasHoldem`
+- role: `main-orchestrator`
+
+## Session Summary
+
+- Collected handoffs from `backend-agent`, `frontend-agent`, and `verification-agent`.
+- Confirmed one live root cause from Railway investigation:
+  - legacy `tournament_state` rows exist with `players[*].guestId = null`
+  - `PersistentTournamentStateStore.findActiveTournamentCodeByGuestId(...)` dereferenced `player.guestId` without null safety
+  - `create`, `join`, and `active-tournament` failed with `500`
+  - `lobby/public` stayed `200` because it did not dereference `guestId`
+- Backend defensive fix for legacy payload handling was added and pushed.
+- A separate compile blocker was found and fixed:
+  - invalid declarations had been added to `TournamentStateJpaRepository`
+  - compile was restored and the fix was pushed
+- Frontend review concluded no further mandatory code change was needed for the legacy payload fix beyond the already landed `HomePage`/`http.ts` recovery alignment.
+
+## Handoffs Collected
+
+- `backend-agent`
+  - null-safe fix in `PersistentTournamentStateStore` and `InMemoryTournamentStateStore`
+  - persistence tests added for legacy null `guestId`
+  - websocket identity contract also aligned earlier in the session
+  - compile blocker in `TournamentStateJpaRepository` removed
+- `frontend-agent`
+  - no extra frontend patch required for the confirmed legacy payload bug
+  - current `HomePage` active-tournament fallback and prior viewer/self fixes judged sufficient for re-test
+- `verification-agent`
+  - repeatedly confirmed live pattern:
+    - `create` / `active-tournament` / `join` were failing
+    - `lobby/public` remained `200`
+  - before session close, re-verification after the latest compile-fix push had not yet been run
+
+## Pushed Commits This Session
+
+- `59b48a0` `Harden tournament persistence against legacy payloads`
+- `0d3ce1a` `Restore JPA repository typing for tournament state`
+
+## Unintegrated Local Changes
+
+- `docs/session-restart-prompts.md`
+- `.gradle-fresh/`
+- `.gradle/`
+- `agent-output/`
+- `backend/.gradle-user/`
+- `backend/.gradle-verification/`
+- `cookies.txt`
+
+## Next Actions
+
+1. Redeploy backend with `0d3ce1a` included.
+2. Run live verification in this order:
+   - `POST /api/v1/tournaments`
+   - `GET /api/v1/guests/{guestId}/active-tournament`
+   - `GET /api/v1/guests/me/active-tournament`
+   - `POST /api/v1/tournaments/{code}/join`
+   - `GET /api/v1/tournaments/lobby/public`
+3. If `create/join/active-tournament` still fail, inspect Railway logs again for the next malformed payload shape.
+4. After server-side stability returns, resume the separate hole-card regression investigation:
+   - backend event snapshots are likely public-only on transition paths
+   - frontend hydration still has risk during reload/reconnect/hand-start transitions
+
+## Remaining Risks
+
+- Live DB may contain malformed payload fields beyond `guestId = null`.
+- `payload::jsonb` assumptions are still an operational risk because payload storage was observed as large-object/OID text in production.
+- Hole-card visibility regression is not closed; backend event snapshot design and frontend hydration timing both remain suspects.

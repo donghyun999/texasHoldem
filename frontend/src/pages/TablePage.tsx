@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { buildActiveTournamentKey, buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
@@ -46,6 +46,10 @@ export function TablePage() {
   const [joinValidationError, setJoinValidationError] = useState<string | null>(null);
   const wasSeatedRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [tournamentCode]);
 
   const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
   const currentPlayer =
@@ -176,8 +180,8 @@ export function TablePage() {
   if (!snapshot) {
     return (
       <section className="social-surface social-surface-strong rounded-[2rem] p-6 text-center text-zinc-100 shadow-2xl shadow-black/20">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-100/70">Loading table</p>
-        <p className="mt-3 text-base text-zinc-200">The live snapshot is not ready yet.</p>
+        <p className="text-sm font-semibold tracking-[0.12em] text-cyan-100/70">테이블 입장 중</p>
+        <p className="mt-3 text-base text-zinc-200">이 브라우저의 실시간 스냅샷을 불러오고 있습니다.</p>
       </section>
     );
   }

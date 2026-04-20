@@ -1,45 +1,41 @@
-# backend-agent 상태
+# backend-agent status
 
-- 마지막 갱신 시각:
-  - `2026-04-17 Asia/Seoul`
-- 상태:
-  - `idle`
-- 현재 작업:
-  - 로비 정책 변경으로 private waiting room도 로비에 노출되게 했고, password-gated join은 유지한 상태로 focused backend 검증까지 마쳤다
-- 현재 브랜치:
-  - `main`
-- 현재 worktree:
-  - `C:\Users\user\texasHoldem`
-- 현재 worktree 상태:
-  - `exists`
-- 현재 소유 범위:
-  - `backend/src/main/java/**`
-  - `backend/src/test/java/**`
-  - 필요 시 `backend/src/main/resources/**`
-- 지금 수정 가능한 파일:
-  - backend 전용 파일만
-- 지금 수정하면 안 되는 파일:
-  - `frontend/**`
-  - 다른 에이전트가 소유한 hotspot 파일
-- 마지막 결정:
-  - `findActiveTournamentCodeByGuestId`를 JSONB containment 대신 `jsonb_array_elements(...)->>'guestId'` 직접 매칭으로 바꿨고, public lobby query/in-memory store에 `visibility = PUBLIC` 필터를 맞췄다. create는 세션 guest 우선 해석 전용 resolver 경로를 쓰게 바꿔 body `guestId` 없이도 동작하도록 정리했다
-- 다음 액션:
-  - running app 또는 배포 환경에서 private waiting room이 로비 응답에 포함되는지 spot-check
-  - 필요 시 `findPublicWaitingTournaments` 계열 메서드명/주석을 정책 의미에 맞게 rename
-  - 배포 환경에서 비밀번호 join 오류/성공 응답을 다시 점검
-- 막힌 점:
-  - 없음
-- 남은 리스크:
-  - 로컬 targeted suite는 green이지만 running app/Railway 응답은 아직 미확인이다
-  - 메서드명은 여전히 “public only”처럼 읽혀 정책 의미와 어긋난다
-- 세션 재개 시 먼저 볼 파일:
-  - `docs/agent-status/orchestrator.md`
-  - `backend/src/main/java/com/texasholdem/auth/GuestSessionResolver.java`
-  - `backend/src/main/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStore.java`
-  - `backend/src/main/java/com/texasholdem/persistence/TournamentStateJpaRepository.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/TournamentController.java`
-  - `backend/src/main/java/com/texasholdem/tournament/presentation/dto/CreateTournamentRequest.java`
-  - `backend/src/test/java/com/texasholdem/auth/GuestSessionResolverTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/command/TournamentServiceTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/application/persistence/PersistentTournamentStateStoreTest.java`
-  - `backend/src/test/java/com/texasholdem/tournament/presentation/TournamentControllerTest.java`
+- last_updated: `2026-04-17 Asia/Seoul`
+- status: `closed`
+- branch: `main`
+- worktree: `C:\Users\user\texasHoldem`
+
+## Scope Owned This Session
+
+- `backend/src/main/java/**`
+- `backend/src/test/java/**`
+
+## Completed Work
+
+- Confirmed live legacy payload bug from Railway evidence:
+  - some persisted tournament players had `guestId = null`
+  - `PersistentTournamentStateStore.findActiveTournamentCodeByGuestId(...)` used null-unsafe comparison
+- Implemented defensive fix:
+  - `PersistentTournamentStateStore`
+  - `InMemoryTournamentStateStore`
+  - null-safe guest matching
+  - `countActiveGuests()` ignores null guest ids
+- Added persistence tests for legacy null `guestId`.
+- Fixed compile blocker in `TournamentStateJpaRepository` by removing invalid method declarations that broke JPA generic typing.
+
+## Validation Reported
+
+- `compileJava testClasses --no-daemon` passed
+- persistence-focused tests passed
+- earlier controller/session narrow tests were also reported green during the session
+
+## Remaining Backend Risks
+
+- Production data may contain malformed payload shapes beyond null `guestId`.
+- `payload::jsonb` native-query assumptions remain risky in production because payload storage shape was reported as large-object/OID text.
+- Hole-card regression likely still needs backend follow-up on viewer-aware event snapshots.
+
+## Next Backend Action
+
+- After redeploy, verify whether `create`, `join`, and `active-tournament` stop returning `500`.
+- If not, inspect the next failing payload shape from Railway logs.

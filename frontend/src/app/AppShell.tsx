@@ -1,6 +1,13 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useLayoutEffect } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 export function AppShell() {
+  const location = useLocation();
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
   return (
     <div className="social-shell min-h-screen text-zinc-100">
       <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,_rgba(103,232,249,0.08),_transparent)]" />
