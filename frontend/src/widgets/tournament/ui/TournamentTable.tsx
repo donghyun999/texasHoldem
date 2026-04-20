@@ -69,12 +69,12 @@ const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
   5: { left: "9%", top: "47%" },
 };
 const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
-  0: { left: "38.5%", top: "28.5%" },
-  1: { left: "50%", top: "23.2%" },
-  2: { left: "61.5%", top: "28.5%" },
-  3: { left: "68.5%", top: "41.5%" },
-  4: { left: "50%", top: "57%" },
-  5: { left: "31.5%", top: "41.5%" },
+  0: { left: "34%", top: "31%" },
+  1: { left: "50%", top: "25.6%" },
+  2: { left: "66%", top: "31%" },
+  3: { left: "80.8%", top: "48.6%" },
+  4: { left: "50%", top: "61.4%" },
+  5: { left: "19.2%", top: "48.6%" },
 };
 const POT_COLLECTION_POSITION = { left: "50%", top: "40.8%" };
 const BET_CHIP_ANIMATION_MS = 680;
@@ -552,26 +552,26 @@ function PokerChipStack({
   acting,
   bigBlind,
   hero,
+  compact = false,
 }: {
   amount: number;
   acting: boolean;
   bigBlind: number;
   hero: boolean;
+  compact?: boolean;
 }) {
   const visualTier = getChipVisualTier(amount, bigBlind);
   const palette = getChipPalette(visualTier.colorTier);
   const chipCount = visualTier.chipCount;
-  const chipWidthClass = hero ? "w-4 sm:w-4.5" : "w-3.5 sm:w-4";
-  const chipHeightClass = hero ? "h-2.5 sm:h-3" : "h-2.5 sm:h-2.5";
-  const containerHeight = hero ? 11 + (chipCount - 1) * 2.5 : 10 + (chipCount - 1) * 2.5;
+  const chipWidthClass = hero ? "w-4 sm:w-4.5" : compact ? "w-3 sm:w-3.5" : "w-3.5 sm:w-4";
+  const chipHeightClass = hero ? "h-2.5 sm:h-3" : compact ? "h-2 sm:h-2.5" : "h-2.5 sm:h-2.5";
+  const containerHeight = hero ? 11 + (chipCount - 1) * 2.5 : compact ? 8.5 + (chipCount - 1) * 2 : 10 + (chipCount - 1) * 2.5;
+  const containerWidthClass = hero ? "w-5.5 sm:w-6" : compact ? "w-4 sm:w-4.5" : "w-4.5 sm:w-5";
 
   return (
-    <div
-      className={`relative ${hero ? "w-5.5 sm:w-6" : "w-4.5 sm:w-5"} ${palette.glowClass}`}
-      style={{ height: `${containerHeight}px` }}
-    >
+    <div className={`relative ${containerWidthClass} ${palette.glowClass}`} style={{ height: `${containerHeight}px` }}>
       {Array.from({ length: chipCount }, (_, index) => {
-        const bottomOffset = index * 2.2;
+        const bottomOffset = compact ? index * 1.8 : index * 2.2;
         const lateralOffset = chipCount > 1 ? (index % 2 === 0 ? -0.35 : 0.35) * index : 0;
 
         return (
@@ -660,6 +660,8 @@ function BetMarker({
   tablePositionIndex: number;
 }) {
   const isHeroMarker = tablePositionIndex === HERO_TABLE_POSITION_INDEX;
+  const isSideMarker = tablePositionIndex === 3 || tablePositionIndex === 5;
+  const isLeftSideMarker = tablePositionIndex === 5;
   const amountLabel = formatAmountDisplay({
     amount,
     bigBlind,
@@ -668,10 +670,16 @@ function BetMarker({
   });
 
   return (
-    <div className="pointer-events-none flex items-center gap-1">
-      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} />
+    <div
+      className={`pointer-events-none flex items-center ${
+        isSideMarker ? "gap-0.5 sm:gap-0.75" : "gap-1"
+      } ${isLeftSideMarker ? "flex-row-reverse" : ""}`}
+    >
+      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} compact={isSideMarker} />
       <span
-        className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold leading-none text-white shadow-md shadow-black/30 sm:text-[9px] ${
+        className={`rounded-full border font-semibold leading-none text-white shadow-md shadow-black/30 ${
+          isSideMarker ? "px-1 py-0.5 text-[7px] sm:px-1.25 sm:text-[8px]" : "px-1.5 py-0.5 text-[8px] sm:text-[9px]"
+        } ${
           acting ? "border-amber-200/35 bg-black/60 text-amber-50" : "border-white/10 bg-black/50"
         }`}
       >
@@ -768,6 +776,9 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
+  const visibilityLabel = snapshot.visibility === "PUBLIC" ? "Public table" : "Private table";
+  const currentBlindsLabel = `${snapshot.currentLevel.smallBlind}/${snapshot.currentLevel.bigBlind}`;
+  const nextBlindsLabel = `${snapshot.nextLevel.smallBlind}/${snapshot.nextLevel.bigBlind}`;
 
   const createUiEffectId = (prefix: string) => {
     const id = `${prefix}-${snapshot.handNumber}-${snapshot.stateVersion}-${uiEffectIdRef.current}`;
@@ -1167,10 +1178,60 @@ export function TournamentTable({
       <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-white/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.08),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
       <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(250,204,21,0.2),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
 
-      <div className="social-surface absolute left-3 top-3 z-30 flex items-center gap-2 rounded-[1.35rem] px-3 py-2 text-[10px] font-medium text-zinc-100 sm:left-4 sm:top-4 sm:text-xs">
+      <div className="absolute inset-x-3 top-3 z-30 sm:inset-x-4 sm:top-4">
+        <div className="social-surface flex min-w-0 items-center gap-2 rounded-[1.15rem] px-3 py-1.5 text-[10px] font-medium text-zinc-100 sm:rounded-[1.35rem] sm:px-3.5 sm:py-2 sm:text-xs">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-white sm:text-[11px]">{snapshot.roomName}</p>
+            <p className="text-[7px] uppercase tracking-[0.18em] text-zinc-500 sm:text-[8px]">{visibilityLabel}</p>
+          </div>
+          <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
+            {(["chips", "bb"] as const).map((mode) => {
+              const selected = stackDisplayMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onStackDisplayModeChange(mode)}
+                  className={`rounded-full px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] transition sm:px-2.5 sm:text-[9px] ${
+                    selected ? "social-cta-secondary text-slate-950" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {mode === "chips" ? "Chips" : "BB"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden">
+        <div className="absolute inset-0 z-10 flex items-center gap-2 rounded-[1.35rem] bg-[linear-gradient(180deg,_rgba(13,27,22,0.96),_rgba(7,16,13,0.9))] px-3 py-2">
+          <div className="min-w-0">
+            <p className="max-w-[8.5rem] truncate font-semibold text-white sm:max-w-[10rem]">{snapshot.roomName}</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">{visibilityLabel}</p>
+          </div>
+          <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
+            {(["chips", "bb"] as const).map((mode) => {
+              const selected = stackDisplayMode === mode;
+              return (
+                <button
+                  key={`${mode}-desktop-overlay`}
+                  type="button"
+                  onClick={() => onStackDisplayModeChange(mode)}
+                  className={`rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
+                    selected ? "social-cta-secondary text-[11px] text-slate-950" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {mode === "chips" ? "Chips" : "BB"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="min-w-0">
           <p className="max-w-[8.5rem] truncate font-semibold sm:max-w-[10rem]">{snapshot.roomName}</p>
-          <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
+          <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">{visibilityLabel}</p>
+          <p className="hidden text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
             {snapshot.visibility === "PUBLIC" ? "공개 테이블" : "잠금 테이블"}
           </p>
         </div>
@@ -1193,7 +1254,28 @@ export function TournamentTable({
         </div>
       </div>
 
-      <div className="social-surface absolute right-3 top-3 z-30 w-[7.8rem] rounded-[1.35rem] px-2.5 py-1.5 text-right text-[9px] font-medium text-zinc-100 sm:right-4 sm:top-4 sm:w-[8.8rem] sm:px-3 sm:py-2 sm:text-[11px]">
+      <div className="hidden">
+        <div className="absolute inset-0 z-10 rounded-[1.35rem] bg-[linear-gradient(180deg,_rgba(13,27,22,0.96),_rgba(7,16,13,0.9))] px-2.5 py-1.5 text-right sm:px-3 sm:py-2">
+          <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">Blinds</p>
+          <p className="mt-0.5 text-base font-black text-white">{currentBlindsLabel}</p>
+          <p className="mt-0.5 text-[9px] text-zinc-400 sm:text-[10px]">Next {nextBlindsLabel}</p>
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            {snapshot.paused ? (
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-amber-100 sm:text-[9px]">
+                Paused
+              </span>
+            ) : null}
+            <p className={`text-[9px] font-semibold ${levelTimerState.timerClass} sm:text-[10px]`}>
+              {formatLevelCountdown(secondsRemaining)}
+            </p>
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10 sm:h-[5px]">
+            <div
+              className={`h-full rounded-full transition-[width] duration-1000 ${levelTimerState.barClass}`}
+              style={{ width: `${levelProgressPercent}%` }}
+            />
+          </div>
+        </div>
         <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">블라인드</p>
         <p className="mt-0.5 text-base font-black text-white">
           {snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}
@@ -1262,6 +1344,12 @@ export function TournamentTable({
               />
             ),
           )}
+        </div>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
+          <span>Blinds {currentBlindsLabel}</span>
+          <span>Next {nextBlindsLabel}</span>
+          <span className={levelTimerState.timerClass}>{formatLevelCountdown(secondsRemaining)}</span>
+          {snapshot.paused ? <span className="text-amber-100">Paused</span> : null}
         </div>
       </div>
 
