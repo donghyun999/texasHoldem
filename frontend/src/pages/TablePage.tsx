@@ -189,7 +189,7 @@ export function TablePage() {
   const showDirectJoinPanel = snapshot.status === "WAITING" && !currentPlayer && !waitingForViewerSeatResolution;
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 pb-32 sm:pb-0">
       <WaitingRoomInvitePanel snapshot={snapshot} currentPlayer={currentPlayer} createdRoomPassword={createdRoomPassword} />
       {waitingForViewerSeatResolution ? (
         <section className="social-surface rounded-[1.8rem] border-cyan-200/20 p-5 shadow-xl shadow-black/20">

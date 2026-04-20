@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { TournamentPlayer } from "@/entities/tournament/model/types";
+import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
 import { formatStackDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
 
@@ -11,6 +11,7 @@ type PlayerSeatProps = {
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
   currentBigBlind: number;
+  tournamentStatus?: TournamentStatus;
   stackDisplayMode: StackDisplayMode;
   showStackLabel?: boolean;
   currentGuestId?: string;
@@ -101,6 +102,31 @@ function getStatusBadge(player: TournamentPlayer) {
     default:
       return null;
   }
+}
+
+function getWaitingStatus(player: TournamentPlayer, tournamentStatus?: TournamentStatus) {
+  if (tournamentStatus !== "WAITING") {
+    return null;
+  }
+
+  if (!player.connected) {
+    return {
+      label: "Offline",
+      tone: "border-cyan-200/25 bg-cyan-300/10 text-cyan-50",
+    };
+  }
+
+  if (player.status === "READY") {
+    return {
+      label: "Ready",
+      tone: "border-emerald-200/25 bg-emerald-300/10 text-emerald-50",
+    };
+  }
+
+  return {
+    label: "Waiting",
+    tone: "border-white/10 bg-black/35 text-zinc-200",
+  };
 }
 
 function DealerButton({ hero = false }: { hero?: boolean }) {
@@ -315,6 +341,7 @@ function PlayerSeatView({
   smallBlindSeat,
   bigBlindSeat,
   currentBigBlind,
+  tournamentStatus,
   stackDisplayMode,
   showStackLabel = true,
   currentGuestId,
@@ -356,6 +383,7 @@ function PlayerSeatView({
   const showVisibleHoleCards = visibleHoleCards.length === 2;
   const isDealerSeat = dealerSeat === player.seatIndex;
   const statusBadge = getStatusBadge(player);
+  const waitingStatus = getWaitingStatus(player, tournamentStatus);
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
   const compactBadges = seatBadges.filter((badge) => badge !== "HOST");
@@ -416,6 +444,11 @@ function PlayerSeatView({
         <div className="mt-0.5 w-full sm:mt-1">
           <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} hideMetaOnMobile />
         </div>
+        {waitingStatus ? (
+          <div className="mt-1">
+            <SeatTag label={waitingStatus.label} tone={waitingStatus.tone} />
+          </div>
+        ) : null}
         {showActionTimer ? (
           <div className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full">
             <div className="h-1 overflow-hidden rounded-full bg-white/10">
@@ -463,6 +496,11 @@ function PlayerSeatView({
           highlight={isSelfSeat}
         />
       </div>
+      {waitingStatus ? (
+        <div className="mb-1">
+          <SeatTag label={waitingStatus.label} tone={waitingStatus.tone} />
+        </div>
+      ) : null}
       <div className="relative">
         {isDealerSeat ? <DealerButton hero /> : null}
         {player.acting ? (

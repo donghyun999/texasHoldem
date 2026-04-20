@@ -449,12 +449,12 @@ function ActionTimer({
   }
 
   return (
-    <div className={`${paused ? "mt-2" : ""} rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">{actionTimerLabel}</span>
-        <span className="text-[11px] font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
+    <div className={`${paused ? "mt-2" : ""} rounded-2xl border border-white/10 bg-white/5 px-3 py-2`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-400">{actionTimerLabel}</span>
+        <span className="text-sm font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
       </div>
-      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div
           className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
           style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
@@ -570,6 +570,7 @@ export function ActionPanel({
   const shouldShowUtilityControls =
     showReturnToPlay || (tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect));
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, paused, pauseReason, canPublish, message });
+  const shouldUseStickyTray = shouldShowInHandControls;
   const maxCommitment = getMaxCommitment(currentPlayer);
   const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
   const targetHelper = buildTargetHelperMessage({
@@ -691,7 +692,13 @@ export function ActionPanel({
 
   return (
     <>
-      <div className="relative rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] p-2.5 shadow-2xl shadow-black/35 backdrop-blur-md sm:p-3">
+      <div
+        className={`relative border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
+          shouldUseStickyTray
+            ? "fixed inset-x-3 bottom-3 z-[70] rounded-[1.6rem] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] sm:static sm:inset-auto sm:z-auto sm:rounded-[1.4rem] sm:p-3"
+            : "rounded-[1.4rem] p-2.5 sm:p-3"
+        }`}
+      >
         {paused ? (
           <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
             <div className="flex items-center justify-between gap-3">
@@ -720,7 +727,7 @@ export function ActionPanel({
               type="button"
               onClick={() => onAction("FOLD")}
               disabled={!canPublish || !canAct || !canFold}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
+              className={`flex min-h-[3.15rem] flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("fold")}`}
             >
               <span>Fold</span>
             </button>
@@ -732,7 +739,7 @@ export function ActionPanel({
                 }
               }}
               disabled={!canPublish || !canAct || !primaryAction}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
+              className={`flex min-h-[3.15rem] flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("primary")}`}
             >
               <span>{getPrimaryActionLabel({ action: primaryAction, chipsToCall, bigBlind, stackDisplayMode })}</span>
             </button>
@@ -750,10 +757,10 @@ export function ActionPanel({
                     }
                   : allInAction
                     ? () => onAction(allInAction)
-                    : undefined
+                  : undefined
               }
               disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
-              className={`flex min-h-12 items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+              className={`flex min-h-[3.15rem] items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("size")}`}
             >
               <span>{sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}</span>
             </button>

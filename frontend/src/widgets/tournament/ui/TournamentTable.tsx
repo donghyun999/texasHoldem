@@ -1375,6 +1375,7 @@ export function TournamentTable({
               smallBlindSeat={snapshot.smallBlindSeat}
               bigBlindSeat={snapshot.bigBlindSeat}
               currentBigBlind={snapshot.currentLevel.bigBlind}
+              tournamentStatus={snapshot.status}
               stackDisplayMode={stackDisplayMode}
               showStackLabel={snapshot.status !== "WAITING"}
               currentGuestId={displayedHeroGuestId}

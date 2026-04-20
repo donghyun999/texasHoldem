@@ -59,6 +59,7 @@ export function HomePage() {
   const [createPassword, setCreatePassword] = useState("");
   const [validationError, setValidationError] = useState<ValidationError | null>(null);
   const [lastJoinUsedPassword, setLastJoinUsedPassword] = useState(false);
+  const [lobbyView, setLobbyView] = useState<"create" | "join">("create");
 
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
@@ -270,77 +271,114 @@ export function HomePage() {
   }
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-      <div className="space-y-6">
-        <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
-          <div className="absolute -right-10 top-6 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
-          <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
-          <div className="relative space-y-5">
-            <div className="space-y-5">
-              <h2 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
-                빠르게 방을 만들고, 바로 참가하세요.
-              </h2>
-              <p className="max-w-xl text-base leading-7 text-[color:var(--app-text-dim)]">
-                공개 방은 바로 들어가고, 잠금 방은 비밀번호로 들어갑니다. 친구에게는 방 이름과 필요한 정보만
-                공유하면 됩니다.
-              </p>
+    <section className="space-y-6">
+      <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
+        <div className="absolute -right-10 top-6 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative space-y-5">
+          <div className="space-y-5">
+            <h2 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+              빠르게 방을 만들고, 바로 참가하세요.
+            </h2>
+            <p className="max-w-xl text-base leading-7 text-[color:var(--app-text-dim)]">
+              공개 방은 바로 들어가고, 잠금 방은 비밀번호로 들어갑니다. 친구에게는 방 이름과 필요한 정보만 공유하면 됩니다.
+            </p>
 
-              <div className="flex flex-wrap gap-2">
-                <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50">
-                  서비스 상태: {formatBackendStatus(statusQuery.data?.status)}
-                </span>
-                <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-                  공개 방 {liveOpenRooms}
-                </span>
-                <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
-                  잠금 방 {liveLockedRooms}
-                </span>
-              </div>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50">
+                서비스 상태: {formatBackendStatus(statusQuery.data?.status)}
+              </span>
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+                공개 방 {liveOpenRooms}
+              </span>
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+                잠금 방 {liveLockedRooms}
+              </span>
             </div>
-            </div>
-
-        <PublicTournamentList
-          rooms={waitingRooms}
-          disabled={controlsDisabled}
-          loading={waitingRoomListQuery.isPending}
-          errorMessage={waitingListError}
-          passwordErrorMessage={passwordJoinError}
-          onPasswordInteraction={clearJoinErrors}
-          onJoin={handleJoinTable}
-        />
+          </div>
+        </div>
       </div>
 
-      <LobbyForm
-        nickname={nickname}
-        createRoomName={createRoomName}
-        createPassword={createPassword}
-        roomVisibility={roomVisibility}
-        activeTournamentRoomName={activeTournament?.roomName ?? null}
-        activeTournamentStatus={activeTournament?.status ?? null}
-        createDisabled={controlsDisabled}
-        busyLabel={busyLabel}
-        errorMessage={createError}
-        onNicknameChange={(value) => {
-          clearCreateErrors();
-          clearJoinErrors();
-          setNickname(value);
-        }}
-        onCreateRoomNameChange={(value) => {
-          clearCreateErrors();
-          setCreateRoomName(value);
-        }}
-        onCreatePasswordChange={(value) => {
-          clearCreateErrors();
-          setCreatePassword(value);
-        }}
-        onRoomVisibilityChange={(value) => {
-          clearCreateErrors();
-          setRoomVisibility(value);
-        }}
-        onResumeTournament={handleResumeTournament}
-        onCreate={handleCreate}
-      />
+      <div className="social-surface rounded-[1.7rem] p-2 shadow-xl shadow-black/20">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-testid="lobby-view-create"
+            onClick={() => setLobbyView("create")}
+            className={`rounded-[1.2rem] px-4 py-3 text-sm font-semibold transition ${
+              lobbyView === "create"
+                ? "bg-[linear-gradient(135deg,_rgba(103,232,249,0.22),_rgba(250,204,21,0.12))] text-white shadow-lg shadow-cyan-950/15"
+                : "bg-white/5 text-zinc-300 hover:bg-white/10"
+            }`}
+          >
+            방 만들기
+          </button>
+          <button
+            type="button"
+            data-testid="lobby-view-join"
+            onClick={() => setLobbyView("join")}
+            className={`rounded-[1.2rem] px-4 py-3 text-sm font-semibold transition ${
+              lobbyView === "join"
+                ? "bg-[linear-gradient(135deg,_rgba(103,232,249,0.22),_rgba(250,204,21,0.12))] text-white shadow-lg shadow-cyan-950/15"
+                : "bg-white/5 text-zinc-300 hover:bg-white/10"
+            }`}
+          >
+            방 참가
+          </button>
+        </div>
+        <p className="px-2 pt-3 text-sm text-zinc-400">
+          {lobbyView === "create"
+            ? "새 방을 만드는 흐름만 먼저 보여 줍니다."
+            : "대기 중인 방 목록만 먼저 보여 줍니다."}
+        </p>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className={lobbyView === "join" ? "" : "hidden xl:block"}>
+          <PublicTournamentList
+            rooms={waitingRooms}
+            disabled={controlsDisabled}
+            loading={waitingRoomListQuery.isPending}
+            errorMessage={waitingListError}
+            passwordErrorMessage={passwordJoinError}
+            onPasswordInteraction={clearJoinErrors}
+            onJoin={handleJoinTable}
+          />
+        </div>
+
+        <div className={lobbyView === "create" ? "" : "hidden xl:block"}>
+          <LobbyForm
+            nickname={nickname}
+            createRoomName={createRoomName}
+            createPassword={createPassword}
+            roomVisibility={roomVisibility}
+            activeTournamentRoomName={activeTournament?.roomName ?? null}
+            activeTournamentStatus={activeTournament?.status ?? null}
+            createDisabled={controlsDisabled}
+            busyLabel={busyLabel}
+            errorMessage={createError}
+            onNicknameChange={(value) => {
+              clearCreateErrors();
+              clearJoinErrors();
+              setNickname(value);
+            }}
+            onCreateRoomNameChange={(value) => {
+              clearCreateErrors();
+              setCreateRoomName(value);
+            }}
+            onCreatePasswordChange={(value) => {
+              clearCreateErrors();
+              setCreatePassword(value);
+            }}
+            onRoomVisibilityChange={(value) => {
+              clearCreateErrors();
+              setRoomVisibility(value);
+            }}
+            onResumeTournament={handleResumeTournament}
+            onCreate={handleCreate}
+          />
+        </div>
+      </div>
     </section>
   );
 }
