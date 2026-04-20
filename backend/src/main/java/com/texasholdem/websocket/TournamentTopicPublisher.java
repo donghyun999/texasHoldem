@@ -1,6 +1,6 @@
 package com.texasholdem.websocket;
 
-import com.texasholdem.tournament.application.TournamentBroadcast;
+import com.texasholdem.tournament.application.snapshot.TournamentBroadcast;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;

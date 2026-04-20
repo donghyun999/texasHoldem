@@ -1,55 +1,67 @@
 # Texas Holdem
 
-Single-table tournament MVP for a Texas Holdem web application.
+텍사스 홀덤 웹 애플리케이션용 싱글 테이블 토너먼트 MVP 프로젝트다.
 
-## Current scope
+## 현재 범위
 
-- Guest-based tournament join and ready flow
-- Owner start and initial blind assignment
-- Tournament snapshot REST API and STOMP/WebSocket broadcast flow
-- Tournament table UI bound to the shared snapshot contract
-- In-hand action engine for `CHECK`, `CALL`, `RAISE`, `ALL_IN`, and `FOLD`
-- Contribution tracking, main pot and side pot calculation, showdown settlement, bust-out handling, and hand-end state transitions
-- Automatic next-hand advance from `HAND_RESULT` after 5 seconds with blind-level progression on hand boundaries
+- 게스트 기반 토너먼트 참가 및 ready 흐름
+- 로비 진입은 이제 사용자가 직접 입력하는 룸 코드 대신 플레이어용 방 제목을 사용하고, 내부 토너먼트 코드는 서버가 생성한다
+- 홈 로비는 공개방과 잠금방을 모두 표시하며, 잠금방은 선택 후 비밀번호 입력이 필요하다
+- 잠금방 비밀번호는 서버에서 해시한 뒤 저장된다
+- 오너 시작 및 초기 블라인드 배정
+- 토너먼트 snapshot REST API 및 STOMP/WebSocket 브로드캐스트 흐름
+- 공통 snapshot 계약에 연결된 토너먼트 테이블 UI
+- `CHECK`, `CALL`, `RAISE`, `ALL_IN`, `FOLD`를 지원하는 in-hand action 엔진
+- contribution 추적, 메인 팟/사이드 팟 계산, showdown 정산, 탈락 처리, hand 종료 상태 전이
+- `HAND_RESULT`에서 5초 후 자동 다음 hand 진행 및 hand 경계 기준 blind level 상승
 
-## Stack
+## 로비 흐름
+
+- 방장은 닉네임과 테이블 제목을 입력하고 공개방 또는 잠금방을 만든다
+- 내부 토너먼트 코드는 backend가 생성하며, 플레이어는 기본 로비 경로에서 룸 코드를 직접 입력하지 않는다
+- 로비 목록에는 아직 좌석이 남아 있는 모든 `WAITING` 방이 표시되며, 잠금방도 포함된다
+- 참가자는 로비 목록에서 방을 선택해 입장하며, 잠금방은 요청 전 비밀번호 입력 창이 열린다
+- 대기방 오너에게는 직접 테이블 링크 대신 로비로 돌아와 참가하라는 안내 패널이 제공된다
+- 테이블 라우트와 서버 API는 여전히 내부 토너먼트 코드를 안정 식별자로 사용한다
+
+## 기술 스택
 
 - Backend: Java 17, Spring Boot, REST, WebSocket/STOMP, JPA, PostgreSQL, Flyway
 - Frontend: React 19, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, Zustand
 - Infra: Docker Compose
 
-## Environment strategy
+## 환경 전략
 
-- MVP development target: run the backend against a local native PostgreSQL instance
-- Current default profile: `SPRING_PROFILES_ACTIVE=local`
-- Deployment target: convert the runtime to Docker-based services in the final release stage
-- Implementation guideline: keep environment-specific configuration separated so the project can move from local PostgreSQL to Docker without large code or config rewrites
-- When adding infra or runtime configuration, prefer a structure that works for both:
-  - local development with native PostgreSQL
-  - final deployment with Docker and container-host based connection settings
+- MVP 개발 목표: backend를 로컬 네이티브 PostgreSQL에 연결해 개발한다
+- 현재 기본 프로필: `SPRING_PROFILES_ACTIVE=local`
+- 배포 목표: 최종 릴리스 단계에서 Docker 기반 서비스로 전환한다
+- 구현 원칙: 로컬 PostgreSQL 개발 환경에서 Docker 배포 환경으로 옮겨갈 때 큰 코드/설정 재작업이 없도록 환경별 구성을 분리한다
+- infra 또는 런타임 구성을 추가할 때는 다음 두 경우를 모두 만족하는 방향을 우선한다
+  - 로컬 개발: 네이티브 PostgreSQL
+  - 최종 배포: Docker 및 컨테이너 호스트 기반 연결 설정
 
-## Project structure
+## 프로젝트 구조
 
-- `backend/`: Spring Boot API, tournament service, WebSocket handlers, tests
-- `frontend/`: tournament snapshot client, table UI, local fallback demo state
-- `docs/`: setup guide, state flow, websocket event contract, roadmap
-- `infra/`: local PostgreSQL compose file
+- `backend/`: Spring Boot API, tournament service, WebSocket handler, 테스트
+- `frontend/`: tournament snapshot client, table UI, 로컬 fallback demo state
+- `docs/`: setup 가이드, state flow, websocket event 계약, roadmap
+- `infra/`: 로컬 PostgreSQL용 compose 파일
 
-## Quick start
+## 빠른 시작
 
 ### Database
 
-Native PostgreSQL defaults:
+로컬 네이티브 PostgreSQL 기본값:
 
 
 
-Docker Compose alternative from `infra/`:
+`infra/` 기준 Docker Compose 대안:
 
 ```bash
 docker compose -f compose.yml up -d
 ```
 
-Runtime configuration defaults:
+런타임 설정 기본값:
 
 ```bash
 SPRING_PROFILES_ACTIVE=local
@@ -62,7 +74,7 @@ VITE_API_BASE_URL=http://localhost:8080
 VITE_TOURNAMENT_WS_URL=ws://localhost:8080/ws
 ```
 
-Railway deployment notes:
+Railway 배포 메모:
 
 ```bash
 # backend service
@@ -78,14 +90,14 @@ VITE_API_BASE_URL=https://<backend-domain>
 VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
 ```
 
-- Use `/backend/railway.json` and `/frontend/railway.json` as the Railway config-as-code files
-- Keep the Railway backend service at one replica and leave service sleep disabled for this MVP
-- Current workflow: run the app against a local PostgreSQL instance with the `local` profile
-- Final deployment path: switch the backend to `SPRING_PROFILES_ACTIVE=docker` and point the same variables at container hosts when app services move into Compose
+- Railway config-as-code 파일은 `/backend/railway.json`, `/frontend/railway.json`을 사용한다
+- Railway backend 서비스는 MVP 기준으로 replica 1개를 유지하고 sleep은 비활성화한다
+- 현재 워크플로우는 `local` 프로필로 로컬 PostgreSQL에 연결해 앱을 실행하는 방식이다
+- 최종 배포 시에는 backend를 `SPRING_PROFILES_ACTIVE=docker`로 전환하고, 동일한 변수들을 컨테이너 호스트 기준으로 연결한다
 
 ### Backend
 
-From `backend/`:
+`backend/`에서 실행:
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=local'
@@ -97,7 +109,7 @@ From `backend/`:
 
 ### Frontend
 
-From `frontend/`:
+`frontend/`에서 실행:
 
 ```bash
 npm install
@@ -106,39 +118,43 @@ npm run dev -- --host 127.0.0.1
 
 - App: `http://127.0.0.1:5173`
 
-## Verification
+## 검증
 
-From `backend/`:
+`backend/`에서 실행:
 
 ```bash
 ./gradlew test
 ```
 
-From `frontend/`:
+`frontend/`에서 실행:
 
 ```bash
 npm run build
 ```
 
-Deployment-targeted Railway smoke scripts:
+배포 검증용 Railway smoke script:
 
-- `scripts/railway-six-player-smoke.cjs` is a one-shot six-player deployed smoke harness for the current Railway frontend/backend URLs.
-- `scripts/railway-six-player-continuous.cjs` repeats deployed smoke runs and should stay manual-only because it can consume Railway usage; it now refuses to start unless `ALLOW_CONTINUOUS_RAILWAY_TESTS=true` is set, and infinite mode additionally requires `ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true`.
-- These scripts are intentionally coupled to the current create/join/table UI labels, local storage key, and tournament snapshot API; when those flows change, update the scripts together instead of treating them as stable black-box tests.
-- Playwright resolution is environment-driven: prefer a normal local install, but the scripts can also fall back to the existing `test-results/playwright-work` installation used in prior sessions.
+- `scripts/railway-six-player-smoke.cjs`는 현재 Railway frontend/backend URL 기준 단발성 6인 배포 smoke harness다
+- `scripts/railway-six-player-continuous.cjs`는 배포 smoke를 반복 실행하며, Railway 사용량을 소비할 수 있으므로 수동 실행만 허용한다. 시작하려면 `ALLOW_CONTINUOUS_RAILWAY_TESTS=true`가 필요하고, 무한 모드에는 `ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true`가 추가로 필요하다
+- 이 스크립트들은 현재 create/join/table UI 라벨, local storage key, tournament snapshot API에 의도적으로 결합되어 있다. 흐름이 바뀌면 black-box 테스트로 취급하지 말고 함께 갱신한다
+- Playwright 해상도는 환경 기반이며, 가능하면 일반 로컬 설치를 우선 사용한다. 필요하면 기존 `test-results/playwright-work` 설치를 fallback으로 사용할 수 있다
 
-## Key docs
+## 주요 문서
 
 - `docs/setup.md`
+- `docs/multi-agent-cli-operations.md`
+- `docs/agent-roles.md`
+- `docs/worktree-and-session-setup.md`
 - `docs/railway.md`
 - `docs/state-flow.md`
 - `docs/websocket-events.md`
 - `docs/project-flowchart.md`
 - `docs/roadmap.md`
 
-## Next work
+## 다음 작업
 
-- Reconnect and persistence hardening
-- Richer hand-result events for client animation and replay
-- Final showdown/result UX polish and reconnect edge-case review
-- Preserve the local-PostgreSQL MVP workflow while preparing a clean Docker deployment path
+- 잠금방 affordance 및 생성 후 공유 가이드 중심의 로비 UX 다듬기
+- reconnect 및 persistence 보강
+- hand-result 이벤트를 더 풍부하게 만들어 클라이언트 animation/replay 여지 확보
+- 최종 showdown/result UX 다듬기 및 reconnect edge case 재검토
+- 로컬 PostgreSQL MVP 워크플로우를 유지하면서 Docker 배포 전환 경로를 계속 정리하기

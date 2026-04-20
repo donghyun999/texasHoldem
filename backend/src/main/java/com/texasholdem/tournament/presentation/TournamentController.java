@@ -1,22 +1,24 @@
 package com.texasholdem.tournament.presentation;
 
+import com.texasholdem.auth.GuestSessionResolver;
 import com.texasholdem.common.api.ApiResponse;
-import com.texasholdem.tournament.application.TournamentService;
+import com.texasholdem.tournament.application.command.TournamentService;
 import com.texasholdem.tournament.domain.PublicTournamentSummary;
 import com.texasholdem.tournament.domain.TournamentEvent;
 import com.texasholdem.tournament.domain.TournamentSnapshot;
 import com.texasholdem.tournament.presentation.dto.CreateTournamentRequest;
+import com.texasholdem.tournament.presentation.dto.JoinPrivateTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.JoinTournamentRequest;
 import com.texasholdem.tournament.presentation.dto.TournamentConnectionMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentReadyMessage;
 import com.texasholdem.tournament.presentation.dto.TournamentStartMessage;
 import com.texasholdem.websocket.TournamentTopicPublisher;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,21 +32,32 @@ public class TournamentController {
 
     private final TournamentService tournamentService;
     private final TournamentTopicPublisher topicPublisher;
+    private final GuestSessionResolver guestSessionResolver;
 
     // Wires tournament REST endpoints to the application service.
-    public TournamentController(TournamentService tournamentService, TournamentTopicPublisher topicPublisher) {
+    public TournamentController(
+            TournamentService tournamentService,
+            TournamentTopicPublisher topicPublisher,
+            GuestSessionResolver guestSessionResolver
+    ) {
         this.tournamentService = tournamentService;
         this.topicPublisher = topicPublisher;
+        this.guestSessionResolver = guestSessionResolver;
     }
 
     // Creates a waiting tournament snapshot for the owner.
     @PostMapping
-    public ApiResponse<TournamentSnapshot> createTournament(@Valid @RequestBody CreateTournamentRequest request) {
+    public ApiResponse<TournamentSnapshot> createTournament(
+            @Valid @RequestBody CreateTournamentRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
         return ApiResponse.ok(
                 tournamentService.createTournament(
-                        request.guestId(),
+                        guestId,
                         request.nickname(),
-                        request.code(),
+                        request.roomName(),
+                        request.password(),
                         request.visibility()
                 )
         );
@@ -60,30 +73,50 @@ public class TournamentController {
     @GetMapping("/{code}")
     public ApiResponse<TournamentSnapshot> getTournament(
             @PathVariable String code,
-            @RequestParam(required = false) String guestId
+            HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(tournamentService.getTournament(code, guestId));
+        return ApiResponse.ok(tournamentService.getTournament(code, guestSessionResolver.resolveGuestId(httpRequest)));
     }
 
     // Adds a guest to a waiting tournament seat.
     @PostMapping("/{code}/join")
     public ApiResponse<TournamentSnapshot> joinTournament(
             @PathVariable String code,
-            @Valid @RequestBody JoinTournamentRequest request
+            @Valid @RequestBody JoinTournamentRequest request,
+            HttpServletRequest httpRequest
     ) {
-        var broadcast = tournamentService.joinTournamentBroadcast(code, request.guestId(), request.nickname());
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
+        var broadcast = tournamentService.joinTournamentBroadcast(code, guestId, request.nickname(), request.password());
         topicPublisher.publish(code, broadcast);
         return ApiResponse.ok(broadcast.primaryEvent().snapshot());
+    }
+
+    // Adds a guest to one private waiting room using its title and password.
+    @PostMapping("/private/join")
+    public ApiResponse<TournamentSnapshot> joinPrivateTournament(
+            @Valid @RequestBody JoinPrivateTournamentRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(
+                tournamentService.joinPrivateTournament(
+                        request.roomName(),
+                        request.password(),
+                        guestSessionResolver.requireGuestId(httpRequest),
+                        request.nickname()
+                )
+        );
     }
 
     // Mirrors the ready toggle as a REST endpoint for quick testing.
     @PostMapping("/{code}/ready")
     public ApiResponse<TournamentEvent> readyTournament(
             @PathVariable String code,
-            @Valid @RequestBody TournamentReadyMessage request
+            @Valid @RequestBody TournamentReadyMessage request,
+            HttpServletRequest httpRequest
     ) {
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
         return ApiResponse.ok(
-                tournamentService.changeReady(request.resolveCode(code), request.guestId(), request.ready()).primaryEvent()
+                tournamentService.changeReady(request.resolveCode(code), guestId, request.ready()).primaryEvent()
         );
     }
 
@@ -91,35 +124,43 @@ public class TournamentController {
     @PostMapping("/{code}/disconnect")
     public ApiResponse<TournamentEvent> disconnectTournamentPlayer(
             @PathVariable String code,
-            @Valid @RequestBody TournamentConnectionMessage request
+            @Valid @RequestBody TournamentConnectionMessage request,
+            HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(tournamentService.disconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
+        return ApiResponse.ok(tournamentService.disconnectPlayer(request.resolveCode(code), guestId).primaryEvent());
     }
 
     // Restores a previously disconnected player's seat and latest snapshot.
     @PostMapping("/{code}/reconnect")
     public ApiResponse<TournamentEvent> reconnectTournamentPlayer(
             @PathVariable String code,
-            @Valid @RequestBody TournamentConnectionMessage request
+            @Valid @RequestBody TournamentConnectionMessage request,
+            HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), request.guestId()).primaryEvent());
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
+        return ApiResponse.ok(tournamentService.reconnectPlayer(request.resolveCode(code), guestId).primaryEvent());
     }
 
     // Restores an AFK player to normal turn control for future actions.
     @PostMapping("/{code}/return-to-play")
     public ApiResponse<TournamentEvent> returnAfkPlayerToPlay(
             @PathVariable String code,
-            @Valid @RequestBody TournamentConnectionMessage request
+            @Valid @RequestBody TournamentConnectionMessage request,
+            HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(tournamentService.returnPlayerToPlay(request.resolveCode(code), request.guestId()).primaryEvent());
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
+        return ApiResponse.ok(tournamentService.returnPlayerToPlay(request.resolveCode(code), guestId).primaryEvent());
     }
 
     // Starts the first hand when the owner promotes ready players into the field.
     @PostMapping("/{code}/start")
     public ApiResponse<TournamentEvent> startTournament(
             @PathVariable String code,
-            @Valid @RequestBody TournamentStartMessage request
+            @Valid @RequestBody TournamentStartMessage request,
+            HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(tournamentService.startTournament(request.resolveCode(code), request.guestId()).primaryEvent());
+        var guestId = guestSessionResolver.requireGuestId(httpRequest);
+        return ApiResponse.ok(tournamentService.startTournament(request.resolveCode(code), guestId).primaryEvent());
     }
 }

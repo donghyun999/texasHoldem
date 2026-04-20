@@ -42,6 +42,7 @@ APP_TOURNAMENT_HARD_TTL_SECONDS=86400
 Notes:
 
 - `backend/railway.json` starts the app with the `railway` Spring profile
+- The `railway` profile forces the session cookie to `SameSite=None; Secure` so the frontend and backend Railway domains can share the guest session over cross-site browser requests
 - Healthcheck path is `/actuator/health`
 - The backend uses the in-process STOMP simple broker and in-process delayed transitions, so scaling beyond one replica is not safe for this MVP
 

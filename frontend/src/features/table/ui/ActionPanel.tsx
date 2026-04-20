@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { TournamentPauseReason, TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
 import { buildActionPanelViewModel } from "@/features/table/model/action-panel";
 import {
@@ -197,37 +197,6 @@ function getSizedActionLabel(action: string | null) {
   return "Size";
 }
 
-function buildSizeButtonCaption({
-  sizeAction,
-  minimumRaiseTo,
-  currentPlayer,
-  bigBlind,
-  stackDisplayMode,
-}: {
-  sizeAction: string | null;
-  minimumRaiseTo: number;
-  currentPlayer: TournamentPlayer | null;
-  bigBlind: number;
-  stackDisplayMode: StackDisplayMode;
-}) {
-  if (!sizeAction || !currentPlayer) {
-    return null;
-  }
-
-  const maxCommitment = getMaxCommitment(currentPlayer);
-  if (sizeAction === "BET" || sizeAction === "RAISE") {
-    return `Min ${formatAmountDisplay({
-      amount: Math.max(currentPlayer.roundContribution + 1, minimumRaiseTo),
-      bigBlind,
-      mode: stackDisplayMode,
-    })}`;
-  }
-
-  return maxCommitment > 0
-    ? `Max ${formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}`
-    : null;
-}
-
 function buildSizedSubmitLabel({
   action,
   amount,
@@ -422,6 +391,78 @@ function formatActionTimerLabel(secondsRemaining: number) {
   return secondsRemaining >= 10 ? `${Math.ceil(secondsRemaining)}s left` : `${secondsRemaining.toFixed(1)}s left`;
 }
 
+type ActionTimerProps = {
+  actionDeadlineAtEpochMilli: number;
+  actionTimeoutSeconds: number;
+  paused: boolean;
+  tournamentStatus: TournamentStatus;
+  currentPlayer: TournamentPlayer | null;
+};
+
+// Keeps the countdown updates local so the whole action bar does not repaint every 200ms.
+function ActionTimer({
+  actionDeadlineAtEpochMilli,
+  actionTimeoutSeconds,
+  paused,
+  tournamentStatus,
+  currentPlayer,
+}: ActionTimerProps) {
+  const [timerNow, setTimerNow] = useState(() => Date.now());
+
+  const shouldShowActionTimer =
+    tournamentStatus === "IN_HAND" &&
+    !paused &&
+    actionDeadlineAtEpochMilli > 0 &&
+    actionTimeoutSeconds > 0 &&
+    !!currentPlayer?.acting &&
+    !currentPlayer.afk;
+  const totalActionWindowMs = actionTimeoutSeconds * 1_000;
+  const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
+  const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
+  const secondsRemaining = remainingActionMs / 1_000;
+  const actionTimerTone =
+    timerProgress <= 0.25
+      ? "bg-rose-400"
+      : timerProgress <= 0.5
+        ? "bg-amber-300"
+        : "bg-emerald-300";
+  const actionTimerLabel = currentPlayer?.acting ? "Your turn timer" : "Action timer";
+
+  useEffect(() => {
+    if (!shouldShowActionTimer) {
+      setTimerNow(Date.now());
+      return;
+    }
+
+    setTimerNow(Date.now());
+    const timerId = window.setInterval(() => {
+      setTimerNow(Date.now());
+    }, 200);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [shouldShowActionTimer, actionDeadlineAtEpochMilli]);
+
+  if (!shouldShowActionTimer) {
+    return null;
+  }
+
+  return (
+    <div className="mb-1.5 overflow-hidden rounded-full bg-white/10" aria-label={`${actionTimerLabel}: ${formatActionTimerLabel(secondsRemaining)} remaining`}>
+      <span className="sr-only">
+        {actionTimerLabel}: {formatActionTimerLabel(secondsRemaining)} remaining
+      </span>
+      <div
+        className={`h-1.5 rounded-full transition-[width] duration-200 ${actionTimerTone}`}
+        style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
+      />
+    </div>
+  );
+}
+
+const MemoizedActionTimer = memo(ActionTimer);
+
 function buildIdleMessage({
   currentPlayer,
   tournamentStatus,
@@ -453,7 +494,7 @@ function buildIdleMessage({
   }
 
   if (tournamentStatus === "WAITING") {
-    return currentPlayer.owner ? "Mark players ready, then start the tournament." : "Use ready when you want in.";
+    return currentPlayer.owner ? "Get everyone ready, then start the game." : "Tap Ready when you're set.";
   }
 
   if (tournamentStatus === "HAND_RESULT") {
@@ -488,7 +529,6 @@ export function ActionPanel({
 }: ActionPanelProps) {
   const [targetAmount, setTargetAmount] = useState("");
   const [isSizingOpen, setIsSizingOpen] = useState(false);
-  const [timerNow, setTimerNow] = useState(() => Date.now());
   const keypadRows = getKeypadRows(stackDisplayMode);
   const {
     sizeAction,
@@ -519,7 +559,6 @@ export function ActionPanel({
     mode: stackDisplayMode,
   });
   const hasValidTargetAmount = isValidTargetCommitment(parsedTargetAmount, currentPlayer, minimumRaiseTo);
-  const shouldShowCallAmount = primaryAction === "CALL" && chipsToCall > 0;
   const shouldShowInHandControls =
     tournamentStatus === "IN_HAND" &&
     !paused &&
@@ -528,27 +567,9 @@ export function ActionPanel({
   const shouldShowUtilityControls =
     showReturnToPlay || (tournamentStatus !== "IN_HAND" && (canToggleReady || canStart || showDisconnect || showReconnect));
   const idleMessage = buildIdleMessage({ currentPlayer, tournamentStatus, paused, pauseReason, canPublish, message });
-  const shouldShowActionTimer =
-    tournamentStatus === "IN_HAND" &&
-    !paused &&
-    actionDeadlineAtEpochMilli > 0 &&
-    actionTimeoutSeconds > 0 &&
-    !!currentPlayer?.acting &&
-    !currentPlayer.afk;
-  const totalActionWindowMs = actionTimeoutSeconds * 1_000;
-  const remainingActionMs = shouldShowActionTimer ? Math.max(0, actionDeadlineAtEpochMilli - timerNow) : 0;
-  const timerProgress = shouldShowActionTimer ? Math.min(1, remainingActionMs / totalActionWindowMs) : 0;
-  const secondsRemaining = remainingActionMs / 1_000;
-  const actionTimerLabel = currentPlayer?.acting ? "Your turn timer" : "Action timer";
+  const shouldUseStickyTray = shouldShowInHandControls;
   const maxCommitment = getMaxCommitment(currentPlayer);
   const minimumTarget = Math.max(committed + 1, minimumRaiseTo);
-  const sizeButtonCaption = buildSizeButtonCaption({
-    sizeAction,
-    minimumRaiseTo,
-    currentPlayer,
-    bigBlind,
-    stackDisplayMode,
-  });
   const targetHelper = buildTargetHelperMessage({
     action: sizeAction,
     amount: parsedTargetAmount,
@@ -587,29 +608,6 @@ export function ActionPanel({
     setIsSizingOpen(false);
     setTargetAmount("");
   }, [stackDisplayMode]);
-
-  useEffect(() => {
-    if (!shouldShowActionTimer) {
-      setTimerNow(Date.now());
-      return;
-    }
-
-    setTimerNow(Date.now());
-    const timerId = window.setInterval(() => {
-      setTimerNow(Date.now());
-    }, 200);
-
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, [shouldShowActionTimer, actionDeadlineAtEpochMilli]);
-
-  const actionTimerTone =
-    timerProgress <= 0.25
-      ? "bg-rose-400"
-      : timerProgress <= 0.5
-        ? "bg-amber-300"
-        : "bg-emerald-300";
 
   const openSizer = () => {
     if (!sizeAction) {
@@ -691,7 +689,22 @@ export function ActionPanel({
 
   return (
     <>
-      <div className="relative rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] p-2.5 shadow-2xl shadow-black/35 backdrop-blur-md sm:p-3">
+      <div className={shouldUseStickyTray ? "fixed inset-x-3 bottom-3 z-[70] sm:static sm:inset-auto sm:z-auto" : ""}>
+        <MemoizedActionTimer
+          actionDeadlineAtEpochMilli={actionDeadlineAtEpochMilli}
+          actionTimeoutSeconds={actionTimeoutSeconds}
+          paused={paused}
+          tournamentStatus={tournamentStatus}
+          currentPlayer={currentPlayer}
+        />
+
+        <div
+          className={`relative border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
+            shouldUseStickyTray
+              ? "rounded-[1.6rem] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] sm:rounded-[1.4rem] sm:p-3"
+              : "rounded-[1.4rem] p-2.5 sm:p-3"
+          }`}
+        >
         {paused ? (
           <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2">
             <div className="flex items-center justify-between gap-3">
@@ -706,30 +719,13 @@ export function ActionPanel({
           </div>
         ) : null}
 
-        {shouldShowActionTimer ? (
-          <div className={`${paused ? "mt-2" : ""} rounded-xl border border-white/10 bg-black/20 px-2.5 py-1.5`}>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                {actionTimerLabel}
-              </span>
-              <span className="text-[11px] font-semibold text-white">{formatActionTimerLabel(secondsRemaining)}</span>
-            </div>
-            <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-              <div
-                className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone}`}
-                style={{ width: `${Math.max(0, Math.min(100, timerProgress * 100))}%` }}
-              />
-            </div>
-          </div>
-        ) : null}
-
         {shouldShowInHandControls ? (
           <div className="relative mt-2.5 grid grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => onAction("FOLD")}
               disabled={!canPublish || !canAct || !canFold}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("fold")}`}
+              className={`flex min-h-[3.15rem] flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("fold")}`}
             >
               <span>Fold</span>
             </button>
@@ -741,7 +737,7 @@ export function ActionPanel({
                 }
               }}
               disabled={!canPublish || !canAct || !primaryAction}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("primary")}`}
+              className={`flex min-h-[3.15rem] flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("primary")}`}
             >
               <span>{getPrimaryActionLabel({ action: primaryAction, chipsToCall, bigBlind, stackDisplayMode })}</span>
             </button>
@@ -759,19 +755,12 @@ export function ActionPanel({
                     }
                   : allInAction
                     ? () => onAction(allInAction)
-                    : undefined
+                  : undefined
               }
               disabled={!canPublish || !canAct || (!sizeAction && !allInAction)}
-              className={`flex min-h-12 flex-col items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${getButtonClass("size")}`}
+              className={`flex min-h-[3.15rem] items-center justify-center rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-12 ${getButtonClass("size")}`}
             >
               <span>{sizeAction ? getSizedActionLabel(sizeAction) : allInAction ? "All in" : "Wait"}</span>
-              {sizeAction && sizeButtonCaption ? (
-                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">{sizeButtonCaption}</span>
-              ) : allInAction && currentPlayer ? (
-                <span className="mt-0.5 text-[10px] font-medium text-fuchsia-100/75">
-                  To {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
-                </span>
-              ) : null}
             </button>
 
             {isSizingOpen && sizeAction ? (
@@ -900,56 +889,60 @@ export function ActionPanel({
             {canToggleReady ? (
               <button
                 type="button"
+                data-testid="waiting-ready-toggle"
                 onClick={() => onReadyChange(!isReady)}
                 disabled={!canPublish}
                 className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
               >
-                {isReady ? "Cancel Ready" : "Mark Ready"}
+                {isReady ? "Cancel Ready" : "Ready Up"}
               </button>
             ) : null}
             {canStart ? (
               <button
                 type="button"
+                data-testid="waiting-start-game"
                 onClick={onStart}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Start Tournament
-              </button>
-            ) : null}
+            >
+              Start Game
+            </button>
+          ) : null}
             {showDisconnect ? (
               <button
                 type="button"
+                data-testid="waiting-leave-table"
                 onClick={onDisconnect}
                 className={`min-h-10 rounded-xl border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("utility")}`}
-              >
-                {tournamentStatus === "WAITING" ? "Leave Waiting Room" : "Disconnect"}
-              </button>
-            ) : null}
+            >
+              {tournamentStatus === "WAITING" ? "Leave Table" : "Disconnect"}
+            </button>
+          ) : null}
             {showReconnect ? (
               <button
                 type="button"
                 onClick={onReconnect}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-sky-300/30 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Reconnect
-              </button>
-            ) : null}
+            >
+              Reconnect
+            </button>
+          ) : null}
             {showReturnToPlay ? (
               <button
                 type="button"
                 onClick={onReturnToPlay}
                 disabled={!canPublish}
                 className="min-h-10 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-medium text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Return to Play
-              </button>
+            >
+              Return to Play
+            </button>
             ) : null}
           </div>
         ) : (
           <p className="mt-3 px-1 text-xs text-zinc-300">{idleMessage}</p>
         )}
+        </div>
       </div>
 
     </>

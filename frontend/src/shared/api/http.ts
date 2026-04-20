@@ -31,6 +31,15 @@ type ErrorPayload = {
   title?: string;
 };
 
+type HttpError = Error & {
+  status: number;
+  path: string;
+};
+
+export function isUnauthorizedError(error: unknown): error is HttpError {
+  return typeof error === "object" && error !== null && "status" in error && (error as HttpError).status === 401;
+}
+
 // Extracts the most useful server-side failure message for the UI.
 async function buildError(response: Response, path: string) {
   try {
@@ -40,15 +49,23 @@ async function buildError(response: Response, path: string) {
       payload.detail?.trim() ||
       payload.error?.trim() ||
       payload.title?.trim();
-    return new Error(message || `Request failed for ${path}`);
+    const error = new Error(message || `Request failed for ${path}`) as HttpError;
+    error.status = response.status;
+    error.path = path;
+    return error;
   } catch {
-    return new Error(`Request failed for ${path}`);
+    const error = new Error(`Request failed for ${path}`) as HttpError;
+    error.status = response.status;
+    error.path = path;
+    return error;
   }
 }
 
 // Reads a typed API payload and normalizes transport failures into one error path.
 async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw await buildError(response, path);
@@ -64,13 +81,16 @@ async function postJson<TRequest, TResponse>(
   body: TRequest,
   init?: RequestInit,
 ): Promise<TResponse> {
+  const { headers: initHeaders, credentials: initCredentials, ...restInit } = init ?? {};
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(initHeaders ?? {}),
     },
     body: JSON.stringify(body),
-    ...init,
+    ...restInit,
+    credentials: initCredentials ?? "include",
   });
 
   if (!response.ok) {
@@ -91,62 +111,61 @@ export function createGuestSession(nickname: string): Promise<GuestSession> {
   return postJson<{ nickname: string }, GuestSession>("/api/v1/guests", { nickname });
 }
 
-// Finds the active non-finished tournament already occupied by one guest, when present.
-export function getActiveTournamentForGuest(guestId: string): Promise<ActiveTournamentSession | null> {
-  return fetchJson<ActiveTournamentSession | null>(`/api/v1/guests/${guestId}/active-tournament`);
+// Finds the active non-finished tournament for the current cookie-backed session.
+export function getActiveTournamentForCurrentGuest(): Promise<ActiveTournamentSession | null> {
+  return fetchJson<ActiveTournamentSession | null>("/api/v1/guests/me/active-tournament");
 }
 
-// Fetches the latest tournament snapshot from the backend API.
-export function getTournamentSnapshot(code: string, guestId?: string): Promise<TournamentSnapshot> {
-  const params = new URLSearchParams();
-  if (guestId?.trim()) {
-    params.set("guestId", guestId.trim());
-  }
-
-  const query = params.size > 0 ? `?${params.toString()}` : "";
-  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}${query}`);
+// Fetches the latest tournament snapshot using the current cookie-backed session.
+export function getTournamentSnapshot(code: string): Promise<TournamentSnapshot> {
+  return fetchJson<TournamentSnapshot>(`/api/v1/tournaments/${code}`);
 }
 
-// Fetches the current list of joinable public waiting rooms for the lobby.
+// Fetches the current list of joinable waiting rooms for the lobby.
 export function getPublicWaitingTournaments(): Promise<PublicTournamentSummary[]> {
   return fetchJson<PublicTournamentSummary[]>("/api/v1/tournaments/lobby/public");
 }
 
 // Creates one waiting tournament and immediately seats the owner.
 export function createTournament(
-  guestId: string,
   nickname: string,
+  roomName: string,
   visibility: TournamentVisibility,
-  code?: string,
+  password?: string,
 ): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string; visibility: TournamentVisibility; code?: string }, TournamentSnapshot>(
+  return postJson<
+    { nickname: string; roomName: string; visibility: TournamentVisibility; password?: string },
+    TournamentSnapshot
+  >(
     "/api/v1/tournaments",
     {
-      guestId,
       nickname,
+      roomName,
       visibility,
-      ...(code ? { code } : {}),
+      ...(password ? { password } : {}),
     },
   );
 }
 
-// Joins one waiting tournament with the current persisted guest identity.
-export function joinTournament(code: string, guestId: string, nickname: string): Promise<TournamentSnapshot> {
-  return postJson<{ guestId: string; nickname: string }, TournamentSnapshot>(`/api/v1/tournaments/${code}/join`, {
-    guestId,
-    nickname,
-  });
+// Joins one waiting tournament with the current cookie-backed session and optional room password.
+export function joinTournament(
+  code: string,
+  nickname: string,
+  password?: string,
+): Promise<TournamentSnapshot> {
+  return postJson<{ nickname: string; password?: string }, TournamentSnapshot>(
+    `/api/v1/tournaments/${code}/join`,
+    {
+      nickname,
+      ...(password ? { password } : {}),
+    },
+  );
 }
 
 // Notifies the backend that one player left the current tournament page.
 export function disconnectTournamentPlayer(
   code: string,
-  guestId: string,
   init?: RequestInit,
 ): Promise<TournamentEvent> {
-  return postJson<{ guestId: string }, TournamentEvent>(
-    `/api/v1/tournaments/${code}/disconnect`,
-    { guestId },
-    init,
-  );
+  return postJson<Record<string, never>, TournamentEvent>(`/api/v1/tournaments/${code}/disconnect`, {}, init);
 }

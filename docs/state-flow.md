@@ -40,8 +40,16 @@
 - Each hand now deals hole cards and hidden board cards from a shuffled 52-card deck before snapshots are broadcast
 - Blind levels advance only on the next hand boundary, never in the middle of an active hand
 - Waiting-room disconnects remove the player immediately and delegate owner rights by lowest eligible seat
+- Lobby create now uses a player-facing room title while the backend still keeps an auto-generated internal tournament code
+- The primary lobby join flow starts from the selected waiting-room list entry, and locked rooms request a password before join
+- Room codes remain internal stable identifiers for routing, persistence, and server-side join handling
+- Locked-room passwords are hashed before they are stored in tournament state
+- Waiting-room owners see share guidance that points invitees back to the lobby flow instead of a direct table deep link
 - Waiting-room leave/disconnect semantics are the same server-side operation
   - when WebSocket is unavailable, the frontend falls back to `POST /api/v1/tournaments/{code}/disconnect` and applies the returned snapshot locally
+- Home waiting-room list stays limited to joinable `WAITING` rooms
+  - both open and locked rooms are listed
+  - full rooms are filtered out, and list ordering now follows room creation recency rather than bouncing on later join/leave updates
 - Browser refresh no longer auto-disconnects the current table seat
   - waiting-room route exit inside the SPA still falls back to `POST /api/v1/tournaments/{code}/disconnect`
   - in-hand refresh now preserves the seat so the same `guestId` can restore the latest snapshot after reload

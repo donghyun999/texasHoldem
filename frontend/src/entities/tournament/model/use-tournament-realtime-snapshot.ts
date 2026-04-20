@@ -1,8 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Client, IMessage } from "@stomp/stompjs";
 import { useQueryClient } from "@tanstack/react-query";
-import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
-import type { ActiveTournamentSession, TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
+import type { TournamentEvent, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { disconnectTournamentPlayer, getTournamentSnapshot } from "@/shared/api/http";
 import {
   createTournamentClient,
@@ -11,104 +10,50 @@ import {
   sendTournamentReady,
   sendTournamentStart,
 } from "@/shared/api/stomp-client";
+import {
+  buildWaitingLeaveSnapshot,
+  findCurrentPlayer,
+  mergeSnapshotForViewer,
+  parseTournamentEvent,
+  resolveSnapshotViewerGuestId,
+  syncActiveTournamentSessionCache,
+  syncTournamentSnapshotCaches,
+} from "@/entities/tournament/model/tournament-realtime-sync";
 
 type TournamentRealtimeState = "IDLE" | "CONNECTING" | "CONNECTED" | "RECONNECTING" | "ERROR";
 
-// Parses one broker message into the shared tournament event contract.
-function parseTournamentEvent(message: IMessage) {
-  try {
-    return JSON.parse(message.body) as TournamentEvent;
-  } catch {
-    return null;
-  }
+function buildViewerSnapshotKey(snapshot: TournamentSnapshot) {
+  return [
+    snapshot.code,
+    snapshot.handNumber,
+    snapshot.stateVersion,
+    snapshot.snapshotAudience,
+    snapshot.viewerGuestId ?? "",
+    snapshot.viewerHoleCardsIncluded ? "1" : "0",
+    snapshot.chipsToCall,
+    snapshot.selfHoleCards.join(","),
+  ].join("|");
 }
 
-// Finds the local browser player in the latest tournament snapshot.
-function findCurrentPlayer(snapshot: TournamentSnapshot | null, guestId: string) {
+function needsViewerHydration(snapshot: TournamentSnapshot | null, guestId: string) {
   if (!snapshot) {
-    return null;
-  }
-
-  return snapshot.players.find((player) => player.guestId === guestId) ?? null;
-}
-
-// Mirrors the waiting-room leave result locally while the REST fallback completes.
-function buildWaitingLeaveSnapshot(snapshot: TournamentSnapshot, guestId: string) {
-  const leavingPlayer = snapshot.players.find((player) => player.guestId === guestId);
-  if (!leavingPlayer) {
-    return snapshot;
-  }
-
-  return {
-    ...snapshot,
-    players: snapshot.players.filter((player) => player.guestId !== guestId),
-    tableMessage: `${leavingPlayer.nickname} left the waiting room.`,
-  };
-}
-
-// Rejects older snapshots that arrive after a newer REST or websocket update.
-function isStaleSnapshot(currentSnapshot: TournamentSnapshot | null, nextSnapshot: TournamentSnapshot) {
-  if (!currentSnapshot || currentSnapshot.code !== nextSnapshot.code) {
     return false;
   }
 
-  if (nextSnapshot.handNumber < currentSnapshot.handNumber) {
-    return true;
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+  if (!resolvedViewerGuestId) {
+    return false;
   }
 
-  return (
-    nextSnapshot.handNumber === currentSnapshot.handNumber &&
-    nextSnapshot.stateVersion > 0 &&
-    currentSnapshot.stateVersion > 0 &&
-    nextSnapshot.stateVersion < currentSnapshot.stateVersion
-  );
-}
-
-// Preserves the viewer's own hole cards only across shared websocket snapshots for the same hand.
-function mergeSnapshotForViewer(
-  currentSnapshot: TournamentSnapshot | null,
-  nextSnapshot: TournamentSnapshot,
-): TournamentSnapshot | null {
-  if (isStaleSnapshot(currentSnapshot, nextSnapshot)) {
-    return null;
+  if (snapshot.snapshotAudience === "VIEWER" || snapshot.selfHoleCards.length > 0) {
+    return false;
   }
 
-  if (nextSnapshot.selfHoleCards.length > 0) {
-    return nextSnapshot;
+  if (snapshot.status === "WAITING" || snapshot.status === "FINISHED") {
+    return false;
   }
 
-  if (nextSnapshot.snapshotAudience === "VIEWER") {
-    return nextSnapshot;
-  }
-
-  if (!currentSnapshot || currentSnapshot.selfHoleCards.length === 0) {
-    return nextSnapshot;
-  }
-
-  if (nextSnapshot.status === "WAITING") {
-    return {
-      ...nextSnapshot,
-      chipsToCall: 0,
-      selfHoleCards: [],
-    };
-  }
-
-  if (currentSnapshot.handNumber <= 0 || nextSnapshot.handNumber <= 0) {
-    return nextSnapshot;
-  }
-
-  if (currentSnapshot.handNumber !== nextSnapshot.handNumber) {
-    return nextSnapshot;
-  }
-
-  return {
-    ...nextSnapshot,
-    snapshotAudience: "VIEWER",
-    viewerGuestId: currentSnapshot.viewerGuestId,
-    viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
-    chipsToCall: currentSnapshot.chipsToCall,
-    selfHoleCards: currentSnapshot.selfHoleCards,
-  };
+  return snapshot.players.some((player) => player.guestId === resolvedViewerGuestId);
 }
 
 // Subscribes to one tournament topic and keeps the latest snapshot hot in memory.
@@ -122,21 +67,41 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
   const routeExitDisconnectReadyRef = useRef(false);
   const documentExitRef = useRef(false);
   const manualReconnectRequiredRef = useRef(false);
+  const snapshotRef = useRef<TournamentSnapshot | null>(seedSnapshot ?? null);
+  const lastSyncedSnapshotKeyRef = useRef("");
+  const lastHydratedSnapshotKeyRef = useRef("");
   const normalizedCode = code.trim().toUpperCase();
   const currentPlayer = findCurrentPlayer(snapshot, guestId);
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+
+  const commitSnapshot = (nextSnapshot: TournamentSnapshot, syncOptions?: { syncActiveSession?: boolean }) => {
+    const nextSnapshotKey = buildViewerSnapshotKey(nextSnapshot);
+    if (lastSyncedSnapshotKeyRef.current === nextSnapshotKey) {
+      return false;
+    }
+
+    snapshotRef.current = nextSnapshot;
+    lastSyncedSnapshotKeyRef.current = nextSnapshotKey;
+    setSnapshot(nextSnapshot);
+    syncTournamentSnapshotCaches(queryClient, guestId, nextSnapshot, syncOptions);
+    return true;
+  };
 
   // Keeps the latest disconnect payload ready for unload and route-exit cleanup.
   useEffect(() => {
     lifecycleRef.current = {
       code: normalizedCode,
-      guestId,
+      guestId: resolvedViewerGuestId,
       connected: !!currentPlayer?.connected,
       status: snapshot?.status ?? "",
     };
-  }, [currentPlayer?.connected, guestId, normalizedCode, snapshot?.status]);
+  }, [currentPlayer?.connected, normalizedCode, resolvedViewerGuestId, snapshot?.status]);
 
   // Clears stale viewer state when either the tournament or current guest changes.
   useEffect(() => {
+    snapshotRef.current = seedSnapshot ?? null;
+    lastSyncedSnapshotKeyRef.current = seedSnapshot ? buildViewerSnapshotKey(seedSnapshot) : "";
+    lastHydratedSnapshotKeyRef.current = "";
     setSnapshot(seedSnapshot ?? null);
     setLastEventType(null);
     manualReconnectRequiredRef.current = false;
@@ -148,57 +113,43 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    setSnapshot((currentSnapshot) => currentSnapshot ?? seedSnapshot);
-  }, [seedSnapshot]);
-
-  // Keeps the active-tournament cache aligned with live snapshot ownership for the current guest.
-  function syncActiveTournamentCache(nextSnapshot: TournamentSnapshot | null) {
-    if (!guestId.trim()) {
-      return;
+    if (!snapshotRef.current) {
+      commitSnapshot(seedSnapshot);
     }
-
-    const localPlayer = findCurrentPlayer(nextSnapshot, guestId);
-    const activeTournament: ActiveTournamentSession | null =
-      nextSnapshot && localPlayer && nextSnapshot.status !== "FINISHED"
-        ? {
-            guestId,
-            tournamentCode: nextSnapshot.code,
-            status: nextSnapshot.status,
-          }
-        : null;
-
-    queryClient.setQueryData(["active-tournament", guestId], activeTournament);
-  }
+  }, [seedSnapshot]);
 
   // Applies one tournament event from either WebSocket or REST fallback into local caches.
   function applyTournamentEvent(event: TournamentEvent) {
-    const mergedSnapshot = mergeSnapshotForViewer(snapshot, event.snapshot);
+    const mergedSnapshot = mergeSnapshotForViewer(snapshotRef.current, event.snapshot);
     if (!mergedSnapshot) {
       return;
     }
 
-    setSnapshot(mergedSnapshot);
-    setLastEventType(event.eventType);
-    queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
-    syncActiveTournamentCache(mergedSnapshot);
+    if (commitSnapshot(mergedSnapshot)) {
+      setLastEventType(event.eventType);
+    }
   }
 
   // Refreshes the current guest's personalized snapshot view when hole cards or reconnect state may change.
   const hydrateViewerSnapshot = useEffectEvent(() => {
-    if (!normalizedCode || !guestId.trim()) {
+    if (!normalizedCode || !resolvedViewerGuestId) {
       return;
     }
 
-    void getTournamentSnapshot(normalizedCode, guestId)
+    const currentSnapshotKey = snapshotRef.current ? buildViewerSnapshotKey(snapshotRef.current) : "";
+    if (currentSnapshotKey && currentSnapshotKey === lastHydratedSnapshotKeyRef.current) {
+      return;
+    }
+
+    void getTournamentSnapshot(normalizedCode)
       .then((viewerSnapshot) => {
-        const mergedSnapshot = mergeSnapshotForViewer(snapshot, viewerSnapshot);
+        lastHydratedSnapshotKeyRef.current = currentSnapshotKey;
+        const mergedSnapshot = mergeSnapshotForViewer(snapshotRef.current, viewerSnapshot);
         if (!mergedSnapshot) {
           return;
         }
 
-        setSnapshot(mergedSnapshot);
-        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), mergedSnapshot);
-        syncActiveTournamentCache(mergedSnapshot);
+        commitSnapshot(mergedSnapshot);
       })
       .catch(() => {
         // Keep the current live snapshot when the viewer-specific refresh fails.
@@ -215,25 +166,38 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
 
     applyTournamentEvent(event);
 
-    if (
-      event.eventType === "actionApplied" ||
-      event.eventType === "handStarted" ||
-      event.eventType === "tournamentSnapshot" ||
-      event.eventType === "playerReconnected" ||
-      event.eventType === "playerReturned"
-    ) {
+    if (event.eventType === "playerReconnected" || event.eventType === "playerReturned") {
       hydrateViewerSnapshot();
     }
   });
 
+  // Restores the viewer-specific snapshot after hand/status transitions that arrive as public broker snapshots.
+  useEffect(() => {
+    if (!needsViewerHydration(snapshot, guestId)) {
+      return;
+    }
+
+    hydrateViewerSnapshot();
+  }, [
+    guestId,
+    hydrateViewerSnapshot,
+    snapshot?.code,
+    snapshot?.handNumber,
+    snapshot?.snapshotAudience,
+    snapshot?.stateVersion,
+    snapshot?.status,
+    snapshot?.selfHoleCards,
+    snapshot?.viewerHoleCardsIncluded,
+  ]);
+
   // Publishes one command only when the websocket transport is ready.
-  const publishWhenConnected = useEffectEvent((publisher: (client: Client, code: string, guestId: string) => void) => {
+  const publishWhenConnected = useEffectEvent((publisher: (client: Client, code: string) => void) => {
     const client = clientRef.current;
-    if (!client?.connected || !normalizedCode || !guestId) {
+    if (!client?.connected || !normalizedCode || !resolvedViewerGuestId) {
       return false;
     }
 
-    publisher(client, normalizedCode, guestId);
+    publisher(client, normalizedCode);
     return true;
   });
 
@@ -247,7 +211,6 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     const client = createTournamentClient();
     clientRef.current = client;
     setRealtimeState("CONNECTING");
-    setLastEventType(null);
 
     client.onConnect = () => {
       setRealtimeState("CONNECTED");
@@ -285,8 +248,8 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    publishWhenConnected((client, code, currentGuestId) => {
-      sendTournamentConnection(client, "/app/tournament.reconnect", code, currentGuestId);
+    publishWhenConnected((client, code) => {
+      sendTournamentConnection(client, "/app/tournament.reconnect", code);
     });
   }, [currentPlayer, realtimeState]);
 
@@ -300,7 +263,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    void disconnectTournamentPlayer(currentCode, currentGuestId, { keepalive: true });
+    void disconnectTournamentPlayer(currentCode, { keepalive: true });
   }
 
   // Keeps waiting-room and finished-table route exits aligned with server leave semantics without folding in-hand refreshes.
@@ -330,9 +293,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         : "LIVE WS"
       : realtimeState === "CONNECTING" || realtimeState === "RECONNECTING"
         ? "SYNCING"
-        : snapshot
-          ? "LIVE SNAPSHOT"
-          : "DEMO FALLBACK";
+        : "LIVE SNAPSHOT";
 
   return {
     currentPlayer,
@@ -341,32 +302,30 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
     syncState,
     canPublish: realtimeState === "CONNECTED",
     sendReady: (ready: boolean) =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentReady(client, currentCode, currentGuestId, ready);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentReady(client, currentCode, ready);
       }),
     sendDisconnect: () => {
       const client = clientRef.current;
-      if (client?.connected && normalizedCode && guestId) {
+      if (client?.connected && normalizedCode && resolvedViewerGuestId) {
         manualReconnectRequiredRef.current = true;
-        sendTournamentConnection(client, "/app/tournament.disconnect", normalizedCode, guestId);
+        sendTournamentConnection(client, "/app/tournament.disconnect", normalizedCode);
         return;
       }
 
-      if (!normalizedCode || !guestId) {
+      if (!normalizedCode || !resolvedViewerGuestId) {
         return;
       }
 
       manualReconnectRequiredRef.current = true;
-
       if (snapshot?.status === "WAITING") {
-        const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, guestId);
-        setSnapshot(optimisticSnapshot);
+        const optimisticSnapshot = buildWaitingLeaveSnapshot(snapshot, resolvedViewerGuestId);
+        commitSnapshot(optimisticSnapshot, { syncActiveSession: false });
         setLastEventType("playerDisconnected");
-        queryClient.setQueryData(buildTournamentSnapshotKey(code, guestId), optimisticSnapshot);
-        syncActiveTournamentCache(null);
+        syncActiveTournamentSessionCache(queryClient, resolvedViewerGuestId, null);
       }
 
-      void disconnectTournamentPlayer(normalizedCode, guestId)
+      void disconnectTournamentPlayer(normalizedCode)
         .then((event) => {
           applyTournamentEvent(event);
         })
@@ -375,21 +334,21 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
         });
     },
     sendReconnect: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
+      publishWhenConnected((client, currentCode) => {
         manualReconnectRequiredRef.current = false;
-        sendTournamentConnection(client, "/app/tournament.reconnect", currentCode, currentGuestId);
+        sendTournamentConnection(client, "/app/tournament.reconnect", currentCode);
       }),
     sendReturnToPlay: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode, currentGuestId);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentConnection(client, "/app/tournament.return-to-play", currentCode);
       }),
     sendStart: () =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentStart(client, currentCode, currentGuestId);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentStart(client, currentCode);
       }),
     sendAction: (action: string, amount?: number) =>
-      publishWhenConnected((client, currentCode, currentGuestId) => {
-        sendTournamentAction(client, currentCode, currentGuestId, action, amount);
+      publishWhenConnected((client, currentCode) => {
+        sendTournamentAction(client, currentCode, action, amount);
       }),
   };
 }

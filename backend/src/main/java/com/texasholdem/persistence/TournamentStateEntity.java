@@ -22,6 +22,9 @@ public class TournamentStateEntity {
     @Column(nullable = false, columnDefinition = "text")
     private String payload;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -33,7 +36,8 @@ public class TournamentStateEntity {
     public TournamentStateEntity(String code, String payload) {
         this.code = code;
         this.payload = payload;
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt;
     }
 
     // Returns the stable tournament code used as the persistence key.
@@ -46,15 +50,27 @@ public class TournamentStateEntity {
         return payload;
     }
 
+    // Replaces the stored aggregate payload while preserving row identity timestamps.
+    public void setPayload(String payload) {
+        this.payload = payload;
+    }
+
+    // Returns when the tournament row was first created.
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
     // Returns when the latest payload snapshot was stored.
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
 
-    // Refreshes the update timestamp for both insert and update writes.
     @PrePersist
     @PreUpdate
-    void touchUpdatedAt() {
+    void touchTimestamps() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
         updatedAt = LocalDateTime.now();
     }
 }

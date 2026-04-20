@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { formatAmountDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
@@ -69,14 +69,14 @@ const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
   5: { left: "9%", top: "47%" },
 };
 const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
-  0: { left: "38.5%", top: "28.5%" },
-  1: { left: "50%", top: "23.2%" },
-  2: { left: "61.5%", top: "28.5%" },
-  3: { left: "67.5%", top: "42.5%" },
-  4: { left: "50%", top: "55.5%" },
-  5: { left: "32.5%", top: "42.5%" },
+  0: { left: "34%", top: "31%" },
+  1: { left: "50%", top: "25.6%" },
+  2: { left: "66%", top: "31%" },
+  3: { left: "80.8%", top: "48.6%" },
+  4: { left: "50%", top: "61.4%" },
+  5: { left: "19.2%", top: "48.6%" },
 };
-const POT_COLLECTION_POSITION = { left: "50%", top: "41.8%" };
+const POT_COLLECTION_POSITION = { left: "50%", top: "40.8%" };
 const BET_CHIP_ANIMATION_MS = 680;
 const BET_CHIP_CLEANUP_BUFFER_MS = 80;
 const POT_CHIP_ANIMATION_MS = 620;
@@ -91,6 +91,7 @@ const ACTOR_FOCUS_DELAY_WITH_ACTION_MS = 180;
 const ACTOR_FOCUS_DELAY_WITH_CHIP_FLIGHT_MS = 220;
 const ACTOR_FOCUS_DELAY_WITH_BOARD_REVEAL_MS = 140;
 const POT_PULSE_LANDING_OFFSET_MS = 420;
+const EMPTY_CARDS: string[] = [];
 
 function buildSeatMap(players: TournamentPlayer[]) {
   const seats: Array<TournamentPlayer | undefined> = new Array(TOTAL_SEATS).fill(undefined);
@@ -166,7 +167,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (currentPlayer.status === "FOLDED" && previousStatus !== "FOLDED") {
     return {
       guestId: previousActorGuestId,
-      label: "Fold",
+      label: "폴드",
       tone: "danger" as const,
     };
   }
@@ -174,7 +175,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (becameAllIn && contributionDelta <= 0) {
     return {
       guestId: previousActorGuestId,
-      label: "All in",
+      label: "올인",
       tone: "aggressive" as const,
     };
   }
@@ -183,15 +184,14 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
     if (currentPlayer.roundContribution > previousBetState.maximumContribution) {
       return {
         guestId: previousActorGuestId,
-        label: becameAllIn ? "All in" : previousBetState.maximumContribution > 0 ? "Raise" : "Bet",
+        label: becameAllIn ? "올인" : previousBetState.maximumContribution > 0 ? "레이즈" : "베팅",
         tone: "aggressive" as const,
       };
     }
 
     return {
       guestId: previousActorGuestId,
-      label:
-        becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution ? "All in" : "Call",
+      label: becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution ? "올인" : "콜",
       tone:
         becameAllIn && currentPlayer.roundContribution < previousBetState.maximumContribution
           ? ("aggressive" as const)
@@ -202,7 +202,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (becameAllIn) {
     return {
       guestId: previousActorGuestId,
-      label: "All in",
+      label: "올인",
       tone: "aggressive" as const,
     };
   }
@@ -210,7 +210,7 @@ function buildPreviousActorFlash(previousBetState: PreviousBetState, snapshot: T
   if (snapshot.actingSeat !== previousBetState.actingSeat || snapshot.stateVersion > previousBetState.stateVersion) {
     return {
       guestId: previousActorGuestId,
-      label: "Check",
+      label: "체크",
       tone: "neutral" as const,
     };
   }
@@ -239,8 +239,26 @@ function normalizeSeatIndex(index: number) {
   return (index + TOTAL_SEATS) % TOTAL_SEATS;
 }
 
-function buildDisplayedSeatIndexes(players: TournamentPlayer[], currentGuestId?: string) {
-  const currentPlayerSeat = players.find((player) => player.guestId === currentGuestId)?.seatIndex;
+function resolveDisplayedHeroGuestId(
+  players: TournamentPlayer[],
+  viewerGuestId?: string | null,
+  currentGuestId?: string,
+) {
+  const seatedGuestIds = new Set(players.map((player) => player.guestId));
+
+  if (viewerGuestId && seatedGuestIds.has(viewerGuestId)) {
+    return viewerGuestId;
+  }
+
+  if (currentGuestId && seatedGuestIds.has(currentGuestId)) {
+    return currentGuestId;
+  }
+
+  return viewerGuestId ?? currentGuestId;
+}
+
+function buildDisplayedSeatIndexes(players: TournamentPlayer[], heroGuestId?: string) {
+  const currentPlayerSeat = players.find((player) => player.guestId === heroGuestId)?.seatIndex;
   const rotationOffset =
     currentPlayerSeat === undefined ? 0 : normalizeSeatIndex(currentPlayerSeat - HERO_TABLE_POSITION_INDEX);
 
@@ -252,15 +270,15 @@ function buildDisplayedSeatIndexes(players: TournamentPlayer[], currentGuestId?:
 function getStreetLabel(boardCards: string[]) {
   switch (boardCards.length) {
     case 0:
-      return "Preflop";
+      return "프리플롭";
     case 3:
-      return "Flop";
+      return "플롭";
     case 4:
-      return "Turn";
+      return "턴";
     case 5:
-      return "River";
+      return "리버";
     default:
-      return "Table";
+      return "테이블";
   }
 }
 
@@ -297,7 +315,7 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
         : winnerNames.join(", ");
 
     return {
-      headline: "Split Pot",
+      headline: "공동 팟",
       detail,
       amountLabel: `+${bestAmount}`,
     };
@@ -307,15 +325,62 @@ function buildResultSummary(snapshot: TournamentSnapshot) {
   const showdownHand = snapshot.showdownHands.find((hand) => hand.guestId === winner.guestId);
   return {
     headline: winner.nickname,
-    detail: showdownHand?.handLabel ?? "Won the hand",
+    detail: showdownHand?.handLabel ?? "핸드 승리",
     amountLabel: `+${winner.amount}`,
+  };
+}
+
+type TableCenterCopy = {
+  stageLabel: string;
+  headline: string;
+  detail: string;
+};
+
+function buildCenterCopy(
+  snapshot: TournamentSnapshot,
+  streetLabel: string,
+  actingPlayer: TournamentPlayer | null,
+  resultSummary: { headline: string; detail: string; amountLabel: string } | null,
+): TableCenterCopy {
+  if (snapshot.status === "WAITING") {
+    return {
+      stageLabel: "로비",
+      headline: snapshot.paused ? "테이블 일시정지" : "플레이어 대기 중",
+      detail: snapshot.paused
+        ? snapshot.tableMessage
+        : "플레이어들은 참가하고, 준비를 마친 뒤 다음 셔플을 기다릴 수 있습니다.",
+    };
+  }
+
+  if (snapshot.status === "IN_HAND") {
+    return {
+      stageLabel: streetLabel,
+      headline: snapshot.paused ? "핸드 일시정지" : actingPlayer ? `${actingPlayer.nickname} 차례` : "핸드 진행 중",
+      detail: snapshot.paused
+        ? snapshot.tableMessage
+        : snapshot.tableMessage || "핸드가 진행되는 동안 팟, 카드, 액션 정보가 계속 갱신됩니다.",
+    };
+  }
+
+  if (snapshot.status === "HAND_RESULT") {
+    return {
+      stageLabel: "쇼다운",
+      headline: resultSummary?.headline ?? "승자 확정",
+      detail: snapshot.tableMessage || "쇼다운 카드와 결과를 정산하고 있습니다.",
+    };
+  }
+
+  return {
+    stageLabel: "토너먼트 종료",
+    headline: resultSummary?.headline ?? "최종 결과",
+    detail: resultSummary?.detail ?? (snapshot.tableMessage || "토너먼트가 종료되었습니다."),
   };
 }
 
 function buildSidePotSummary(snapshot: TournamentSnapshot) {
   return snapshot.sidePots.map((pot, index) => ({
     id: pot.id,
-    label: `Side ${index + 1}`,
+    label: `사이드 ${index + 1}`,
     amount: pot.amount,
   }));
 }
@@ -354,28 +419,28 @@ function getLevelProgressPercent(secondsRemaining: number, durationSeconds: numb
 function getLevelTimerState(secondsRemaining: number, durationSeconds: number) {
   if (secondsRemaining <= 15) {
     return {
-      timerClass: "text-rose-100",
-      barClass: "bg-[linear-gradient(90deg,_rgba(251,113,133,0.98),_rgba(239,68,68,0.72))]",
+      timerClass: "text-rose-50",
+      barClass: "bg-[linear-gradient(90deg,_rgba(251,113,133,0.98),_rgba(244,63,94,0.82))]",
     };
   }
 
   if (secondsRemaining <= 60) {
     return {
-      timerClass: "text-amber-100",
-      barClass: "bg-[linear-gradient(90deg,_rgba(250,204,21,0.95),_rgba(249,115,22,0.7))]",
+      timerClass: "text-amber-50",
+      barClass: "bg-[linear-gradient(90deg,_rgba(250,204,21,0.96),_rgba(251,146,60,0.78))]",
     };
   }
 
   return {
-    timerClass: "text-zinc-300",
-    barClass: "bg-[linear-gradient(90deg,_rgba(45,212,191,0.92),_rgba(56,189,248,0.7))]",
+    timerClass: "text-cyan-50",
+    barClass: "bg-[linear-gradient(90deg,_rgba(45,212,191,0.96),_rgba(96,165,250,0.78))]",
   };
 }
 
 function getPausedLevelTimerState() {
   return {
-    timerClass: "text-amber-100",
-    barClass: "bg-[linear-gradient(90deg,_rgba(245,158,11,0.7),_rgba(161,98,7,0.78))]",
+    timerClass: "text-amber-50",
+    barClass: "bg-[linear-gradient(90deg,_rgba(251,191,36,0.8),_rgba(245,158,11,0.82))]",
   };
 }
 
@@ -487,26 +552,26 @@ function PokerChipStack({
   acting,
   bigBlind,
   hero,
+  compact = false,
 }: {
   amount: number;
   acting: boolean;
   bigBlind: number;
   hero: boolean;
+  compact?: boolean;
 }) {
   const visualTier = getChipVisualTier(amount, bigBlind);
   const palette = getChipPalette(visualTier.colorTier);
   const chipCount = visualTier.chipCount;
-  const chipWidthClass = hero ? "w-4 sm:w-4.5" : "w-3.5 sm:w-4";
-  const chipHeightClass = hero ? "h-2.5 sm:h-3" : "h-2.5 sm:h-2.5";
-  const containerHeight = hero ? 11 + (chipCount - 1) * 2.5 : 10 + (chipCount - 1) * 2.5;
+  const chipWidthClass = hero ? "w-4 sm:w-4.5" : compact ? "w-3 sm:w-3.5" : "w-3.5 sm:w-4";
+  const chipHeightClass = hero ? "h-2.5 sm:h-3" : compact ? "h-2 sm:h-2.5" : "h-2.5 sm:h-2.5";
+  const containerHeight = hero ? 11 + (chipCount - 1) * 2.5 : compact ? 8.5 + (chipCount - 1) * 2 : 10 + (chipCount - 1) * 2.5;
+  const containerWidthClass = hero ? "w-5.5 sm:w-6" : compact ? "w-4 sm:w-4.5" : "w-4.5 sm:w-5";
 
   return (
-    <div
-      className={`relative ${hero ? "w-5.5 sm:w-6" : "w-4.5 sm:w-5"} ${palette.glowClass}`}
-      style={{ height: `${containerHeight}px` }}
-    >
+    <div className={`relative ${containerWidthClass} ${palette.glowClass}`} style={{ height: `${containerHeight}px` }}>
       {Array.from({ length: chipCount }, (_, index) => {
-        const bottomOffset = index * 2.2;
+        const bottomOffset = compact ? index * 1.8 : index * 2.2;
         const lateralOffset = chipCount > 1 ? (index % 2 === 0 ? -0.35 : 0.35) * index : 0;
 
         return (
@@ -595,6 +660,8 @@ function BetMarker({
   tablePositionIndex: number;
 }) {
   const isHeroMarker = tablePositionIndex === HERO_TABLE_POSITION_INDEX;
+  const isSideMarker = tablePositionIndex === 3 || tablePositionIndex === 5;
+  const isLeftSideMarker = tablePositionIndex === 5;
   const amountLabel = formatAmountDisplay({
     amount,
     bigBlind,
@@ -603,10 +670,16 @@ function BetMarker({
   });
 
   return (
-    <div className="pointer-events-none flex items-center gap-1">
-      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} />
+    <div
+      className={`pointer-events-none flex items-center ${
+        isSideMarker ? "gap-0.5 sm:gap-0.75" : "gap-1"
+      } ${isLeftSideMarker ? "flex-row-reverse" : ""}`}
+    >
+      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} compact={isSideMarker} />
       <span
-        className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold leading-none text-white shadow-md shadow-black/30 sm:text-[9px] ${
+        className={`rounded-full border font-semibold leading-none text-white shadow-md shadow-black/30 ${
+          isSideMarker ? "px-1 py-0.5 text-[7px] sm:px-1.25 sm:text-[8px]" : "px-1.5 py-0.5 text-[8px] sm:text-[9px]"
+        } ${
           acting ? "border-amber-200/35 bg-black/60 text-amber-50" : "border-white/10 bg-black/50"
         }`}
       >
@@ -642,28 +715,41 @@ export function TournamentTable({
   const potChipTimeoutIdsRef = useRef<number[]>([]);
   const potCollectionTimeoutIdsRef = useRef<number[]>([]);
   const uiEffectTimeoutIdsRef = useRef<number[]>([]);
-  const seats = buildSeatMap(snapshot.players);
-  const displayedSeatIndexes = buildDisplayedSeatIndexes(snapshot.players, currentGuestId);
-  const showdownHoleCardsByGuestId = new Map(
-    snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const),
+  const displayedHeroGuestId = useMemo(
+    () => resolveDisplayedHeroGuestId(snapshot.players, snapshot.viewerGuestId, currentGuestId),
+    [currentGuestId, snapshot.players, snapshot.viewerGuestId],
   );
-  const actingPlayer = snapshot.players.find((player) => player.seatIndex === snapshot.actingSeat) ?? null;
-  const streetLabel = getStreetLabel(snapshot.boardCards);
-  const resultSummary = buildResultSummary(snapshot);
-  const totalPot = snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0);
-  const winnerGuestIds = buildWinnerGuestIds(snapshot);
-  const winnerGuestIdsKey = winnerGuestIds.join("|");
-  const winnerGuestIdSet = new Set(winnerGuestIds);
-  const boardSlots = Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null);
-  const showBoardSlots = snapshot.status !== "WAITING" || snapshot.boardCards.length > 0;
-  const betMarkers = buildBetMarkers(snapshot, displayedSeatIndexes);
-  const sidePotSummary = buildSidePotSummary(snapshot);
-  const revealedBoardCardSet = new Set(revealedBoardCards);
-  const seatActionFlashByGuestId = new Map(seatActionFlashes.map((entry) => [entry.guestId, entry] as const));
-  const dealPulseByGuestId = new Map(dealPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const foldPulseByGuestId = new Map(foldPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const actorFocusPulseByGuestId = new Map(actorFocusPulses.map((entry) => [entry.guestId, entry.id] as const));
-  const winnerPulseByGuestId = new Map(winnerPulses.map((entry) => [entry.guestId, entry.id] as const));
+  const seats = useMemo(() => buildSeatMap(snapshot.players), [snapshot.players]);
+  const displayedSeatIndexes = useMemo(
+    () => buildDisplayedSeatIndexes(snapshot.players, displayedHeroGuestId),
+    [displayedHeroGuestId, snapshot.players],
+  );
+  const showdownHoleCardsByGuestId = useMemo(
+    () => new Map(snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const)),
+    [snapshot.showdownHands],
+  );
+  const totalPot = useMemo(
+    () => snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0),
+    [snapshot.mainPot, snapshot.sidePots],
+  );
+  const winnerGuestIds = useMemo(() => buildWinnerGuestIds(snapshot), [snapshot.status, snapshot.showdownPots]);
+  const winnerGuestIdsKey = useMemo(() => winnerGuestIds.join("|"), [winnerGuestIds]);
+  const winnerGuestIdSet = useMemo(() => new Set(winnerGuestIds), [winnerGuestIds]);
+  const boardSlots = useMemo(() => Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null), [snapshot.boardCards]);
+  const betMarkers = useMemo(() => buildBetMarkers(snapshot, displayedSeatIndexes), [snapshot.players, snapshot.status, displayedSeatIndexes]);
+  const sidePotSummary = useMemo(() => buildSidePotSummary(snapshot), [snapshot.sidePots]);
+  const revealedBoardCardSet = useMemo(() => new Set(revealedBoardCards), [revealedBoardCards]);
+  const seatActionFlashByGuestId = useMemo(
+    () => new Map(seatActionFlashes.map((entry) => [entry.guestId, entry] as const)),
+    [seatActionFlashes],
+  );
+  const dealPulseByGuestId = useMemo(() => new Map(dealPulses.map((entry) => [entry.guestId, entry.id] as const)), [dealPulses]);
+  const foldPulseByGuestId = useMemo(() => new Map(foldPulses.map((entry) => [entry.guestId, entry.id] as const)), [foldPulses]);
+  const actorFocusPulseByGuestId = useMemo(
+    () => new Map(actorFocusPulses.map((entry) => [entry.guestId, entry.id] as const)),
+    [actorFocusPulses],
+  );
+  const winnerPulseByGuestId = useMemo(() => new Map(winnerPulses.map((entry) => [entry.guestId, entry.id] as const)), [winnerPulses]);
   const blindClockActive = isBlindClockActive(snapshot.status);
   const showOpponentActionTimer =
     snapshot.status === "IN_HAND" &&
@@ -690,13 +776,9 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
-  const centerStatusLabel = resultSummary
-    ? "Hand settled"
-    : snapshot.paused
-      ? "Hand paused"
-      : actingPlayer
-        ? `${actingPlayer.nickname} acting`
-        : snapshot.status.replaceAll("_", " ");
+  const visibilityLabel = snapshot.visibility === "PUBLIC" ? "Public table" : "Private table";
+  const currentBlindsLabel = `${snapshot.currentLevel.smallBlind}/${snapshot.currentLevel.bigBlind}`;
+  const nextBlindsLabel = `${snapshot.nextLevel.smallBlind}/${snapshot.nextLevel.bigBlind}`;
 
   const createUiEffectId = (prefix: string) => {
     const id = `${prefix}-${snapshot.handNumber}-${snapshot.stateVersion}-${uiEffectIdRef.current}`;
@@ -1086,15 +1168,74 @@ export function TournamentTable({
   ]);
 
   return (
-    <div className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2rem] border border-emerald-200/10 bg-[#050b0a] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.08),_transparent_24%),radial-gradient(circle_at_50%_54%,_rgba(56,189,248,0.08),_transparent_30%),linear-gradient(180deg,_rgba(10,22,21,0.96),_rgba(1,6,6,0.98))]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#4a3427] bg-[radial-gradient(circle_at_50%_34%,_rgba(53,161,103,0.5),_rgba(19,89,56,0.92)_38%,_rgba(7,31,22,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-emerald-100/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(66,191,128,0.17),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
-      <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(245,158,11,0.22),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
+    <div
+      data-testid="tournament-table"
+      data-viewer-guest-id={displayedHeroGuestId ?? ""}
+      className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,_rgba(6,16,13,0.98),_rgba(2,7,6,0.99))] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.1),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(103,232,249,0.12),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(250,204,21,0.09),_transparent_22%),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
+      <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#355f56] bg-[radial-gradient(circle_at_50%_34%,_rgba(103,232,249,0.22),_rgba(35,163,116,0.92)_38%,_rgba(7,33,26,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
+      <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-white/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.08),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
+      <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(250,204,21,0.2),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
 
-      <div className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/35 px-2 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:left-4 sm:top-4 sm:text-xs">
-        <p className="font-semibold">{snapshot.code}</p>
-        <div className="flex rounded-full border border-white/10 bg-black/30 p-0.5">
+      <div className="absolute inset-x-3 top-3 z-30 sm:inset-x-4 sm:top-4">
+        <div className="social-surface flex min-w-0 items-center gap-2 rounded-[1.15rem] px-3 py-1.5 text-[10px] font-medium text-zinc-100 sm:rounded-[1.35rem] sm:px-3.5 sm:py-2 sm:text-xs">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.08em] text-white sm:text-[11px]">{snapshot.roomName}</p>
+            <p className="text-[7px] uppercase tracking-[0.18em] text-zinc-500 sm:text-[8px]">{visibilityLabel}</p>
+          </div>
+          <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
+            {(["chips", "bb"] as const).map((mode) => {
+              const selected = stackDisplayMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => onStackDisplayModeChange(mode)}
+                  className={`rounded-full px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] transition sm:px-2.5 sm:text-[9px] ${
+                    selected ? "social-cta-secondary text-slate-950" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {mode === "chips" ? "Chips" : "BB"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden">
+        <div className="absolute inset-0 z-10 flex items-center gap-2 rounded-[1.35rem] bg-[linear-gradient(180deg,_rgba(13,27,22,0.96),_rgba(7,16,13,0.9))] px-3 py-2">
+          <div className="min-w-0">
+            <p className="max-w-[8.5rem] truncate font-semibold text-white sm:max-w-[10rem]">{snapshot.roomName}</p>
+            <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">{visibilityLabel}</p>
+          </div>
+          <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
+            {(["chips", "bb"] as const).map((mode) => {
+              const selected = stackDisplayMode === mode;
+              return (
+                <button
+                  key={`${mode}-desktop-overlay`}
+                  type="button"
+                  onClick={() => onStackDisplayModeChange(mode)}
+                  className={`rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
+                    selected ? "social-cta-secondary text-[11px] text-slate-950" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {mode === "chips" ? "Chips" : "BB"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <p className="max-w-[8.5rem] truncate font-semibold sm:max-w-[10rem]">{snapshot.roomName}</p>
+          <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">{visibilityLabel}</p>
+          <p className="hidden text-[8px] uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
+            {snapshot.visibility === "PUBLIC" ? "공개 테이블" : "잠금 테이블"}
+          </p>
+        </div>
+        <div className="flex rounded-full border border-white/10 bg-black/25 p-0.5">
           {(["chips", "bb"] as const).map((mode) => {
             const selected = stackDisplayMode === mode;
             return (
@@ -1102,32 +1243,55 @@ export function TournamentTable({
                 key={mode}
                 type="button"
                 onClick={() => onStackDisplayModeChange(mode)}
-                className={`rounded-full px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
-                  selected ? "bg-white/15 text-white" : "text-zinc-400 hover:text-zinc-200"
+                className={`rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] transition sm:text-[10px] ${
+                  selected ? "social-cta-secondary text-[11px] text-slate-950" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                {mode === "chips" ? "Chips" : "BB"}
+                {mode === "chips" ? "칩" : "BB"}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className="absolute right-3 top-3 z-30 w-[7.8rem] rounded-2xl border border-white/10 bg-black/35 px-2.5 py-1.5 text-right text-[9px] font-medium text-zinc-100 backdrop-blur-sm sm:right-4 sm:top-4 sm:w-[8.8rem] sm:px-3 sm:py-2 sm:text-[11px]">
-        <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">Blinds</p>
-        <p className="mt-0.5 font-semibold">
+      <div className="hidden">
+        <div className="absolute inset-0 z-10 rounded-[1.35rem] bg-[linear-gradient(180deg,_rgba(13,27,22,0.96),_rgba(7,16,13,0.9))] px-2.5 py-1.5 text-right sm:px-3 sm:py-2">
+          <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">Blinds</p>
+          <p className="mt-0.5 text-base font-black text-white">{currentBlindsLabel}</p>
+          <p className="mt-0.5 text-[9px] text-zinc-400 sm:text-[10px]">Next {nextBlindsLabel}</p>
+          <div className="mt-1 flex items-center justify-end gap-1.5">
+            {snapshot.paused ? (
+              <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-amber-100 sm:text-[9px]">
+                Paused
+              </span>
+            ) : null}
+            <p className={`text-[9px] font-semibold ${levelTimerState.timerClass} sm:text-[10px]`}>
+              {formatLevelCountdown(secondsRemaining)}
+            </p>
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10 sm:h-[5px]">
+            <div
+              className={`h-full rounded-full transition-[width] duration-1000 ${levelTimerState.barClass}`}
+              style={{ width: `${levelProgressPercent}%` }}
+            />
+          </div>
+        </div>
+        <p className="text-[8px] uppercase tracking-[0.16em] text-zinc-500 sm:text-[9px]">블라인드</p>
+        <p className="mt-0.5 text-base font-black text-white">
           {snapshot.currentLevel.smallBlind}/{snapshot.currentLevel.bigBlind}
         </p>
         <p className="mt-0.5 text-[9px] text-zinc-400 sm:text-[10px]">
-          Next {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
+          다음 {snapshot.nextLevel.smallBlind}/{snapshot.nextLevel.bigBlind}
         </p>
         <div className="mt-1 flex items-center justify-end gap-1.5">
           {snapshot.paused ? (
             <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-1.5 py-0.5 text-[8px] uppercase tracking-[0.16em] text-amber-100 sm:text-[9px]">
-              Paused
+              일시정지
             </span>
           ) : null}
-          <p className={`text-[9px] ${levelTimerState.timerClass} sm:text-[10px]`}>{formatLevelCountdown(secondsRemaining)}</p>
+          <p className={`text-[9px] font-semibold ${levelTimerState.timerClass} sm:text-[10px]`}>
+            {formatLevelCountdown(secondsRemaining)}
+          </p>
         </div>
         <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10 sm:h-[5px]">
           <div
@@ -1138,38 +1302,15 @@ export function TournamentTable({
       </div>
 
       <div
-        className="absolute left-1/2 z-10 w-[min(74%,18rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[21rem]"
-        style={{ top: showBoardSlots ? "37.8%" : "39%" }}
+        className="absolute left-1/2 z-10 w-[min(74%,18.5rem)] -translate-x-1/2 -translate-y-1/2 text-center sm:w-[22rem]"
+        style={{ top: "36.8%" }}
       >
-        <div className="mx-auto flex max-w-max flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-2.5 py-1.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm sm:gap-2 sm:px-3 sm:text-xs">
-          <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-emerald-100">
-            {streetLabel}
-          </span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{centerStatusLabel}</span>
-        </div>
-        {snapshot.paused ? (
-          <div className="mx-auto mt-2 max-w-[16rem] rounded-2xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 shadow-lg shadow-black/20">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100">All Players AFK</p>
-            <p className="mt-1 text-[11px] text-amber-50/85">{snapshot.tableMessage}</p>
-          </div>
-        ) : null}
-        {resultSummary ? (
-          <div className="mx-auto mt-2 max-w-[14rem] rounded-2xl border border-amber-200/20 bg-[linear-gradient(135deg,_rgba(146,64,14,0.56),_rgba(12,12,12,0.86))] px-3 py-2 shadow-xl shadow-black/30">
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-sm font-semibold text-white">{resultSummary.headline}</p>
-              <span className="rounded-full border border-amber-200/20 bg-amber-100/10 px-2 py-1 text-[10px] font-semibold text-amber-100">
-                {resultSummary.amountLabel}
-              </span>
-            </div>
-            <p className="mt-1 text-[11px] text-amber-50/80">{resultSummary.detail}</p>
-          </div>
-        ) : null}
-        <p className="mt-3 text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">Pot</p>
+        <p className="text-[9px] uppercase tracking-[0.24em] text-zinc-400 sm:text-[10px]">팟</p>
         <div className="relative mx-auto mt-1 w-max">
           {potPulseId ? <span className="table-pot-pulse-ring" /> : null}
           <p
             key={potPulseId ?? "pot-static"}
-            className={`relative text-[1.9rem] font-black leading-none text-amber-100 sm:text-[2.7rem] ${
+            className={`relative text-[2rem] font-black leading-none text-amber-50 drop-shadow-[0_10px_30px_rgba(250,204,21,0.18)] sm:text-[2.8rem] ${
               potPulseId ? "table-pot-value-pulse" : ""
             }`}
           >
@@ -1177,9 +1318,9 @@ export function TournamentTable({
           </p>
         </div>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
-          <span className="rounded-full border border-white/10 bg-black/35 px-2 py-1">Main {mainPotLabel}</span>
+          <span className="social-chip px-2 py-1">메인 {mainPotLabel}</span>
           {sidePotSummary.map((pot) => (
-            <span key={pot.id} className="rounded-full border border-white/10 bg-black/35 px-2 py-1">
+            <span key={pot.id} className="social-chip px-2 py-1">
               {pot.label}{" "}
               {formatAmountDisplay({
                 amount: pot.amount,
@@ -1190,28 +1331,26 @@ export function TournamentTable({
             </span>
           ))}
         </div>
-        {showBoardSlots ? (
-          <div className="mt-3 flex justify-center gap-0.5 scale-[0.92] sm:mt-4 sm:gap-2 sm:scale-100">
-            {boardSlots.map((card, index) =>
-              card ? (
-                <div key={card} className={revealedBoardCardSet.has(card) ? "board-card-reveal" : ""}>
-                  <PlayingCard card={card} />
-                </div>
-              ) : (
-                <div
-                  key={`board-slot-${index}`}
-                  className="grid h-18 w-12 place-items-center rounded-lg border border-white/10 bg-black/20 text-xs text-white/25 sm:h-24 sm:w-16"
-                >
-                  {index + 1}
-                </div>
-              ),
-            )}
-          </div>
-        ) : (
-          <p className="mx-auto mt-4 max-w-xs rounded-lg border border-white/10 bg-black/25 px-4 py-3 text-sm text-zinc-200">
-            Waiting for ready players.
-          </p>
-        )}
+        <div className="mt-2.5 flex scale-[0.88] justify-center gap-0.5 sm:mt-3.5 sm:gap-2 sm:scale-100">
+          {boardSlots.map((card, index) =>
+            card ? (
+              <div key={card} className={revealedBoardCardSet.has(card) ? "board-card-reveal" : ""}>
+                <PlayingCard card={card} />
+              </div>
+            ) : (
+              <div
+                key={`board-slot-${index}`}
+                className="h-18 w-12 rounded-lg border border-white/10 bg-black/20 sm:h-24 sm:w-16"
+              />
+            ),
+          )}
+        </div>
+        <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[8px] font-medium uppercase tracking-[0.14em] text-zinc-400 sm:text-[9px]">
+          <span>Blinds {currentBlindsLabel}</span>
+          <span>Next {nextBlindsLabel}</span>
+          <span className={levelTimerState.timerClass}>{formatLevelCountdown(secondsRemaining)}</span>
+          {snapshot.paused ? <span className="text-amber-100">Paused</span> : null}
+        </div>
       </div>
 
       {Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
@@ -1236,10 +1375,13 @@ export function TournamentTable({
               smallBlindSeat={snapshot.smallBlindSeat}
               bigBlindSeat={snapshot.bigBlindSeat}
               currentBigBlind={snapshot.currentLevel.bigBlind}
+              tournamentStatus={snapshot.status}
               stackDisplayMode={stackDisplayMode}
-              currentGuestId={currentGuestId}
+              showStackLabel={snapshot.status !== "WAITING"}
+              currentGuestId={displayedHeroGuestId}
+              selfHandLabel={snapshot.selfHandLabel}
               selfHoleCards={snapshot.selfHoleCards}
-              revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? [] : []}
+              revealedHoleCards={seats[actualSeatIndex] ? showdownHoleCardsByGuestId.get(seats[actualSeatIndex]!.guestId) ?? EMPTY_CARDS : EMPTY_CARDS}
               actionFlash={seats[actualSeatIndex] ? seatActionFlashByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}
               dealPulseId={seats[actualSeatIndex] ? dealPulseByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}
               foldPulseId={seats[actualSeatIndex] ? foldPulseByGuestId.get(seats[actualSeatIndex]!.guestId) ?? null : null}

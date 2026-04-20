@@ -1,204 +1,262 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createDemoTournamentSnapshot } from "@/entities/tournament/model/demo-snapshot";
-import { buildTournamentSnapshotKey } from "@/entities/tournament/model/query-keys";
-import type { TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
+import { syncPublicTournamentListCache } from "@/entities/tournament/model/lobby-cache";
+import {
+  buildActiveTournamentKey,
+  buildTournamentSnapshotKey,
+  publicTournamentListQueryKey,
+} from "@/entities/tournament/model/query-keys";
+import type { ActiveTournamentSession, TournamentSnapshot, TournamentVisibility } from "@/entities/tournament/model/types";
+import { rememberCreatedRoomPassword } from "@/features/lobby/model/created-room-passwords";
 import { LobbyForm } from "@/features/lobby/ui/LobbyForm";
 import { PublicTournamentList } from "@/features/lobby/ui/PublicTournamentList";
 import {
   createTournament,
-  getActiveTournamentForGuest,
+  getActiveTournamentForCurrentGuest,
   getBackendStatus,
   getPublicWaitingTournaments,
+  isUnauthorizedError,
   joinTournament,
 } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
 
-const publicTournamentListQueryKey = ["public-tournament-list"] as const;
-
-// Converts unknown mutation failures into a short UI-safe message.
 function toErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-// Renders the landing page for live tournament creation and entry.
+function formatBackendStatus(status?: string | null) {
+  switch (status?.trim().toUpperCase()) {
+    case "UP":
+    case "OK":
+      return "정상";
+    case "DOWN":
+      return "오류";
+    case "DEGRADED":
+      return "성능 저하";
+    case "MAINTENANCE":
+      return "점검 중";
+    default:
+      return status?.trim() ? "알 수 없음" : "확인 중";
+  }
+}
+
+type ValidationError = {
+  scope: "create" | "join";
+  message: string;
+};
+
+type TableNavigationState = {
+  createdRoomPassword?: string | null;
+};
+
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { guestId, nickname, setNickname, ensureGuestSession } = useGuestSession();
+  const { nickname, setNickname, ensureGuestSession, isBootstrappingGuest } = useGuestSession();
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
-  const [createTournamentCode, setCreateTournamentCode] = useState("");
-  const [joinTournamentCode, setJoinTournamentCode] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [createRoomName, setCreateRoomName] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [validationError, setValidationError] = useState<ValidationError | null>(null);
+  const [lastJoinUsedPassword, setLastJoinUsedPassword] = useState(false);
+  const [lobbyView, setLobbyView] = useState<"create" | "join">("create");
+
   const statusQuery = useQuery({
     queryKey: ["backend-status"],
     queryFn: getBackendStatus,
     retry: false,
   });
-  const activeTournamentQuery = useQuery({
-    queryKey: ["active-tournament", guestId],
-    queryFn: () => getActiveTournamentForGuest(guestId),
-    enabled: !!guestId.trim(),
+  const activeTournamentQuery = useQuery<ActiveTournamentSession | null, Error>({
+    queryKey: buildActiveTournamentKey(),
+    queryFn: async () => {
+      try {
+        return await getActiveTournamentForCurrentGuest();
+      } catch (error) {
+        if (isUnauthorizedError(error)) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    enabled: !isBootstrappingGuest,
     retry: false,
   });
-  const publicTournamentListQuery = useQuery({
+  const waitingRoomListQuery = useQuery({
     queryKey: publicTournamentListQueryKey,
     queryFn: getPublicWaitingTournaments,
     retry: false,
     refetchInterval: 5_000,
   });
-  const previewSnapshot = createDemoTournamentSnapshot(createTournamentCode || "MVP01");
+
+  const activeTournament = activeTournamentQuery.data;
+  const waitingRooms = waitingRoomListQuery.data ?? [];
+  const liveOpenRooms = waitingRooms.filter((room) => room.visibility === "PUBLIC").length;
+  const liveLockedRooms = waitingRooms.length - liveOpenRooms;
+  const isCheckingActiveTournament =
+    !isBootstrappingGuest &&
+    activeTournamentQuery.fetchStatus === "fetching";
+
   const createMutation = useMutation({
     mutationFn: ({
       guestId,
       nickname,
+      roomName,
       visibility,
-      code,
+      password,
     }: {
       guestId: string;
       nickname: string;
+      roomName: string;
       visibility: TournamentVisibility;
-      code?: string;
-    }) => createTournament(guestId, nickname, visibility, code),
+      password?: string;
+    }) => createTournament(nickname, roomName, visibility, password),
     onSuccess: (snapshot, variables) => {
+      if (variables.visibility === "PRIVATE" && variables.password) {
+        rememberCreatedRoomPassword(snapshot.code, variables.password);
+      }
+
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
-      handleTournamentEntry(snapshot, variables.guestId);
+      handleTournamentEntry(snapshot, variables.guestId, {
+        createdRoomPassword: variables.visibility === "PRIVATE" ? variables.password ?? null : null,
+      });
     },
   });
   const joinMutation = useMutation({
-    mutationFn: ({ code, guestId, nickname }: { code: string; guestId: string; nickname: string }) =>
-      joinTournament(code, guestId, nickname),
+    mutationFn: ({
+      code,
+      guestId,
+      nickname,
+      password,
+    }: {
+      code: string;
+      guestId: string;
+      nickname: string;
+      password?: string;
+    }) => joinTournament(code, nickname, password),
     onSuccess: (snapshot, variables) => {
       void queryClient.invalidateQueries({ queryKey: publicTournamentListQueryKey });
       handleTournamentEntry(snapshot, variables.guestId);
     },
   });
-  const activeError =
-    validationError ||
-    (createMutation.error && toErrorMessage(createMutation.error, "Failed to create tournament.")) ||
-    (joinMutation.error && toErrorMessage(joinMutation.error, "Failed to join tournament.")) ||
-    null;
-  const activeTournament = activeTournamentQuery.data;
-  const isCheckingActiveTournament = !!guestId.trim() && activeTournamentQuery.isPending;
+
   const controlsDisabled =
-    !!activeTournament || isCheckingActiveTournament || createMutation.isPending || joinMutation.isPending;
+    !!activeTournament ||
+    isCheckingActiveTournament ||
+    createMutation.isPending ||
+    joinMutation.isPending;
   const busyLabel = createMutation.isPending
-    ? "Creating tournament..."
+    ? "테이블을 만드는 중..."
     : joinMutation.isPending
-      ? "Joining tournament..."
+      ? "테이블에 참가하는 중..."
       : isCheckingActiveTournament
-        ? "Checking your current tournament..."
-      : null;
-  const publicListError =
-    publicTournamentListQuery.error && !publicTournamentListQuery.isFetching
-      ? toErrorMessage(publicTournamentListQuery.error, "Failed to load public rooms.")
-      : null;
+        ? "이미 활성 테이블이 있는지 확인하는 중..."
+        : null;
+  const createError =
+    (validationError?.scope === "create" ? validationError.message : null) ||
+    (createMutation.error && toErrorMessage(createMutation.error, "테이블 생성에 실패했습니다.")) ||
+    null;
+  const joinError =
+    (validationError?.scope === "join" ? validationError.message : null) ||
+    (joinMutation.error && toErrorMessage(joinMutation.error, "테이블 참가에 실패했습니다.")) ||
+    null;
+  const passwordJoinError = lastJoinUsedPassword ? joinError : null;
+  const waitingListError =
+    (waitingRoomListQuery.error && !waitingRoomListQuery.isFetching
+      ? toErrorMessage(waitingRoomListQuery.error, "대기실 목록을 불러오지 못했습니다.")
+      : null) || (passwordJoinError ? null : joinError);
 
-  // Seeds the destination snapshot cache before navigation so the table paints immediately.
-  function handleTournamentEntry(snapshot: TournamentSnapshot, viewerGuestId: string) {
+  function clearCreateErrors() {
+    if (validationError?.scope === "create") {
+      setValidationError(null);
+    }
+    if (createMutation.error) {
+      createMutation.reset();
+    }
+  }
+
+  function clearJoinErrors() {
+    if (validationError?.scope === "join") {
+      setValidationError(null);
+    }
+    if (joinMutation.error) {
+      joinMutation.reset();
+    }
+    setLastJoinUsedPassword(false);
+  }
+
+  function handleTournamentEntry(
+    snapshot: TournamentSnapshot,
+    viewerGuestId: string,
+    navigationState?: TableNavigationState,
+  ) {
     queryClient.setQueryData(buildTournamentSnapshotKey(snapshot.code, viewerGuestId), snapshot);
-    navigate(`/tournaments/${snapshot.code}`);
+    queryClient.setQueryData(buildActiveTournamentKey(), {
+      guestId: viewerGuestId,
+      tournamentCode: snapshot.code,
+      roomName: snapshot.roomName,
+      status: snapshot.status,
+    });
+    syncPublicTournamentListCache(queryClient, snapshot);
+    navigate(`/tournaments/${snapshot.code}`, { state: navigationState });
   }
 
-  function handleNicknameChange(value: string) {
-    setValidationError(null);
-    setNickname(value);
-  }
+  async function ensureAvailableGuest(nicknameRequiredMessage: string) {
+    if (isCheckingActiveTournament) {
+      throw new Error("이미 다른 세션이 활성화되어 있는지 확인하는 중입니다.");
+    }
+    if (activeTournament) {
+      throw new Error("이미 활성 토너먼트 세션이 있습니다.");
+    }
+    if (!nickname.trim()) {
+      throw new Error(nicknameRequiredMessage);
+    }
 
-  function handleTournamentCodeChange(value: string) {
-    setValidationError(null);
-    setCreateTournamentCode(value);
-  }
-
-  function handleJoinTournamentCodeChange(value: string) {
-    setValidationError(null);
-    setJoinTournamentCode(value);
+    return ensureGuestSession();
   }
 
   async function handleCreate() {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
+    clearCreateErrors();
+    clearJoinErrors();
+
+    if (!createRoomName.trim()) {
+      setValidationError({ scope: "create", message: "테이블을 만들기 전에 방 이름을 입력하세요." });
       return;
     }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before creating a tournament.");
+    if (roomVisibility === "PRIVATE" && !createPassword.trim()) {
+      setValidationError({ scope: "create", message: "잠금 테이블에는 비밀번호가 필요합니다." });
       return;
     }
 
-    setValidationError(null);
     try {
-      const resolvedGuestId = await ensureGuestSession();
+      const resolvedGuestId = await ensureAvailableGuest("테이블을 만들기 전에 닉네임을 입력하세요.");
       createMutation.mutate({
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
+        roomName: createRoomName.trim(),
         visibility: roomVisibility,
-        code: createTournamentCode.trim() ? createTournamentCode.trim().toUpperCase() : undefined,
+        password: roomVisibility === "PRIVATE" ? createPassword.trim() : undefined,
       });
     } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+      setValidationError({ scope: "create", message: toErrorMessage(error, "테이블 생성에 실패했습니다.") });
     }
   }
 
-  async function handleJoin() {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
-      return;
-    }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before joining a tournament.");
-      return;
-    }
-    if (!joinTournamentCode.trim()) {
-      setValidationError("Enter a tournament code before joining.");
-      return;
-    }
+  async function handleJoinTable(code: string, password?: string) {
+    clearJoinErrors();
+    clearCreateErrors();
+    setLastJoinUsedPassword(typeof password === "string");
 
-    setValidationError(null);
     try {
-      const resolvedGuestId = await ensureGuestSession();
-      joinMutation.mutate({
-        code: joinTournamentCode.trim().toUpperCase(),
-        guestId: resolvedGuestId,
-        nickname: nickname.trim(),
-      });
-    } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
-    }
-  }
-
-  async function handleJoinPublicRoom(code: string) {
-    if (isCheckingActiveTournament) {
-      setValidationError("Checking whether this guest is already seated in another tournament.");
-      return;
-    }
-    if (activeTournament) {
-      setValidationError(`You are already participating in tournament ${activeTournament.tournamentCode}.`);
-      return;
-    }
-    if (!nickname.trim()) {
-      setValidationError("Enter a nickname before joining a tournament.");
-      return;
-    }
-
-    setValidationError(null);
-    try {
-      const resolvedGuestId = await ensureGuestSession();
+      const resolvedGuestId = await ensureAvailableGuest("테이블에 참가하기 전에 닉네임을 입력하세요.");
       joinMutation.mutate({
         code,
         guestId: resolvedGuestId,
         nickname: nickname.trim(),
+        password,
       });
     } catch (error) {
-      setValidationError(toErrorMessage(error, "Failed to create guest session."));
+      setValidationError({ scope: "join", message: toErrorMessage(error, "테이블 참가에 실패했습니다.") });
     }
   }
 
@@ -207,68 +265,120 @@ export function HomePage() {
       return;
     }
 
-    setValidationError(null);
+    clearCreateErrors();
+    clearJoinErrors();
     navigate(`/tournaments/${activeTournament.tournamentCode}`);
   }
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-      <div className="space-y-6">
-        <div className="rounded-[2rem] border border-white/10 bg-black/20 p-8 shadow-2xl shadow-black/20">
-          <p className="text-sm uppercase tracking-[0.3em] text-emerald-300/70">Tournament MVP</p>
-          <h2 className="mt-3 max-w-xl text-4xl font-semibold leading-tight text-white">
-            Public list join for open rooms, private code entry for direct invites.
-          </h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-300">
-            The current build keeps the existing ready, owner start, snapshot, and reconnect flow while making room
-            creation and entry clearer on the home screen.
-          </p>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <MetricCard label="Backend API" value={statusQuery.data?.status ?? "OFFLINE"} />
-            <MetricCard label="Blind Level" value={`L${previewSnapshot.currentLevel.level}`} />
-            <MetricCard label="Seats" value={`${previewSnapshot.players.length} / 6`} />
+    <section className="space-y-6">
+      <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
+        <div className="absolute -right-10 top-6 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
+        <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
+        <div className="relative space-y-5">
+          <div className="space-y-5">
+            <h2 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-white sm:text-5xl">
+              빠르게 방을 만들고, 바로 참가하세요.
+            </h2>
+            <p className="max-w-xl text-base leading-7 text-[color:var(--app-text-dim)]">
+              공개 방은 바로 들어가고, 잠금 방은 비밀번호로 들어갑니다. 친구에게는 방 이름과 필요한 정보만 공유하면 됩니다.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-50">
+                서비스 상태: {formatBackendStatus(statusQuery.data?.status)}
+              </span>
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+                공개 방 {liveOpenRooms}
+              </span>
+              <span className="social-chip px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
+                잠금 방 {liveLockedRooms}
+              </span>
+            </div>
           </div>
         </div>
-
-        <PublicTournamentList
-          rooms={publicTournamentListQuery.data ?? []}
-          disabled={controlsDisabled}
-          loading={publicTournamentListQuery.isPending}
-          errorMessage={publicListError}
-          onJoin={handleJoinPublicRoom}
-        />
       </div>
 
-      <LobbyForm
-        guestId={guestId}
-        nickname={nickname}
-        createTournamentCode={createTournamentCode}
-        joinTournamentCode={joinTournamentCode}
-        roomVisibility={roomVisibility}
-        activeTournamentCode={activeTournament?.tournamentCode ?? null}
-        activeTournamentStatus={activeTournament?.status ?? null}
-        createDisabled={controlsDisabled}
-        joinDisabled={controlsDisabled}
-        busyLabel={busyLabel}
-        errorMessage={activeError}
-        onNicknameChange={handleNicknameChange}
-        onCreateTournamentCodeChange={handleTournamentCodeChange}
-        onJoinTournamentCodeChange={handleJoinTournamentCodeChange}
-        onRoomVisibilityChange={setRoomVisibility}
-        onResumeTournament={handleResumeTournament}
-        onCreate={handleCreate}
-        onJoin={handleJoin}
-      />
-    </section>
-  );
-}
+      <div className="social-surface rounded-[1.7rem] p-2 shadow-xl shadow-black/20">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-testid="lobby-view-create"
+            onClick={() => setLobbyView("create")}
+            className={`rounded-[1.2rem] px-4 py-3 text-sm font-semibold transition ${
+              lobbyView === "create"
+                ? "bg-[linear-gradient(135deg,_rgba(103,232,249,0.22),_rgba(250,204,21,0.12))] text-white shadow-lg shadow-cyan-950/15"
+                : "bg-white/5 text-zinc-300 hover:bg-white/10"
+            }`}
+          >
+            방 만들기
+          </button>
+          <button
+            type="button"
+            data-testid="lobby-view-join"
+            onClick={() => setLobbyView("join")}
+            className={`rounded-[1.2rem] px-4 py-3 text-sm font-semibold transition ${
+              lobbyView === "join"
+                ? "bg-[linear-gradient(135deg,_rgba(103,232,249,0.22),_rgba(250,204,21,0.12))] text-white shadow-lg shadow-cyan-950/15"
+                : "bg-white/5 text-zinc-300 hover:bg-white/10"
+            }`}
+          >
+            방 참가
+          </button>
+        </div>
+        <p className="px-2 pt-3 text-sm text-zinc-400">
+          {lobbyView === "create"
+            ? "새 방을 만드는 흐름만 먼저 보여 줍니다."
+            : "대기 중인 방 목록만 먼저 보여 줍니다."}
+        </p>
+      </div>
 
-// Displays one landing-page metric for the current prototype state.
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-      <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">{label}</p>
-      <p className="mt-3 text-lg font-medium text-white">{value}</p>
-    </div>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className={lobbyView === "join" ? "" : "hidden xl:block"}>
+          <PublicTournamentList
+            rooms={waitingRooms}
+            disabled={controlsDisabled}
+            loading={waitingRoomListQuery.isPending}
+            errorMessage={waitingListError}
+            passwordErrorMessage={passwordJoinError}
+            onPasswordInteraction={clearJoinErrors}
+            onJoin={handleJoinTable}
+          />
+        </div>
+
+        <div className={lobbyView === "create" ? "" : "hidden xl:block"}>
+          <LobbyForm
+            nickname={nickname}
+            createRoomName={createRoomName}
+            createPassword={createPassword}
+            roomVisibility={roomVisibility}
+            activeTournamentRoomName={activeTournament?.roomName ?? null}
+            activeTournamentStatus={activeTournament?.status ?? null}
+            createDisabled={controlsDisabled}
+            busyLabel={busyLabel}
+            errorMessage={createError}
+            onNicknameChange={(value) => {
+              clearCreateErrors();
+              clearJoinErrors();
+              setNickname(value);
+            }}
+            onCreateRoomNameChange={(value) => {
+              clearCreateErrors();
+              setCreateRoomName(value);
+            }}
+            onCreatePasswordChange={(value) => {
+              clearCreateErrors();
+              setCreatePassword(value);
+            }}
+            onRoomVisibilityChange={(value) => {
+              clearCreateErrors();
+              setRoomVisibility(value);
+            }}
+            onResumeTournament={handleResumeTournament}
+            onCreate={handleCreate}
+          />
+        </div>
+      </div>
+    </section>
   );
 }

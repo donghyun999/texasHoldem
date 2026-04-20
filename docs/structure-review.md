@@ -24,13 +24,11 @@
 
 ## Current runtime boundary
 
-- Tournament mutations are serialized per in-memory `TournamentState` with JVM-local synchronization in `TournamentService`
-- This is sufficient for the current single backend instance MVP shape
-- It is not a multi-instance lock
-- Before running multiple backend instances, add a table-level command serialization strategy:
-  - PostgreSQL row/advisory lock around a tournament command
-  - or a single-consumer command queue keyed by tournament code
-  - or another shared lock that works across instances
+- Tournament mutations still synchronize on the in-memory `TournamentState` inside `TournamentService`
+- The service now also reloads the latest persisted aggregate under a PostgreSQL advisory lock before applying one code-scoped command or timer transition
+- This covers the main stale-cache overwrite risk when more than one backend instance handles the same table
+- Remaining caveat:
+  - create / capacity / room-name checks still happen outside a global shared lock because they are not scoped to one known tournament code yet
 - Keep the mutation order as: command validation, state change, persistence, snapshot/event creation, topic publish
 
 ## Defer until after MVP

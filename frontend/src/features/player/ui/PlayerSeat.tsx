@@ -1,4 +1,5 @@
-import type { TournamentPlayer } from "@/entities/tournament/model/types";
+import { memo } from "react";
+import type { TournamentPlayer, TournamentStatus } from "@/entities/tournament/model/types";
 import { formatStackDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
 
@@ -10,8 +11,11 @@ type PlayerSeatProps = {
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
   currentBigBlind: number;
+  tournamentStatus?: TournamentStatus;
   stackDisplayMode: StackDisplayMode;
+  showStackLabel?: boolean;
   currentGuestId?: string;
+  selfHandLabel?: string | null;
   selfHoleCards?: string[];
   revealedHoleCards?: string[];
   showActionTimer?: boolean;
@@ -67,11 +71,11 @@ function getSeatPresenceTone(player: TournamentPlayer) {
 
 function getSeatBadgeTone(badge: string) {
   switch (badge) {
-    case "YOU":
+    case "ME":
       return "border-cyan-200/35 bg-cyan-300/15 text-cyan-50";
     case "AFK":
       return "border-rose-200/30 bg-rose-300/15 text-rose-50";
-    case "OWNER":
+    case "HOST":
       return "border-white/15 bg-white/10 text-white";
     case "SB":
       return "border-sky-300/25 bg-sky-300/15 text-sky-50";
@@ -84,7 +88,7 @@ function getSeatBadgeTone(badge: string) {
 
 function getStatusBadge(player: TournamentPlayer) {
   if (!player.connected) {
-    return "OFF";
+    return "Off";
   }
 
   if (player.afk) {
@@ -95,10 +99,35 @@ function getStatusBadge(player: TournamentPlayer) {
     case "ALL_IN":
       return "AI";
     case "BUSTED_OUT":
-      return "OUT";
+      return "Out";
     default:
       return null;
   }
+}
+
+function getWaitingStatus(player: TournamentPlayer, tournamentStatus?: TournamentStatus) {
+  if (tournamentStatus !== "WAITING") {
+    return null;
+  }
+
+  if (!player.connected) {
+    return {
+      label: "Offline",
+      tone: "border-cyan-200/25 bg-cyan-300/10 text-cyan-50",
+    };
+  }
+
+  if (player.status === "READY") {
+    return {
+      label: "Ready",
+      tone: "border-emerald-200/25 bg-emerald-300/10 text-emerald-50",
+    };
+  }
+
+  return {
+    label: "Waiting",
+    tone: "border-white/10 bg-black/35 text-zinc-200",
+  };
 }
 
 function DealerButton({ hero = false }: { hero?: boolean }) {
@@ -171,13 +200,22 @@ function SeatCardFan({
   muted?: boolean;
 }) {
   const normalizedCards = cards.length === 2 ? cards : ["XX", "XX"];
-  const frameClass = hero ? "h-16 w-[4.5rem] sm:h-22 sm:w-24" : "h-11 w-12 sm:h-15 sm:w-16";
+  const faceUp = normalizedCards.some((card) => card !== "XX");
+  const frameClass = hero
+    ? "h-16 w-[4.5rem] sm:h-22 sm:w-24"
+    : faceUp
+      ? "h-11 w-[3.85rem] sm:h-15 sm:w-[5.1rem]"
+      : "h-11 w-12 sm:h-15 sm:w-16";
   const leftClass = hero
     ? "absolute left-0 top-1 rotate-[-9deg] sm:left-1 sm:top-1"
-    : "absolute left-0 top-0.5 rotate-[-11deg]";
+    : faceUp
+      ? "absolute left-1/2 top-0.5 -translate-x-[72%] rotate-[-7deg] sm:-translate-x-[76%] sm:rotate-[-8deg]"
+      : "absolute left-0 top-0.5 rotate-[-11deg]";
   const rightClass = hero
     ? "absolute right-0 top-1 rotate-[9deg] sm:right-1 sm:top-1"
-    : "absolute right-0 top-0.5 rotate-[11deg]";
+    : faceUp
+      ? "absolute left-1/2 top-0.5 -translate-x-[28%] rotate-[7deg] sm:-translate-x-[24%] sm:rotate-[8deg]"
+      : "absolute right-0 top-0.5 rotate-[11deg]";
 
   return (
     <div className={`relative ${frameClass} ${muted ? "opacity-55" : ""}`}>
@@ -197,12 +235,14 @@ function CompactMeta({
   metaTone,
   hero = false,
   highlight = false,
+  hideMetaOnMobile = false,
 }: {
   nickname: string;
   metaLabel: string;
   metaTone: string;
   hero?: boolean;
   highlight?: boolean;
+  hideMetaOnMobile?: boolean;
 }) {
   return (
     <div
@@ -216,15 +256,120 @@ function CompactMeta({
       <p className={`truncate font-semibold leading-none ${hero ? "text-[10px] sm:text-[11px]" : "text-[9px] sm:text-[10px]"} ${metaTone}`}>
         {nickname}
       </p>
-      <p className={`mt-0.5 leading-none text-zinc-100/90 ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}>
-        {metaLabel}
-      </p>
+      {metaLabel ? (
+        <p
+          className={`mt-0.5 leading-none text-zinc-100/90 ${
+            hideMetaOnMobile ? "hidden sm:block" : ""
+          } ${hero ? "text-[10px] sm:text-[11px]" : "text-[8px] sm:text-[9px]"}`}
+        >
+          {metaLabel}
+        </p>
+      ) : null}
     </div>
   );
 }
 
+function haveSameCards(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((card, index) => card === right[index]);
+}
+
+function haveSamePlayer(left?: TournamentPlayer, right?: TournamentPlayer) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.guestId === right.guestId &&
+    left.nickname === right.nickname &&
+    left.seatIndex === right.seatIndex &&
+    left.status === right.status &&
+    left.stack === right.stack &&
+    left.roundContribution === right.roundContribution &&
+    left.owner === right.owner &&
+    left.connected === right.connected &&
+    left.afk === right.afk &&
+    left.participating === right.participating &&
+    left.acting === right.acting
+  );
+}
+
+function toHandLabelKorean(label: string | null | undefined) {
+  switch (label) {
+    case "High Card":
+      return "하이카드";
+    case "One Pair":
+      return "원페어";
+    case "Two Pair":
+      return "투페어";
+    case "Three of a Kind":
+      return "트리플";
+    case "Straight":
+      return "스트레이트";
+    case "Flush":
+      return "플러시";
+    case "Full House":
+      return "풀하우스";
+    case "Four of a Kind":
+      return "포카드";
+    case "Straight Flush":
+      return "스트레이트 플러시";
+    default:
+      return null;
+  }
+}
+
+function haveSameActionFlash(
+  left: PlayerSeatProps["actionFlash"],
+  right: PlayerSeatProps["actionFlash"],
+) {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.id === right.id && left.label === right.label && left.tone === right.tone;
+}
+
+function areEqualPlayerSeatProps(left: PlayerSeatProps, right: PlayerSeatProps) {
+  return (
+    haveSamePlayer(left.player, right.player) &&
+    left.seatIndex === right.seatIndex &&
+    left.tablePositionIndex === right.tablePositionIndex &&
+    left.dealerSeat === right.dealerSeat &&
+    left.smallBlindSeat === right.smallBlindSeat &&
+    left.bigBlindSeat === right.bigBlindSeat &&
+    left.currentBigBlind === right.currentBigBlind &&
+    left.stackDisplayMode === right.stackDisplayMode &&
+    left.showStackLabel === right.showStackLabel &&
+    left.currentGuestId === right.currentGuestId &&
+    left.selfHandLabel === right.selfHandLabel &&
+    haveSameCards(left.selfHoleCards ?? [], right.selfHoleCards ?? []) &&
+    haveSameCards(left.revealedHoleCards ?? [], right.revealedHoleCards ?? []) &&
+    left.showActionTimer === right.showActionTimer &&
+    left.actionTimerProgress === right.actionTimerProgress &&
+    haveSameActionFlash(left.actionFlash, right.actionFlash) &&
+    left.dealPulseId === right.dealPulseId &&
+    left.foldPulseId === right.foldPulseId &&
+    left.actorFocusPulseId === right.actorFocusPulseId &&
+    left.winner === right.winner &&
+    left.winnerPulseId === right.winnerPulseId &&
+    left.className === right.className
+  );
+}
+
 // Renders either an occupied seat or an empty placeholder in the ring.
-export function PlayerSeat({
+function PlayerSeatView({
   player,
   seatIndex,
   tablePositionIndex,
@@ -232,8 +377,11 @@ export function PlayerSeat({
   smallBlindSeat,
   bigBlindSeat,
   currentBigBlind,
+  tournamentStatus,
   stackDisplayMode,
+  showStackLabel = true,
   currentGuestId,
+  selfHandLabel = null,
   selfHoleCards = [],
   revealedHoleCards = [],
   showActionTimer = false,
@@ -261,8 +409,8 @@ export function PlayerSeat({
   }
 
   const seatBadges = [
-    player.guestId === currentGuestId ? "YOU" : null,
-    player.owner ? "OWNER" : null,
+    player.guestId === currentGuestId ? "ME" : null,
+    player.owner ? "HOST" : null,
     smallBlindSeat === player.seatIndex ? "SB" : null,
     bigBlindSeat === player.seatIndex ? "BB" : null,
   ].filter(isSeatBadge);
@@ -272,16 +420,20 @@ export function PlayerSeat({
   const showVisibleHoleCards = visibleHoleCards.length === 2;
   const isDealerSeat = dealerSeat === player.seatIndex;
   const statusBadge = getStatusBadge(player);
+  const waitingStatus = getWaitingStatus(player, tournamentStatus);
   const metaTone = getSeatMetaTone(player);
   const presenceTone = getSeatPresenceTone(player);
-  const compactBadges = seatBadges.filter((badge) => badge !== "OWNER");
-  const metaLabel = formatStackDisplay({
-    stack: player.stack,
-    bigBlind: currentBigBlind,
-    mode: stackDisplayMode,
-    includeUnit: stackDisplayMode === "bb" || isHeroSeat,
-  });
+  const compactBadges = seatBadges.filter((badge) => badge !== "HOST");
+  const metaLabel = showStackLabel
+    ? formatStackDisplay({
+        stack: player.stack,
+        bigBlind: currentBigBlind,
+        mode: stackDisplayMode,
+        includeUnit: stackDisplayMode === "bb" || isHeroSeat,
+      })
+    : "";
   const cards = showVisibleHoleCards ? visibleHoleCards : ["XX", "XX"];
+  const displayedHandLabel = isCurrentPlayer ? selfHandLabel : null;
   const shouldMuteCards = !player.connected || player.status === "BUSTED_OUT";
   const actingTone = player.acting ? "ring-1 ring-amber-300/40 shadow-amber-950/35" : "";
   const actionTimerTone = getSeatActionTimerTone(actionTimerProgress);
@@ -291,12 +443,17 @@ export function PlayerSeat({
   if (!isHeroSeat) {
     return (
       <div
-        className={`relative flex w-[4.25rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
+        data-testid={`seat-${seatIndex}`}
+        data-seat-index={seatIndex}
+        data-table-position-index={tablePositionIndex}
+        data-guest-id={player.guestId}
+        data-self-seat={isSelfSeat ? "true" : "false"}
+        className={`relative flex w-[3.9rem] min-w-0 flex-col items-center text-center sm:w-20 ${presenceTone} ${className}`}
       >
         {actionFlash ? (
           <div
             key={actionFlash.id}
-            className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[4.25rem] -translate-x-1/2 -translate-y-[116%] truncate whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-[5.5rem] sm:px-2 sm:py-1 sm:text-[8px] ${getSeatActionFlashTone(actionFlash.tone)}`}
+            className={`seat-action-flash pointer-events-none absolute left-1/2 top-0 z-30 max-w-[3.9rem] -translate-x-1/2 -translate-y-[116%] truncate whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-[0.14em] leading-none shadow-lg shadow-black/30 sm:max-w-[5.5rem] sm:px-2 sm:py-1 sm:text-[8px] ${getSeatActionFlashTone(actionFlash.tone)}`}
           >
             {actionFlash.label}
           </div>
@@ -316,15 +473,20 @@ export function PlayerSeat({
             </div>
           </div>
         </div>
-        <div className="mt-1 flex min-h-4 flex-wrap items-center justify-center gap-1">
+        <div className="mt-0.5 flex min-h-3.5 flex-wrap items-center justify-center gap-0.5 sm:mt-1 sm:min-h-4 sm:gap-1">
           {compactBadges.map((badge) => (
             <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
           ))}
           {statusBadge ? <SeatTag label={statusBadge} /> : null}
         </div>
-        <div className="mt-1 w-full">
-          <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} />
+        <div className="mt-0.5 w-full sm:mt-1">
+          <CompactMeta nickname={player.nickname} metaLabel={metaLabel} metaTone={metaTone} hideMetaOnMobile />
         </div>
+        {waitingStatus ? (
+          <div className="mt-1">
+            <SeatTag label={waitingStatus.label} tone={waitingStatus.tone} />
+          </div>
+        ) : null}
         {showActionTimer ? (
           <div className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full">
             <div className="h-1 overflow-hidden rounded-full bg-white/10">
@@ -340,7 +502,14 @@ export function PlayerSeat({
   }
 
   return (
-    <div className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}>
+    <div
+      data-testid="hero-seat-anchor"
+      data-seat-index={seatIndex}
+      data-table-position-index={tablePositionIndex}
+      data-guest-id={player.guestId}
+      data-self-seat={isSelfSeat ? "true" : "false"}
+      className={`relative flex w-32 min-w-0 flex-col items-center text-center sm:w-40 ${presenceTone} ${className}`}
+    >
       {actionFlash ? (
         <div
           key={actionFlash.id}
@@ -354,7 +523,7 @@ export function PlayerSeat({
           <SeatTag key={badge} label={badge} tone={getSeatBadgeTone(badge)} />
         ))}
         {statusBadge ? <SeatTag label={statusBadge} /> : null}
-        {player.acting ? <SeatTag label="TURN" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
+        {player.acting ? <SeatTag label="Acting" tone="border-amber-300/25 bg-amber-300/15 text-amber-50" /> : null}
       </div>
       <div className="mb-1.5 w-full max-w-[9rem] sm:max-w-[10rem]">
         <CompactMeta
@@ -365,6 +534,11 @@ export function PlayerSeat({
           highlight={isSelfSeat}
         />
       </div>
+      {waitingStatus ? (
+        <div className="mb-1">
+          <SeatTag label={waitingStatus.label} tone={waitingStatus.tone} />
+        </div>
+      ) : null}
       <div className="relative">
         {isDealerSeat ? <DealerButton hero /> : null}
         {player.acting ? (
@@ -384,6 +558,15 @@ export function PlayerSeat({
           </div>
         </div>
       </div>
+      {displayedHandLabel ? (
+        <div className="mt-1.5">
+          <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-[10px] font-semibold text-cyan-50 shadow-md shadow-black/20 sm:text-[11px]">
+            {displayedHandLabel}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+export const PlayerSeat = memo(PlayerSeatView, areEqualPlayerSeatProps);

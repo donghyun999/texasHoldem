@@ -51,6 +51,9 @@ backend/build/
 ### Logs ###
 *.log
 
+### Test Outputs ###
+test-results/
+
 ### Temp ###
 .tmp_docx/
 .tmp_docx.zip
