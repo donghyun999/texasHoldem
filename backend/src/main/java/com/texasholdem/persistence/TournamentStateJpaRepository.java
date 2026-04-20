@@ -35,6 +35,7 @@ public interface TournamentStateJpaRepository extends JpaRepository<TournamentSt
             """, nativeQuery = true)
     String findActiveTournamentCodeByRoomName(@Param("roomName") String roomName);
 
+    // Counts distinct guest ids across unfinished persisted tournaments.
     @Query(value = """
             select coalesce(count(distinct player ->> 'guestId'), 0::bigint)
             from tournament_state state
