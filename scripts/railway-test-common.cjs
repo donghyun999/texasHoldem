@@ -19,6 +19,57 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function clampSeatCount(value, name, minimum, maximum) {
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}. Received: ${value}`);
+  }
+
+  return value;
+}
+
+function readSeatCountEnv(name, fallback, options = {}) {
+  const minimum = options.minimum ?? 2;
+  const maximum = options.maximum ?? 9;
+  const parsed = readNumberEnv(name, fallback);
+  return clampSeatCount(parsed, name, minimum, maximum);
+}
+
+function expandSeatCountToken(token, minimum, maximum) {
+  const trimmed = String(token || "").trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const rangeMatch = /^(\d+)\s*(?:-|~|\.\.)\s*(\d+)$/.exec(trimmed);
+  if (!rangeMatch) {
+    return [clampSeatCount(Number(trimmed), "seat count token", minimum, maximum)];
+  }
+
+  const start = clampSeatCount(Number(rangeMatch[1]), "seat count range start", minimum, maximum);
+  const end = clampSeatCount(Number(rangeMatch[2]), "seat count range end", minimum, maximum);
+  const direction = start <= end ? 1 : -1;
+  const values = [];
+  for (let current = start; direction > 0 ? current <= end : current >= end; current += direction) {
+    values.push(current);
+  }
+  return values;
+}
+
+function readSeatCountsEnv(name, fallback, options = {}) {
+  const minimum = options.minimum ?? 2;
+  const maximum = options.maximum ?? 9;
+  const raw = process.env[name] == null || process.env[name] === "" ? fallback : process.env[name];
+  const values = String(raw)
+    .split(",")
+    .flatMap((token) => expandSeatCountToken(token, minimum, maximum));
+
+  if (values.length === 0) {
+    throw new Error(`${name} must include at least one seat count between ${minimum} and ${maximum}.`);
+  }
+
+  return [...new Set(values)];
+}
+
 function ensureDir(targetDir) {
   fs.mkdirSync(targetDir, { recursive: true });
 }
@@ -82,6 +133,8 @@ module.exports = {
   DEFAULT_FRONTEND_URL,
   DEFAULT_BACKEND_URL,
   readNumberEnv,
+  readSeatCountEnv,
+  readSeatCountsEnv,
   sleep,
   ensureDir,
   timestampId,

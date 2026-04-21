@@ -54,7 +54,7 @@ public final class TournamentStateAccess {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 좌석의 플레이어를 찾을 수 없습니다."));
     }
 
-    // Finds the lowest unused seat index in the six-seat layout.
+    // Finds the lowest unused seat index inside the configured table layout.
     public int nextSeatIndex(List<TournamentPlayerState> players) {
         for (var seat = 0; seat < rules.maxSeats(); seat++) {
             var currentSeat = seat;

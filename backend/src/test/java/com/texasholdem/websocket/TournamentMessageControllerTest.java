@@ -24,7 +24,8 @@ class TournamentMessageControllerTest {
 
     private final TournamentService tournamentService = mock(TournamentService.class);
     private final TournamentTopicPublisher topicPublisher = mock(TournamentTopicPublisher.class);
-    private final GuestSessionResolver guestSessionResolver = new GuestSessionResolver();
+    private final GuestSessionResolver guestSessionResolver =
+            new GuestSessionResolver(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
     private final TournamentMessageController controller =
             new TournamentMessageController(tournamentService, topicPublisher, guestSessionResolver);
 

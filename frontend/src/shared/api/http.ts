@@ -6,10 +6,12 @@ import type {
   TournamentVisibility,
 } from "@/entities/tournament/model/types";
 import { API_BASE_URL } from "@/shared/config/runtime";
+import { readPersistedGuestToken } from "@/shared/model/guest-session-storage";
 
 export type GuestSession = {
   guestId: string;
   nickname: string;
+  guestToken: string;
 };
 
 export type BackendStatus = {
@@ -40,6 +42,15 @@ export function isUnauthorizedError(error: unknown): error is HttpError {
   return typeof error === "object" && error !== null && "status" in error && (error as HttpError).status === 401;
 }
 
+function buildGuestAuthHeaders(): Record<string, string> {
+  const guestToken = readPersistedGuestToken();
+  const headers: Record<string, string> = {};
+  if (guestToken) {
+    headers.Authorization = `Bearer ${guestToken}`;
+  }
+  return headers;
+}
+
 // Extracts the most useful server-side failure message for the UI.
 async function buildError(response: Response, path: string) {
   try {
@@ -64,6 +75,7 @@ async function buildError(response: Response, path: string) {
 // Reads a typed API payload and normalizes transport failures into one error path.
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: buildGuestAuthHeaders(),
     credentials: "include",
   });
 
@@ -86,6 +98,7 @@ async function postJson<TRequest, TResponse>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...buildGuestAuthHeaders(),
       ...(initHeaders ?? {}),
     },
     body: JSON.stringify(body),

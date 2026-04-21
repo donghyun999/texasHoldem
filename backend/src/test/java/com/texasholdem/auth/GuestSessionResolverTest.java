@@ -16,13 +16,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GuestSessionResolverTest {
 
-    private final GuestSessionResolver resolver = new GuestSessionResolver();
+    private final GuestTokenService guestTokenService = new GuestTokenService("test-guest-token-secret");
+    private final GuestSessionResolver resolver = new GuestSessionResolver(guestTokenService);
 
     @Test
     void establishesAndResolvesGuestSession() {
         var request = new MockHttpServletRequest();
 
-        resolver.establishGuestSession(request, new GuestSession("guest-1", "Neo"));
+        resolver.establishGuestSession(request, new GuestSession("guest-1", "Neo", guestTokenService.issueToken("guest-1")));
 
         assertThat(resolver.requireGuestId(request)).isEqualTo("guest-1");
         assertThat(resolveAttribute(request, GuestSessionAttributes.GUEST_NICKNAME)).isEqualTo("Neo");
@@ -48,6 +49,14 @@ class GuestSessionResolverTest {
     }
 
     @Test
+    void resolvesHttpIdentityFromBearerToken() {
+        var request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + guestTokenService.issueToken("guest-token"));
+
+        assertThat(resolver.requireGuestId(request)).isEqualTo("guest-token");
+    }
+
+    @Test
     void resolvesGuestIdFromWebsocketSessionAttributes() {
         var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
         accessor.setSessionAttributes(new HashMap<>(java.util.Map.of(
@@ -67,6 +76,14 @@ class GuestSessionResolverTest {
         assertThatThrownBy(() -> resolver.requireGuestId(accessor))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Guest session is required.");
+    }
+
+    @Test
+    void resolvesGuestIdFromWebsocketBearerHeader() {
+        var accessor = SimpMessageHeaderAccessor.create(SimpMessageType.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer " + guestTokenService.issueToken("guest-ws-token"));
+
+        assertThat(resolver.requireGuestId(accessor)).isEqualTo("guest-ws-token");
     }
 
     private MockHttpServletRequest requestWithSession(String guestId, String nickname) {

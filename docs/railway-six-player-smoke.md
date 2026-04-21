@@ -1,53 +1,65 @@
-# Railway 6-Player Smoke Test
+# Railway 좌석 Smoke 메모
 
-## Scope
+## 현재 기준
 
-- Date: 2026-04-10 KST
-- Frontend URL: `https://texasholdemfrontend-production.up.railway.app`
-- Backend URL inferred from frontend runtime: `https://texasholdembackend-production.up.railway.app`
-- Purpose: verify the deployed frontend with six independent browser sessions, focusing on the reported seat 5 hole-card visibility / wrong-card issue.
-- Constraint: no product code fixes were made during this verification pass.
+- 기준일: `2026-04-21 KST`
+- 목적: Railway 배포 환경에서 좌석 수별 create / join / ready / start / table UI 기본 흐름을 빠르게 확인한다.
+- 현재 권장 진입점
+  - `scripts/railway-seat-smoke.cjs`
+  - `scripts/railway-seat-continuous.cjs`
 
-## Method
+## 입력 규칙
 
-- Used six isolated Chromium browser contexts against the deployed frontend URL.
-- Created one tournament from player 1 and joined players 2-6 through the live UI.
-- Used UI controls for `Mark Ready`, `Start Tournament`, and in-hand action buttons.
-- Compared each browser's visible `YOU` seat against the backend personalized snapshot returned by `GET /api/v1/tournaments/{code}?guestId=...`.
-- Treated a visible `HOLD` label inside the `YOU` seat as a self-card rendering failure.
-- Recorded browser console warnings/errors and page errors.
+- `PLAYER_COUNT`는 단일 값과 range를 모두 지원한다.
+  - 예: `2`
+  - 예: `2-9`
+  - 예: `2..9`
+  - 예: `2~9`
 
-## Runs
+## 실행 예시
 
-| Run | Tournament | UI actions | Hand-result windows observed | Result |
-| --- | --- | ---: | ---: | --- |
-| 1 | `RS2KLSH` | 36 | 1 | Pass |
-| 2 | `RS2P8CK` | 36 | 7 | Pass |
+단발 smoke:
 
-## Seat 5 Checks
+```bash
+PLAYER_COUNT=2..9 node scripts/railway-seat-smoke.cjs
+```
 
-| Run | Seat 5 guest | Final API `selfHoleCards` | DOM `YOU` seat found | DOM hidden-card count in self seat | Result |
-| --- | --- | --- | --- | ---: | --- |
-| `RS2KLSH` | `guest-910b8e60` | `JH,4S` | Yes | 0 | Pass |
-| `RS2P8CK` | `guest-97c3f016` | `TH,8D` | Yes | 0 | Pass |
+- 최신 range 검증 결과: `test-results/railway-seat-smoke/railway-seat-smoke-20260421-070010336Z`
 
-## Findings
+반복 smoke:
 
-- No reproduction of the reported seat 5 missing-card, disappearing-card, or wrong-neighbor-card bug in the redeployed build.
-- All six players received two personalized `selfHoleCards` from the backend after tournament start.
-- All six browser sessions found their own `YOU` seat in the DOM.
-- The `YOU` seat did not render hidden `HOLD` cards for active self seats in either run.
-- No browser page errors were recorded.
-- No browser console warnings or errors were recorded.
+```bash
+ALLOW_CONTINUOUS_RAILWAY_TESTS=true PLAYER_COUNT=2..9 node scripts/railway-seat-continuous.cjs
+```
 
-## Artifacts
+무한 반복은 추가로 아래가 필요하다.
 
-- `test-results/railway-six-player-smoke.json`
-- `test-results/railway-six-player-smoke-fold-priority.json`
+```bash
+ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true
+```
+
+## 스크립트 구성
+
+- `scripts/railway-seat-smoke.cjs`
+  - 현재 좌석 smoke의 기본 wrapper
+- `scripts/railway-seat-continuous.cjs`
+  - 좌석 smoke 반복 실행 wrapper
+- 현재 wrapper는 guest token bootstrap과 현재 `data-testid` 기준 로비/테이블 selector를 사용한다.
 - `scripts/railway-six-player-smoke.cjs`
+  - 6인 회귀와 호환을 위한 기존 본체
 - `scripts/railway-six-player-continuous.cjs`
+  - 6인 회귀 연속 실행 본체
+- `scripts/railway-six-player-live-continuous.cjs`
+  - live 연속 검증용 6인 기반 본체
 
-## Remaining Risk
+## 역사적 맥락
 
-- This pass used deterministic automated actions, mostly simple check/call/fold paths. It did not exhaustively cover manual rapid tab switching, mobile browser backgrounding, network flapping, or reconnect after seat 5 reload.
-- If the original issue returns, the next useful capture is a failing tournament code, seat number, guest nickname, and whether the browser was refreshed or switched between multiple players before the card mismatch appeared.
+- 초기 Railway smoke는 seat 5 hole-card 이슈 재현 여부를 확인하기 위한 6인 회귀 중심으로 시작했다.
+- 현재는 9석 일반화가 반영되어 wrapper 기준을 좌석 smoke 전반으로 확장했다.
+- 다만 6인 회귀 문맥은 여전히 유효하므로 기존 `railway-six-player-*` 스크립트는 제거하지 않고 유지한다.
+
+## 운영 메모
+
+- 이 스크립트들은 create/join/table UI 라벨, local storage key, tournament snapshot API에 의도적으로 결합되어 있다.
+- frontend/backend 흐름이 바뀌면 black-box 테스트로 취급하지 말고 함께 갱신한다.
+- Railway 사용량을 직접 소비하므로 반복 실행은 수동 제어를 기본으로 둔다.

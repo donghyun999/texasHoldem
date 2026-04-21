@@ -1,8 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { publicTournamentListQueryKey } from "@/entities/tournament/model/query-keys";
 import type { PublicTournamentSummary, TournamentSnapshot } from "@/entities/tournament/model/types";
+import { TOURNAMENT_MAX_SEATS } from "@/features/table/model/tournament-table-layout";
 
-const SINGLE_TABLE_MAX_PLAYERS = 6;
+const SINGLE_TABLE_MAX_PLAYERS = TOURNAMENT_MAX_SEATS;
 
 function areSamePublicRoom(left: PublicTournamentSummary | undefined, right: PublicTournamentSummary) {
   if (!left) {

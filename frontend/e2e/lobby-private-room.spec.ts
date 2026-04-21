@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { TOURNAMENT_TABLE_LAYOUT } from "../src/features/table/model/tournament-table-layout";
 import {
   bootstrapGuest,
   buildRoomSelectors,
@@ -84,7 +85,10 @@ test.describe("private room lobby and table smoke", () => {
 
     await expectTournamentTableReady(page);
     await expect(page.locator(selectors.heroSeatAnchor)).toHaveAttribute("data-self-seat", "true");
-    await expect(page.locator(selectors.heroSeatAnchor)).toHaveAttribute("data-table-position-index", "4");
+    await expect(page.locator(selectors.heroSeatAnchor)).toHaveAttribute(
+      "data-table-position-index",
+      String(TOURNAMENT_TABLE_LAYOUT.heroTablePositionIndex),
+    );
     await expectWaitingOwnerControls(page);
   });
 

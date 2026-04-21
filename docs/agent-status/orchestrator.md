@@ -1,72 +1,69 @@
 # orchestrator status
 
-- last_updated: `2026-04-17 Asia/Seoul`
-- status: `closing`
+- last_updated: `2026-04-21 Asia/Seoul`
+- status: `done`
+- current_task: `Backfill status documents so they match current main worktree, recent commits, and actual worktree/session layout`
 - branch: `main`
 - worktree: `C:\Users\user\texasHoldem`
+- worktree_status: `exists`
 - role: `main-orchestrator`
 
-## Session Summary
+## Active Roles
 
-- Collected handoffs from `backend-agent`, `frontend-agent`, and `verification-agent`.
-- Confirmed one live root cause from Railway investigation:
-  - legacy `tournament_state` rows exist with `players[*].guestId = null`
-  - `PersistentTournamentStateStore.findActiveTournamentCodeByGuestId(...)` dereferenced `player.guestId` without null safety
-  - `create`, `join`, and `active-tournament` failed with `500`
-  - `lobby/public` stayed `200` because it did not dereference `guestId`
-- Backend defensive fix for legacy payload handling was added and pushed.
-- A separate compile blocker was found and fixed:
-  - invalid declarations had been added to `TournamentStateJpaRepository`
-  - compile was restored and the fix was pushed
-- Frontend review concluded no further mandatory code change was needed for the legacy payload fix beyond the already landed `HomePage`/`http.ts` recovery alignment.
+- current_active_roles: `none`
+- recreate_if_work_resumes:
+  - `backend-agent`
+  - `frontend-agent`
+  - `verification-agent`
 
-## Handoffs Collected
+## Role Snapshot
 
-- `backend-agent`
-  - null-safe fix in `PersistentTournamentStateStore` and `InMemoryTournamentStateStore`
-  - persistence tests added for legacy null `guestId`
-  - websocket identity contract also aligned earlier in the session
-  - compile blocker in `TournamentStateJpaRepository` removed
-- `frontend-agent`
-  - no extra frontend patch required for the confirmed legacy payload bug
-  - current `HomePage` active-tournament fallback and prior viewer/self fixes judged sufficient for re-test
-- `verification-agent`
-  - repeatedly confirmed live pattern:
-    - `create` / `active-tournament` / `join` were failing
-    - `lobby/public` remained `200`
-  - before session close, re-verification after the latest compile-fix push had not yet been run
+- `backend-agent`: `idle`, no current worktree
+- `frontend-agent`: `idle`, no current worktree
+- `verification-agent`: `idle`, no current worktree
 
-## Pushed Commits This Session
+## Current Ownership
 
-- `59b48a0` `Harden tournament persistence against legacy payloads`
-- `0d3ce1a` `Restore JPA repository typing for tournament state`
+- owned_scope:
+  - `docs/status.md`
+  - `docs/agent-status/*.md`
+  - handoff/status consolidation only
+- editable_now:
+  - `docs/status.md`
+  - `docs/agent-status/orchestrator.md`
+  - `docs/agent-status/backend-agent.md`
+  - `docs/agent-status/frontend-agent.md`
+  - `docs/agent-status/verification-agent.md`
+- do_not_edit_now:
+  - `backend/**`
+  - `frontend/**`
+  - `scripts/**`
+  - test files
 
-## Unintegrated Local Changes
+## Last Decision
 
-- `docs/session-restart-prompts.md`
-- `.gradle-fresh/`
-- `.gradle/`
-- `agent-output/`
-- `backend/.gradle-user/`
-- `backend/.gradle-verification/`
-- `cookies.txt`
+- Treat 2026-04-20 frontend polish commits as committed project state.
+- Treat `scripts/railway-six-player-live-continuous.cjs` and `scripts/start-railway-live-loop.cmd` as pending worktree-only files, not completed repository state.
+- Record actual worktree layout as main checkout only; no agent worktrees currently exist.
 
 ## Next Actions
 
-1. Redeploy backend with `0d3ce1a` included.
-2. Run live verification in this order:
-   - `POST /api/v1/tournaments`
-   - `GET /api/v1/guests/{guestId}/active-tournament`
-   - `GET /api/v1/guests/me/active-tournament`
-   - `POST /api/v1/tournaments/{code}/join`
-   - `GET /api/v1/tournaments/lobby/public`
-3. If `create/join/active-tournament` still fail, inspect Railway logs again for the next malformed payload shape.
-4. After server-side stability returns, resume the separate hole-card regression investigation:
-   - backend event snapshots are likely public-only on transition paths
-   - frontend hydration still has risk during reload/reconnect/hand-start transitions
+1. If implementation resumes, create or reuse bounded `backend-agent`, `frontend-agent`, `verification-agent` sessions first.
+2. Decide whether the live Railway continuous smoke helpers belong in version control.
+3. Re-verify Railway create-path stability before treating deployment smoke as closed.
 
-## Remaining Risks
+## Blockers / Confirmation Needed
 
-- Live DB may contain malformed payload fields beyond `guestId = null`.
-- `payload::jsonb` assumptions are still an operational risk because payload storage was observed as large-object/OID text in production.
-- Hole-card visibility regression is not closed; backend event snapshot design and frontend hydration timing both remain suspects.
+- No active blocker for documentation refresh itself.
+- Product/verification decision is still needed on whether the untracked live-smoke helpers should be committed or discarded.
+- Railway create-path `503` cause is still unresolved from a project-status perspective.
+
+## Resume Files
+
+- `AGENTS.md`
+- `docs/multi-agent-cli-operations.md`
+- `docs/agent-roles.md`
+- `docs/status.md`
+- `docs/agent-status/backend-agent.md`
+- `docs/agent-status/frontend-agent.md`
+- `docs/agent-status/verification-agent.md`

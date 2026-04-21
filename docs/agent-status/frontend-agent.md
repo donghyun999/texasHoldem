@@ -1,44 +1,49 @@
 # frontend-agent status
 
-- last_updated: `2026-04-17 Asia/Seoul`
-- status: `closed`
-- branch: `main`
-- worktree: `C:\Users\user\texasHoldem`
+- last_updated: `2026-04-21 Asia/Seoul`
+- status: `idle`
+- current_task: `No active frontend task assigned`
+- branch: `not-assigned`
+- worktree: `C:\Users\user\texasHoldem-wt-frontend`
+- worktree_status: `not-created`
 
-## Scope Owned This Session
+## Current Ownership
 
-- `frontend/src/**`
-- selected frontend config/e2e harness files from earlier in the session
+- owned_scope:
+  - `frontend/src/**`
+  - only when explicitly assigned: `frontend/index.html`, `frontend/package.json`
+- editable_now:
+  - none until a frontend session/worktree is created
+- do_not_edit_now:
+  - `backend/**`
+  - `scripts/**`
+  - docs outside explicit handoff/status instructions
 
-## Completed Work
+## Last Decision
 
-- Earlier in the session:
-  - aligned active-tournament fallback in `HomePage.tsx`
-  - cleaned create helper flow in `http.ts`
-  - maintained prior viewer/self identity fixes and owner blank-state mitigation
-- Final assessment for the confirmed legacy backend payload bug:
-  - no additional frontend patch was required before re-verification
+- Latest committed frontend state on `main` already includes:
+  - mobile table/lobby polish
+  - action timer UI refinement
+  - hero hand label rendering and street-specific wording
+- No new frontend-only uncommitted change is currently assigned from orchestrator.
 
-## Current Frontend View
+## Next Actions
 
-- Existing fallback work should be sufficient once backend `500` errors are actually removed.
-- Remaining frontend risk is separate from the legacy payload bug:
-  - hole cards may still disappear during transition windows
-  - likely paths:
-    - `use-tournament-realtime-snapshot.ts`
-    - `tournament-realtime-sync.ts`
-    - `TablePage.tsx`
-    - `TournamentTable.tsx`
-    - `PlayerSeat.tsx`
+1. Reopen only if a bounded frontend task is assigned.
+2. If verification resumes after UI changes, prioritize Railway/mobile regressions around `HomePage`, `TablePage`, `TournamentTable`, `ActionPanel`, and `PlayerSeat`.
+3. Keep backend snapshot-contract assumptions aligned before any additional UI-only polish.
 
-## Remaining Frontend Risks
+## Blockers / Confirmation Needed
 
-- Public snapshot to viewer hydrate timing may still fail after hand start, reload, or reconnect.
-- Backend transition events may still be delivering public snapshots, which frontend can only partially heal.
+- No active frontend blocker because there is no active frontend task.
+- The current open question is verification, not implementation: whether recent UI polish needs a new fixed smoke baseline.
 
-## Next Frontend Action
+## Resume Files
 
-- After backend stability is confirmed, run focused live verification on:
-  - owner hole cards after hand start
-  - reload/reconnect recovery
-  - viewer/self identity continuity
+- `AGENTS.md`
+- `docs/multi-agent-cli-operations.md`
+- `docs/agent-roles.md`
+- `docs/status.md`
+- `frontend/src/pages/HomePage.tsx`
+- `frontend/src/pages/TablePage.tsx`
+- `frontend/src/widgets/tournament/ui/TournamentTable.tsx`

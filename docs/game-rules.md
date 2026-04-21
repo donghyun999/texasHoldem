@@ -3,7 +3,7 @@
 ## Scope
 
 - Single-table Sit and Go only
-- Minimum 2 players, maximum 6 players
+- Minimum 2 players, maximum 9 players
 - No rebuy, addon, spectator mode, or multi-table merge
 
 ## Core tournament rules

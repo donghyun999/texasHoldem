@@ -2,9 +2,10 @@ import { Client } from "@stomp/stompjs";
 import { TOURNAMENT_WS_URL } from "@/shared/config/runtime";
 
 // Creates the shared STOMP client configuration for tournament subscriptions.
-export function createTournamentClient() {
+export function createTournamentClient(guestToken?: string) {
   return new Client({
     brokerURL: TOURNAMENT_WS_URL,
+    connectHeaders: guestToken ? { Authorization: `Bearer ${guestToken}` } : {},
     reconnectDelay: 5000,
     debug: () => undefined,
   });

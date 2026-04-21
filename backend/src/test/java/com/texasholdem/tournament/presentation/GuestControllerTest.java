@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.presentation;
 
 import com.texasholdem.auth.GuestSessionAttributes;
+import com.texasholdem.auth.GuestTokenService;
 import com.texasholdem.auth.GuestSessionResolver;
 import com.texasholdem.tournament.application.command.TournamentService;
 import com.texasholdem.tournament.domain.ActiveTournamentSession;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 
 @WebMvcTest(GuestController.class)
-@Import(GuestSessionResolver.class)
+@Import({GuestSessionResolver.class, GuestTokenService.class})
 class GuestControllerTest {
 
     @Autowired
@@ -34,7 +35,7 @@ class GuestControllerTest {
 
     @Test
     void createGuestStoresIdentityInSession() throws Exception {
-        when(tournamentService.registerGuest("Neo")).thenReturn(new GuestSession("guest-1", "Neo"));
+        when(tournamentService.registerGuest("Neo")).thenReturn(new GuestSession("guest-1", "Neo", "token-1"));
 
         mockMvc.perform(post("/api/v1/guests")
                         .contentType(APPLICATION_JSON)
@@ -45,6 +46,7 @@ class GuestControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.guestId").value("guest-1"))
                 .andExpect(jsonPath("$.data.nickname").value("Neo"))
+                .andExpect(jsonPath("$.data.guestToken").value("token-1"))
                 .andExpect(request().sessionAttribute(GuestSessionAttributes.GUEST_ID, "guest-1"))
                 .andExpect(request().sessionAttribute(GuestSessionAttributes.GUEST_NICKNAME, "Neo"));
     }

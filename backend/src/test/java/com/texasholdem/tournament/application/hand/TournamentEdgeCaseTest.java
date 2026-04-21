@@ -12,7 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TournamentEdgeCaseTest {
 
     private final PokerHandEvaluator handEvaluator = new PokerHandEvaluator();
-    private final TournamentPotResolver potResolver = new TournamentPotResolver(handEvaluator);
+    private final TournamentRules defaultRules = new TournamentRules();
+    private final TournamentPotResolver potResolver = new TournamentPotResolver(handEvaluator, defaultRules);
 
     @Test
     void resolvesMultiSidePotsWithDifferentWinnersPerTier() {
@@ -134,6 +135,29 @@ class TournamentEdgeCaseTest {
         );
 
         var settlement = potResolver.settle(players, List.of("TC", "JD", "QS", "KH", "AC"), 4);
+
+        assertThat(settlement.showdownPots()).singleElement().satisfies(pot -> {
+            assertThat(pot.amount()).isEqualTo(5);
+            assertThat(pot.payouts()).extracting("guestId")
+                    .containsExactly("guest-1", "guest-2", "guest-3");
+            assertThat(pot.payouts()).extracting("amount")
+                    .containsExactly(2, 2, 1);
+        });
+        assertSettlementConservesContributions(players, settlement);
+    }
+
+    @Test
+    void splitsOddChipsAcrossNineSeatWrapAroundDealerPriority() {
+        var resolver = new TournamentPotResolver(handEvaluator, new TournamentRules(9));
+        var players = List.of(
+                potPlayer("guest-1", "Seat0", 0, 1, true, true, "2H", "3H"),
+                potPlayer("guest-2", "Seat2", 2, 1, true, true, "4H", "5H"),
+                potPlayer("guest-3", "Seat7", 7, 1, true, true, "6H", "7H"),
+                potPlayer("guest-4", "FoldedSeat4", 4, 1, false, false, "AS", "AD"),
+                potPlayer("guest-5", "FoldedSeat8", 8, 1, false, false, "KS", "KD")
+        );
+
+        var settlement = resolver.settle(players, List.of("TC", "JD", "QS", "KH", "AC"), 8);
 
         assertThat(settlement.showdownPots()).singleElement().satisfies(pot -> {
             assertThat(pot.amount()).isEqualTo(5);
@@ -303,6 +327,36 @@ class TournamentEdgeCaseTest {
         assertThat(tournament.currentBet).isEqualTo(20);
     }
 
+    @Test
+    void rotatesDealerAndBlindsForTwoSeatTable() {
+        assertBlindAssignmentsForTwoConsecutiveHands(
+                2,
+                List.of(0, 1),
+                new BlindAssignment(0, 0, 1),
+                new BlindAssignment(1, 1, 0)
+        );
+    }
+
+    @Test
+    void rotatesDealerAndBlindsForSixSeatTable() {
+        assertBlindAssignmentsForTwoConsecutiveHands(
+                6,
+                List.of(0, 1, 2, 3, 4, 5),
+                new BlindAssignment(0, 1, 2),
+                new BlindAssignment(1, 2, 3)
+        );
+    }
+
+    @Test
+    void rotatesDealerAndBlindsForNineSeatTable() {
+        assertBlindAssignmentsForTwoConsecutiveHands(
+                9,
+                List.of(0, 1, 2, 3, 4, 5, 6, 7, 8),
+                new BlindAssignment(0, 1, 2),
+                new BlindAssignment(1, 2, 3)
+        );
+    }
+
     private TournamentPotResolver.PlayerPotState potPlayer(
             String guestId,
             String nickname,
@@ -345,6 +399,31 @@ class TournamentEdgeCaseTest {
                 .filter(player -> player.guestId.equals(guestId))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private void assertBlindAssignmentsForTwoConsecutiveHands(
+            int maxSeats,
+            List<Integer> seatIndexes,
+            BlindAssignment firstHand,
+            BlindAssignment secondHand
+    ) {
+        var rules = new TournamentRules(maxSeats);
+        var stateAccess = new TournamentStateAccess(rules);
+        var setupManager = new TournamentHandSetupManager(rules, stateAccess, new OrderedDeckFactory());
+        var tournament = new TournamentState("ROTATE-" + maxSeats);
+        for (var seatIndex : seatIndexes) {
+            tournament.players.add(activePlayer("guest-" + seatIndex, "Seat" + seatIndex, seatIndex, 2_000, seatIndex == 0));
+        }
+        tournament.levelActivatedAtEpochSecond = java.time.Instant.now().getEpochSecond();
+
+        setupManager.initializeHand(tournament);
+        assertThat(new BlindAssignment(tournament.dealerSeat, tournament.smallBlindSeat, tournament.bigBlindSeat))
+                .isEqualTo(firstHand);
+
+        setupManager.preparePlayersForNextHand(tournament);
+        setupManager.initializeHand(tournament);
+        assertThat(new BlindAssignment(tournament.dealerSeat, tournament.smallBlindSeat, tournament.bigBlindSeat))
+                .isEqualTo(secondHand);
     }
 
     private void assertPot(
@@ -405,5 +484,8 @@ class TournamentEdgeCaseTest {
             }
             return deck;
         }
+    }
+
+    private record BlindAssignment(int dealerSeat, int smallBlindSeat, int bigBlindSeat) {
     }
 }

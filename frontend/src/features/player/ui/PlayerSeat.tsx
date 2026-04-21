@@ -7,6 +7,7 @@ type PlayerSeatProps = {
   player?: TournamentPlayer;
   seatIndex: number;
   tablePositionIndex: number;
+  isHeroSeat?: boolean;
   dealerSeat: number | null;
   smallBlindSeat: number | null;
   bigBlindSeat: number | null;
@@ -346,6 +347,7 @@ function areEqualPlayerSeatProps(left: PlayerSeatProps, right: PlayerSeatProps) 
     haveSamePlayer(left.player, right.player) &&
     left.seatIndex === right.seatIndex &&
     left.tablePositionIndex === right.tablePositionIndex &&
+    left.isHeroSeat === right.isHeroSeat &&
     left.dealerSeat === right.dealerSeat &&
     left.smallBlindSeat === right.smallBlindSeat &&
     left.bigBlindSeat === right.bigBlindSeat &&
@@ -373,6 +375,7 @@ function PlayerSeatView({
   player,
   seatIndex,
   tablePositionIndex,
+  isHeroSeat = false,
   dealerSeat,
   smallBlindSeat,
   bigBlindSeat,
@@ -394,11 +397,12 @@ function PlayerSeatView({
   winnerPulseId = null,
   className = "",
 }: PlayerSeatProps) {
-  const isHeroSeat = tablePositionIndex === 4;
-
   if (!player) {
     return (
       <div
+        data-testid={`empty-seat-${seatIndex}`}
+        data-seat-index={seatIndex}
+        data-table-position-index={tablePositionIndex}
         className={`grid place-items-center rounded-full border border-dashed border-white/10 bg-black/15 text-center text-zinc-500 ${
           isHeroSeat ? "h-10 w-24 sm:h-12 sm:w-28" : "h-8 w-14 sm:h-10 sm:w-16"
         } ${className}`}
@@ -488,7 +492,10 @@ function PlayerSeatView({
           </div>
         ) : null}
         {showActionTimer ? (
-          <div className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full">
+          <div
+            data-testid={`seat-action-timer-${seatIndex}`}
+            className="mt-1 w-10 max-w-full rounded-full border border-white/10 bg-black/45 px-1 py-1 shadow-md shadow-black/20 sm:w-full"
+          >
             <div className="h-1 overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full rounded-full transition-[width] duration-200 ${actionTimerTone.barClass}`}

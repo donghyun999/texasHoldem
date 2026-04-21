@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.tuple;
 class TournamentServiceTest {
 
     private static final List<String> FIXED_BOARD_RUNOUT = List.of("AH", "KD", "7C", "4S", "2D");
+    private static final int DEFAULT_MAX_SEATS = new TournamentRules().maxSeats();
 
     // Verifies that a waiting-room disconnect removes the player and delegates owner rights by seat order.
     @Test
@@ -216,13 +217,37 @@ class TournamentServiceTest {
     void excludesFullPublicWaitingTournamentsFromLobbyList() {
         var service = createService();
         service.createTournament("guest-1", "Owner", "FULL1", TournamentVisibility.PUBLIC);
-        for (var playerNumber = 2; playerNumber <= 6; playerNumber++) {
+        for (var playerNumber = 2; playerNumber <= DEFAULT_MAX_SEATS; playerNumber++) {
             service.joinTournament("FULL1", "guest-" + playerNumber, "Player" + playerNumber);
         }
 
         var summaries = service.listPublicWaitingTournaments();
 
         assertThat(summaries).isEmpty();
+    }
+
+    @Test
+    void rejectsJoinWhenTwoSeatTableIsFull() {
+        var service = createService(50, 2);
+        var snapshot = service.createTournament("guest-1", "Owner", "H2UP", TournamentVisibility.PUBLIC);
+        service.joinTournament(snapshot.code(), "guest-2", "Player2");
+
+        assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-3", "Player3"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
+    void rejectsJoinWhenNineSeatTableIsFull() {
+        var service = createService(50, 9);
+        var snapshot = service.createTournament("guest-1", "Owner", "NINE9", TournamentVisibility.PUBLIC);
+        for (var playerNumber = 2; playerNumber <= 9; playerNumber++) {
+            service.joinTournament(snapshot.code(), "guest-" + playerNumber, "Player" + playerNumber);
+        }
+
+        assertThatThrownBy(() -> service.joinTournament(snapshot.code(), "guest-10", "Player10"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(400));
     }
 
     // Verifies that private waiting rooms are listed in the lobby while remaining password-gated on join.
@@ -234,8 +259,33 @@ class TournamentServiceTest {
         var summaries = service.listPublicWaitingTournaments();
 
         assertThat(summaries)
-                .extracting(PublicTournamentSummary::code, PublicTournamentSummary::visibility)
-                .containsExactly(tuple(snapshot.code(), TournamentVisibility.PRIVATE));
+                .extracting(PublicTournamentSummary::code, PublicTournamentSummary::visibility, PublicTournamentSummary::maxPlayers)
+                .containsExactly(tuple(snapshot.code(), TournamentVisibility.PRIVATE, DEFAULT_MAX_SEATS));
+    }
+
+    @Test
+    void listsConfiguredMaxPlayersForTwoSeatLobbySummary() {
+        var service = createService(50, 2);
+        service.createTournament("guest-1", "Owner", "DUO2", TournamentVisibility.PUBLIC);
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries)
+                .extracting(PublicTournamentSummary::code, PublicTournamentSummary::currentPlayers, PublicTournamentSummary::maxPlayers)
+                .containsExactly(tuple("DUO2", 1, 2));
+    }
+
+    @Test
+    void listsConfiguredMaxPlayersForNineSeatLobbySummary() {
+        var service = createService(50, 9);
+        service.createTournament("guest-1", "Owner", "NINE1", TournamentVisibility.PUBLIC);
+        service.joinTournament("NINE1", "guest-2", "Player2");
+
+        var summaries = service.listPublicWaitingTournaments();
+
+        assertThat(summaries)
+                .extracting(PublicTournamentSummary::code, PublicTournamentSummary::currentPlayers, PublicTournamentSummary::maxPlayers)
+                .containsExactly(tuple("NINE1", 2, 9));
     }
 
     // Verifies that waiting-room joins no longer reshuffle list order away from creation recency.
@@ -1132,13 +1182,13 @@ class TournamentServiceTest {
     @Test
     void reconnectsDisconnectedPlayerAfterPersistenceReload() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
-        var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var potResolver = new TournamentPotResolver(new PokerHandEvaluator(), rules);
         var handSetupManager = new TournamentHandSetupManager(rules, stateAccess, new FixedTournamentDeckFactory());
         var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
@@ -1376,13 +1426,13 @@ class TournamentServiceTest {
     @Test
     void refreshesLatestPersistedTournamentBeforeLockedCommandAcrossServiceInstances() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
-        var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var potResolver = new TournamentPotResolver(new PokerHandEvaluator(), rules);
         var handSetupManager = new TournamentHandSetupManager(rules, stateAccess, new FixedTournamentDeckFactory());
         var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
@@ -1464,13 +1514,13 @@ class TournamentServiceTest {
     @Test
     void restoresPersistedTournamentStateAcrossServiceInstances() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
-        var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var potResolver = new TournamentPotResolver(new PokerHandEvaluator(), rules);
         var handSetupManager = new TournamentHandSetupManager(rules, stateAccess, new FixedTournamentDeckFactory());
         var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);
@@ -1609,29 +1659,34 @@ class TournamentServiceTest {
 
     // Builds the same dependency graph that Spring wires for the tournament service.
     private TournamentService createService() {
-        return createService(50);
+        return createService(50, DEFAULT_MAX_SEATS);
     }
 
     // Builds the same dependency graph with a configurable active-player capacity cap.
     private TournamentService createService(int maxActivePlayers) {
-        return createService(maxActivePlayers, 1_800, 7_200, 86_400);
+        return createService(maxActivePlayers, DEFAULT_MAX_SEATS);
+    }
+
+    private TournamentService createService(int maxActivePlayers, int maxSeats) {
+        return createService(maxActivePlayers, maxSeats, 1_800, 7_200, 86_400);
     }
 
     // Builds the same dependency graph with configurable capacity and TTL cleanup settings.
     private TournamentService createService(
             int maxActivePlayers,
+            int maxSeats,
             long waitingIdleTtlSeconds,
             long inHandIdleTtlSeconds,
             long hardTtlSeconds
     ) {
-        var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var rules = new TournamentRules(maxSeats);
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
         var lobbyManager = new TournamentLobbyManager(stateAccess, rules, identityFactory);
         var ownershipManager = new TournamentOwnershipManager();
-        var potResolver = new TournamentPotResolver(new PokerHandEvaluator());
+        var potResolver = new TournamentPotResolver(new PokerHandEvaluator(), rules);
         var handSetupManager = new TournamentHandSetupManager(rules, stateAccess, new FixedTournamentDeckFactory());
         var bettingActionManager = new TournamentBettingActionManager(rules);
         var handResultManager = new TournamentHandResultManager(stateAccess, potResolver);

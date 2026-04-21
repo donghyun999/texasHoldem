@@ -1,45 +1,45 @@
 # verification-agent status
 
-- last_updated: `2026-04-17 Asia/Seoul`
-- status: `closed`
+- last_updated: `2026-04-21 Asia/Seoul`
+- status: `idle`
+- current_task: `No active verification task assigned`
 
-## Scope Owned This Session
+## Current Ownership
 
-- live API/browser verification
-- request/response baseline collection
-- failure correlation for backend investigation
+- owned_scope:
+  - read-only verification by default
+  - only when explicitly assigned: `scripts/**`, test harness files
+- branch: `not-assigned`
+- worktree: `C:\Users\user\texasHoldem-wt-verify`
+- worktree_status: `not-created`
+- editable_now:
+  - none until a verification session/worktree is created
+- do_not_edit_now:
+  - `backend/**`
+  - `frontend/**`
+  - production code outside explicit verification scope
 
-## Completed Work
+## Last Decision
 
-- Repeatedly reproduced live failures for:
-  - `POST /api/v1/tournaments`
-  - `POST /api/v1/tournaments/{code}/join`
-  - `GET /api/v1/guests/{guestId}/active-tournament`
-  - `GET /api/v1/guests/me/active-tournament`
-- Repeatedly confirmed `GET /api/v1/tournaments/lobby/public` stayed `200`.
-- Collected request ids and timing windows used for Railway log correlation.
-- Confirmed the null-safe fix had not yet changed live behavior at the time of the last re-check before session close.
+- Treat recent Railway live continuous smoke helpers as pending worktree-only files until the team decides whether they should become official verification assets.
+- Recent committed UI polish on `main` has not been re-baselined here with a fresh documented verification pass.
 
-## Limits Encountered
+## Next Actions
 
-- Browser automation remained blocked by Playwright launch `spawn EPERM`.
-- Because backend `500` errors remained the primary blocker, later end-to-end scenarios such as `P2~P6`, `ready/start`, and reliable hole-card UI checks could not be completed in this session.
+1. Decide whether to keep and version the live Railway continuous smoke helpers.
+2. If verification resumes, re-run the narrowest useful Railway checks after recent UI polish.
+3. Keep generated artifacts in ignored output paths only.
 
-## Next Verification Action
+## Blockers / Confirmation Needed
 
-1. Re-run live checks after redeploy of `0d3ce1a`.
-2. Verify in order:
-   - `create`
-   - `active-tournament` legacy lookup
-   - `active-tournament` session lookup
-   - `join`
-   - `lobby/public`
-3. If backend stabilizes, continue to:
-   - `P2~P6`
-   - `ready/start`
-   - hole-card visibility after hand start / reload / reconnect
+- Verification is currently waiting on prioritization, not tooling.
+- Railway create-path `503` remains the most important unresolved verification target.
 
-## Remaining Risks
+## Resume Files
 
-- Another malformed production payload shape may still exist beyond null `guestId`.
-- Hole-card regression remains unverified because server-side blockers interrupted deeper UI flow checks.
+- `AGENTS.md`
+- `docs/multi-agent-cli-operations.md`
+- `docs/agent-roles.md`
+- `docs/status.md`
+- `scripts/railway-six-player-smoke.cjs`
+- `scripts/railway-six-player-continuous.cjs`

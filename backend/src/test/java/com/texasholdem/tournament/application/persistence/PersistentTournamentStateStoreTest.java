@@ -270,6 +270,7 @@ class PersistentTournamentStateStoreTest {
     void findsPublicWaitingTournamentsForLobbyList() {
         var repository = mock(TournamentStateJpaRepository.class);
         var mapper = mock(TournamentStatePersistenceMapper.class);
+        var rules = new TournamentRules();
         var newestPublicWaiting = new TournamentState("PUB2");
         newestPublicWaiting.visibility = TournamentVisibility.PUBLIC;
         newestPublicWaiting.status = TournamentStatus.WAITING;
@@ -309,7 +310,7 @@ class PersistentTournamentStateStoreTest {
 
         var store = new PersistentTournamentStateStore(repository, mapper);
 
-        assertThat(store.findPublicWaitingTournaments(6))
+        assertThat(store.findPublicWaitingTournaments(rules.maxSeats()))
                 .extracting(summary -> List.of(
                         summary.code(),
                         summary.visibility(),
@@ -319,9 +320,9 @@ class PersistentTournamentStateStoreTest {
                         summary.ownerNickname()
                 ))
                 .containsExactly(
-                        List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, 6, "NewestOwner"),
-                        List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, 6, "PrivateOwner"),
-                        List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, 6, "OlderOwner")
+                        List.of("PUB2", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 2, rules.maxSeats(), "NewestOwner"),
+                        List.of("PRIV1", TournamentVisibility.PRIVATE, TournamentStatus.WAITING, 1, rules.maxSeats(), "PrivateOwner"),
+                        List.of("PUB1", TournamentVisibility.PUBLIC, TournamentStatus.WAITING, 1, rules.maxSeats(), "OlderOwner")
                 );
         verify(repository).findAll();
     }
