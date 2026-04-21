@@ -161,6 +161,9 @@ PLAYER_COUNTS=2..9 node scripts/local-seat-flow-verify.cjs
 - `scripts/railway-seat-smoke.cjs`는 현재 Railway frontend/backend URL 기준 좌석 smoke wrapper다
 - `scripts/railway-seat-continuous.cjs`는 좌석 smoke를 반복 실행하는 wrapper다. Railway 사용량을 소비할 수 있으므로 수동 실행만 허용한다. 시작하려면 `ALLOW_CONTINUOUS_RAILWAY_TESTS=true`가 필요하고, 무한 모드에는 `ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true`가 추가로 필요하다
 - `PLAYER_COUNT`는 단일 값뿐 아니라 `2..9`, `2-9`, `2~9` 같은 range 입력을 지원한다
+- 현재 Railway wrapper는 guest token bootstrap과 현재 `data-testid` selector를 사용한다
+- 최신 range 검증: `PLAYER_COUNT=2..9 node scripts/railway-seat-smoke.cjs` 통과
+- 최신 결과 폴더: `test-results/railway-seat-smoke/railway-seat-smoke-20260421-070010336Z`
 - 기존 `scripts/railway-six-player-smoke.cjs`, `scripts/railway-six-player-continuous.cjs`, `scripts/railway-six-player-live-continuous.cjs`는 6인 회귀/호환 맥락에서 계속 유지한다
 - 이 스크립트들은 현재 create/join/table UI 라벨, local storage key, tournament snapshot API에 의도적으로 결합되어 있다. 흐름이 바뀌면 black-box 테스트로 취급하지 말고 함께 갱신한다
 - Playwright 해상도는 환경 기반이며, 가능하면 일반 로컬 설치를 우선 사용한다. 필요하면 기존 `test-results/playwright-work` 설치를 fallback으로 사용할 수 있다

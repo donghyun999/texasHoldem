@@ -120,8 +120,16 @@ async function bootstrapGuestSession(player) {
   const payload = await response.json();
   const session = payload.data;
   player.guestId = session.guestId;
+  player.guestToken = session.guestToken;
 
   await player.page.addInitScript((guestSession) => {
+    window.localStorage.setItem(
+      "texas-holdem-guest-session",
+      JSON.stringify({
+        guestId: guestSession.guestId,
+        guestToken: guestSession.guestToken,
+      }),
+    );
     window.localStorage.setItem(
       "texas-holdem-ui",
       JSON.stringify({
@@ -138,7 +146,7 @@ async function bootstrapCreateOwner(player, roomName) {
   await player.page.locator('[data-testid="lobby-nickname-input"]').fill(player.nickname);
   await player.page.locator('[data-testid="create-room-name-input"]').fill(roomName);
   await player.page.locator('[data-testid="create-room-submit"]').click({ force: true });
-  await player.page.waitForURL(/\/tournaments\/[^/?#]+$/, { timeout: JOIN_TIMEOUT_MS });
+  await player.page.waitForURL(/\/tournaments\/[^/?#]+$/, { timeout: JOIN_TIMEOUT_MS, waitUntil: "commit" });
   await player.page.locator('[data-testid="tournament-table"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
 }
 
@@ -147,9 +155,19 @@ async function bootstrapJoinPlayer(player, code) {
   await player.page.locator('[data-testid="lobby-nickname-input"]').fill(player.nickname);
   await player.page.locator('[data-testid="lobby-view-join"]').click();
   const joinButton = player.page.locator(`[data-testid="room-join-button-${code}"]`);
-  await joinButton.waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < JOIN_TIMEOUT_MS) {
+    if (await joinButton.isVisible().catch(() => false)) {
+      break;
+    }
+    await player.page.reload({ waitUntil: "networkidle" });
+    await player.page.locator('[data-testid="lobby-view-join"]').click();
+    await player.page.locator('[data-testid="lobby-room-list"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
+    await sleep(600);
+  }
+  await joinButton.waitFor({ state: "visible", timeout: Math.max(1000, JOIN_TIMEOUT_MS / 3) });
   await joinButton.click({ force: true });
-  await player.page.waitForURL(new RegExp(`/tournaments/${code}$`), { timeout: JOIN_TIMEOUT_MS });
+  await player.page.waitForURL(new RegExp(`/tournaments/${code}$`), { timeout: JOIN_TIMEOUT_MS, waitUntil: "commit" });
   await player.page.locator('[data-testid="tournament-table"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
 }
 
@@ -302,6 +320,45 @@ async function findEnabledAction(page, actionCount) {
   return null;
 }
 
+async function submitSizedAction(page, actionLabel) {
+  const presetMatchers = [/^2 BB\b/i, /^3 BB\b/i, /^1\/2 Pot\b/i, /^2\/3 Pot\b/i, /^Pot\b/i];
+  const presetButtons = page.locator("button");
+  const presetCount = await presetButtons.count();
+  for (let index = 0; index < presetCount; index += 1) {
+    const button = presetButtons.nth(index);
+    if (!(await button.isVisible()) || !(await button.isEnabled())) {
+      continue;
+    }
+    const text = normalizeText(await button.textContent());
+    if (presetMatchers.some((matcher) => matcher.test(text))) {
+      await button.click({ force: true });
+      break;
+    }
+  }
+
+  const matcher = actionLabel === "Bet" ? /^Bet to\b/i : /^Raise to\b/i;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < STATE_TIMEOUT_MS) {
+    const buttons = page.locator("button");
+    const count = await buttons.count();
+    for (let index = 0; index < count; index += 1) {
+      const button = buttons.nth(index);
+      if (!(await button.isVisible()) || !(await button.isEnabled())) {
+        continue;
+      }
+      const text = normalizeText(await button.textContent());
+      if (matcher.test(text)) {
+        await button.click({ force: true });
+        return;
+      }
+    }
+    await sleep(180);
+  }
+
+  throw new Error(`No enabled sizing submit button found for ${actionLabel}`);
+}
+
 async function waitForAnyAnimation(pages, timeoutMs = ANIMATION_WAIT_TIMEOUT_MS) {
   const candidates = Array.isArray(pages) ? pages : [pages];
   const startedAt = Date.now();
@@ -364,18 +421,25 @@ async function runScenario(browser, runDir, playerCount) {
       storageState: ownerStorageState,
     });
     mobilePage = await mobileContext.newPage();
-    await mobilePage.addInitScript((guestId) => {
+    await mobilePage.addInitScript((guestSession) => {
+      window.localStorage.setItem(
+        "texas-holdem-guest-session",
+        JSON.stringify({
+          guestId: guestSession.guestId,
+          guestToken: guestSession.guestToken,
+        }),
+      );
       const raw = window.localStorage.getItem("texas-holdem-ui");
       const parsed = raw ? JSON.parse(raw) : {};
       window.localStorage.setItem(
         "texas-holdem-ui",
         JSON.stringify({
           ...parsed,
-          guestId,
+          guestId: guestSession.guestId,
           stackDisplayMode: parsed.stackDisplayMode === "bb" ? "bb" : "chips",
         }),
       );
-    }, players[0].guestId);
+    }, { guestId: players[0].guestId, guestToken: players[0].guestToken });
     await mobilePage.goto(`${FRONTEND_URL}/tournaments/${code}`, { waitUntil: "networkidle" });
     await mobilePage.locator('[data-testid="tournament-table"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
 
@@ -460,6 +524,9 @@ async function runScenario(browser, runDir, playerCount) {
 
       const previousStateVersion = latestSnapshot.stateVersion;
       await chosenAction.button.click({ force: true });
+      if (chosenAction.label === "Bet" || chosenAction.label === "Raise") {
+        await submitSizedAction(actingPlayer.page, chosenAction.label);
+      }
       actionCount += 1;
 
       applyObservedState(await waitForAnyAnimation(observedPages).catch(() => null));

@@ -23,22 +23,56 @@ const STATE_ADVANCE_TIMEOUT_MS = readNumberEnv("STATE_ADVANCE_TIMEOUT_MS", 12000
 const HAND_RESULT_WAIT_MS = readNumberEnv("HAND_RESULT_WAIT_MS", 6500);
 const POLL_INTERVAL_MS = readNumberEnv("POLL_INTERVAL_MS", 500);
 
-async function postJson(pathname, body) {
-  const response = await fetch(`${BACKEND_URL}${pathname}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+function buildAuthHeaders(guestToken, extraHeaders = {}) {
+  return {
+    ...(guestToken ? { Authorization: `Bearer ${guestToken}` } : {}),
+    ...extraHeaders,
+  };
+}
+
+async function requestGuestSession(player) {
+  const response = await player.context.request.post(`${BACKEND_URL}/api/v1/guests`, {
+    data: { nickname: player.nickname },
   });
 
   if (!response.ok) {
-    throw new Error(`POST ${pathname} failed: ${response.status} ${await response.text()}`);
+    throw new Error(
+      `POST /api/v1/guests failed for ${player.label}: ${response.status()} ${await response.text()}`,
+    );
   }
 
-  return (await response.json()).data;
+  const payload = await response.json();
+  const session = payload.data;
+  player.guestId = session.guestId;
+  player.guestToken = session.guestToken;
+  await player.page.addInitScript((guestSession) => {
+    window.localStorage.setItem(
+      "texas-holdem-guest-session",
+      JSON.stringify({
+        guestId: guestSession.guestId,
+        guestToken: guestSession.guestToken,
+      }),
+    );
+
+    const raw = window.localStorage.getItem("texas-holdem-ui");
+    const parsed = raw ? JSON.parse(raw) : {};
+    window.localStorage.setItem(
+      "texas-holdem-ui",
+      JSON.stringify({
+        ...parsed,
+        guestId: guestSession.guestId,
+        nickname: guestSession.nickname,
+        stackDisplayMode: parsed.stackDisplayMode === "bb" ? "bb" : "chips",
+      }),
+    );
+  }, session);
+  return session;
 }
 
-async function getSnapshot(code, guestId) {
-  const response = await fetch(`${BACKEND_URL}/api/v1/tournaments/${code}?guestId=${guestId}`);
+async function getSnapshot(code, player) {
+  const response = await fetch(`${BACKEND_URL}/api/v1/tournaments/${code}`, {
+    headers: buildAuthHeaders(player.guestToken),
+  });
   if (!response.ok) {
     throw new Error(`GET tournament snapshot failed: ${response.status} ${await response.text()}`);
   }
@@ -47,7 +81,15 @@ async function getSnapshot(code, guestId) {
 }
 
 async function readGuestSession(page) {
-  return page.evaluate(() => JSON.parse(window.localStorage.getItem("texas-holdem-ui") || "{}"));
+  return page.evaluate(() => {
+    const guestSession = JSON.parse(window.localStorage.getItem("texas-holdem-guest-session") || "{}");
+    const uiState = JSON.parse(window.localStorage.getItem("texas-holdem-ui") || "{}");
+    return {
+      guestId: guestSession.guestId || uiState.guestId || "",
+      guestToken: guestSession.guestToken || "",
+      nickname: uiState.nickname || "",
+    };
+  });
 }
 
 function normalizeText(value) {
@@ -77,7 +119,7 @@ async function waitForEnabledTestId(page, testId, timeout = START_TIMEOUT_MS) {
 }
 
 async function waitForTournamentPage(page, code, timeout = JOIN_TIMEOUT_MS) {
-  await page.waitForURL(new RegExp(`/tournaments/${code}$`), { timeout });
+  await page.waitForURL(new RegExp(`/tournaments/${code}$`), { timeout, waitUntil: "commit" });
   await page.locator('[data-testid="tournament-table"]').waitFor({ state: "visible", timeout });
   await page.waitForLoadState("networkidle");
 }
@@ -137,19 +179,80 @@ async function waitForEnabledActionButton(page, action, timeout = ACTION_TIMEOUT
   throw new Error(`No enabled action button found for ${action}`);
 }
 
+async function submitSizedAction(page, action, timeout = ACTION_TIMEOUT_MS) {
+  const presetMatchers = [/^2 BB\b/i, /^3 BB\b/i, /^1\/2 Pot\b/i, /^2\/3 Pot\b/i, /^Pot\b/i];
+  const presetButtons = page.locator("button");
+  const presetCount = await presetButtons.count();
+  for (let index = 0; index < presetCount; index += 1) {
+    const button = presetButtons.nth(index);
+    if (!(await button.isVisible()) || !(await button.isEnabled())) {
+      continue;
+    }
+
+    const label = normalizeText(await button.textContent());
+    if (presetMatchers.some((matcher) => matcher.test(label))) {
+      await button.click({ force: true });
+      break;
+    }
+  }
+
+  const matcher = action === "BET" ? /^Bet to\b/i : /^Raise to\b/i;
+
+  await page.waitForFunction(
+    ({ source, flags }) => {
+      const regex = new RegExp(source, flags);
+      return [...document.querySelectorAll("button")].some((candidate) => {
+        const label = (candidate.textContent || "").trim().replace(/\s+/g, " ");
+        return regex.test(label) && !candidate.disabled;
+      });
+    },
+    { source: matcher.source, flags: matcher.flags },
+    { timeout },
+  );
+
+  const buttons = page.locator("button");
+  const count = await buttons.count();
+  for (let index = 0; index < count; index += 1) {
+    const button = buttons.nth(index);
+    if (!(await button.isVisible())) {
+      continue;
+    }
+
+    const label = normalizeText(await button.textContent());
+    if (!matcher.test(label)) {
+      continue;
+    }
+
+    if (await button.isEnabled()) {
+      await button.click({ force: true });
+      return;
+    }
+  }
+
+  throw new Error(`No enabled sizing submit button found for ${action}`);
+}
+
 function chooseAction(actions, actionCount) {
   const available = new Set(actions);
 
-  if (available.has("CHECK") && actionCount % 3 !== 0) {
+  if (available.has("CHECK")) {
     return "CHECK";
   }
 
-  if (available.has("CALL") && actionCount % 4 !== 0) {
+  if (available.has("CALL")) {
     return "CALL";
   }
 
   if (available.has("FOLD")) {
     return "FOLD";
+  }
+
+  if (available.has("BET")) {
+    return "BET";
+  }
+
+  if (available.has("RAISE")) {
+    return "RAISE";
   }
 
   if (available.has("ALL_IN")) {
@@ -167,11 +270,11 @@ function chooseAction(actions, actionCount) {
   return actions[0] ?? null;
 }
 
-async function waitForStateAdvance(code, guestId, previousStateVersion, timeout = STATE_ADVANCE_TIMEOUT_MS) {
+async function waitForStateAdvance(code, player, previousStateVersion, timeout = STATE_ADVANCE_TIMEOUT_MS) {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeout) {
-    const snapshot = await getSnapshot(code, guestId);
+    const snapshot = await getSnapshot(code, player);
     if (snapshot.stateVersion > previousStateVersion) {
       return snapshot;
     }
@@ -239,8 +342,20 @@ async function createTournamentViaUi(player, options = {}) {
   await openLobby(player.page);
   await fillLobbyNickname(player.page, player.nickname);
   await player.page.locator('[data-testid="create-room-name-input"]').fill(roomName);
+  const createResponsePromise = player.page.waitForResponse(
+    (response) =>
+      response.url() === `${BACKEND_URL}/api/v1/tournaments` &&
+      response.request().method() === "POST",
+    { timeout: START_TIMEOUT_MS },
+  );
   await player.page.locator('[data-testid="create-room-submit"]').click({ force: true });
-  await player.page.waitForURL(/\/tournaments\/[^/?#]+$/, { timeout: START_TIMEOUT_MS });
+  const createResponse = await createResponsePromise;
+  if (!createResponse.ok()) {
+    throw new Error(
+      `Create tournament failed: ${createResponse.status()} ${await createResponse.text()}`,
+    );
+  }
+  await player.page.waitForURL(/\/tournaments\/[^/?#]+$/, { timeout: START_TIMEOUT_MS, waitUntil: "commit" });
 
   const code = /\/tournaments\/([^/?#]+)/.exec(player.page.url())?.[1];
   if (!code) {
@@ -259,11 +374,33 @@ async function joinTournamentViaUi(player, code) {
   await player.page.locator('[data-testid="lobby-room-list"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
 
   const joinButton = player.page.locator(`[data-testid="room-join-button-${code}"]`);
-  await joinButton.waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < JOIN_TIMEOUT_MS) {
+    if (await joinButton.isVisible().catch(() => false)) {
+      break;
+    }
+    await player.page.reload({ waitUntil: "networkidle" });
+    await player.page.locator('[data-testid="lobby-view-join"]').click({ force: true });
+    await player.page.locator('[data-testid="lobby-room-list"]').waitFor({ state: "visible", timeout: JOIN_TIMEOUT_MS });
+    await sleep(600);
+  }
+  await joinButton.waitFor({ state: "visible", timeout: Math.max(1000, JOIN_TIMEOUT_MS / 3) });
+  const joinResponsePromise = player.page.waitForResponse(
+    (response) =>
+      response.url() === `${BACKEND_URL}/api/v1/tournaments/${code}/join` &&
+      response.request().method() === "POST",
+    { timeout: JOIN_TIMEOUT_MS },
+  );
   await joinButton.click({ force: true });
+  const joinResponse = await joinResponsePromise;
+  if (!joinResponse.ok()) {
+    throw new Error(`Join tournament failed for ${player.label}: ${joinResponse.status()} ${await joinResponse.text()}`);
+  }
 
   await waitForTournamentPage(player.page, code);
-  player.guestId = (await readGuestSession(player.page)).guestId;
+  const guestSession = await readGuestSession(player.page);
+  player.guestId = guestSession.guestId;
+  player.guestToken = guestSession.guestToken;
 }
 
 async function markAllReady(players) {
@@ -295,7 +432,7 @@ async function createBrowserPlayers(browser, iterationTag, playerCount, consoleM
       pageErrors.push({ label, message: error.message });
     });
 
-    players.push({ label, nickname, guestId: "", context, page });
+    players.push({ label, nickname, guestId: "", guestToken: "", context, page });
   }
 
   return players;
@@ -317,6 +454,9 @@ async function runTournament(options = {}) {
 
   try {
     players = await createBrowserPlayers(browser, iterationTag, playerCount, consoleMessages, pageErrors);
+    for (const player of players) {
+      await requestGuestSession(player);
+    }
 
     const owner = players[0];
     const createdRoom = await createTournamentViaUi(owner, {
@@ -334,11 +474,11 @@ async function runTournament(options = {}) {
     const startButton = await waitForEnabledTestId(owner.page, "waiting-start-game");
     await startButton.click({ force: true });
 
-    let ownerSnapshot = await waitForStateAdvance(code, owner.guestId, -1, START_TIMEOUT_MS);
+    let ownerSnapshot = await waitForStateAdvance(code, owner, -1, START_TIMEOUT_MS);
     if (!ownerSnapshot) {
       issues.push("Tournament did not advance after clicking Start Tournament");
       await captureFailure(players, artifactDir, "start-timeout");
-      ownerSnapshot = await getSnapshot(code, owner.guestId);
+      ownerSnapshot = await getSnapshot(code, owner);
     }
 
     statusHistory.push({
@@ -353,7 +493,7 @@ async function runTournament(options = {}) {
     let lastHandResultVersion = null;
 
     while (actionCount < (options.actionLimit || ACTION_LIMIT)) {
-      const table = await getSnapshot(code, owner.guestId);
+      const table = await getSnapshot(code, owner);
       const lastState = statusHistory[statusHistory.length - 1];
       if (
         !lastState ||
@@ -419,6 +559,9 @@ async function runTournament(options = {}) {
           }
           const button = await waitForEnabledActionButton(player.page, action, ACTION_TIMEOUT_MS);
           await button.click({ force: true });
+          if (action === "BET" || action === "RAISE") {
+            await submitSizedAction(player.page, action, ACTION_TIMEOUT_MS);
+          }
           clicked = true;
           break;
         } catch (error) {
@@ -435,7 +578,7 @@ async function runTournament(options = {}) {
       }
 
       actionCount += 1;
-      const advanced = await waitForStateAdvance(code, owner.guestId, table.stateVersion, STATE_ADVANCE_TIMEOUT_MS);
+      const advanced = await waitForStateAdvance(code, owner, table.stateVersion, STATE_ADVANCE_TIMEOUT_MS);
       if (!advanced) {
         issues.push(
           `State did not advance after ${action} by ${player.label}/seat ${actor.seatIndex + 1} from version ${table.stateVersion}`,
@@ -445,7 +588,7 @@ async function runTournament(options = {}) {
       }
     }
 
-    const finalSnapshot = await getSnapshot(code, owner.guestId);
+    const finalSnapshot = await getSnapshot(code, owner);
     const finalDomState = {};
     for (const player of players) {
       finalDomState[player.label] = await collectDomState(player.page);

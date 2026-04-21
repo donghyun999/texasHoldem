@@ -32,6 +32,13 @@ function writeJson(filepath, payload) {
   fs.writeFileSync(filepath, `${JSON.stringify(payload, null, 2)}\n`);
 }
 
+function buildAuthHeaders(guestToken, extraHeaders = {}) {
+  return {
+    ...(guestToken ? { Authorization: `Bearer ${guestToken}` } : {}),
+    ...extraHeaders,
+  };
+}
+
 async function parseResponse(response) {
   const text = await response.text();
   try {
@@ -49,10 +56,10 @@ async function parseResponse(response) {
   }
 }
 
-async function requestJson(request, method, pathname, body) {
+async function requestJson(request, guestToken, method, pathname, body) {
   const response = await request.fetch(`${BACKEND_URL}${pathname}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: buildAuthHeaders(guestToken, { "Content-Type": "application/json" }),
     data: body,
   });
   const payload = await parseResponse(response);
@@ -62,8 +69,10 @@ async function requestJson(request, method, pathname, body) {
   return payload.body.data;
 }
 
-async function getSnapshot(request, code, guestId) {
-  const response = await request.get(`${BACKEND_URL}/api/v1/tournaments/${code}?guestId=${guestId}`);
+async function getSnapshot(request, guestToken, code) {
+  const response = await request.get(`${BACKEND_URL}/api/v1/tournaments/${code}`, {
+    headers: buildAuthHeaders(guestToken),
+  });
   const payload = await parseResponse(response);
   if (!payload.ok) {
     throw new Error(`GET /api/v1/tournaments/${code} failed: ${payload.status} ${JSON.stringify(payload.body)}`);
@@ -73,14 +82,20 @@ async function getSnapshot(request, code, guestId) {
 
 function chooseAction(actions, actionCount) {
   const available = new Set(actions);
-  if (available.has("CHECK") && actionCount % 3 !== 0) {
+  if (available.has("CHECK")) {
     return "CHECK";
   }
-  if (available.has("CALL") && actionCount % 4 !== 0) {
+  if (available.has("CALL")) {
     return "CALL";
   }
   if (available.has("FOLD")) {
     return "FOLD";
+  }
+  if (available.has("BET")) {
+    return "BET";
+  }
+  if (available.has("RAISE")) {
+    return "RAISE";
   }
   if (available.has("ALL_IN")) {
     return "ALL_IN";
@@ -183,10 +198,49 @@ async function waitForEnabledActionButton(page, action) {
   throw new Error(`No enabled action button found for ${action}`);
 }
 
-async function waitForStateAdvance(request, code, guestId, previousStateVersion) {
+async function submitSizedAction(page, action) {
+  const presetMatchers = [/^2 BB\b/i, /^3 BB\b/i, /^1\/2 Pot\b/i, /^2\/3 Pot\b/i, /^Pot\b/i];
+  const presetButtons = page.locator("button");
+  const presetCount = await presetButtons.count();
+  for (let index = 0; index < presetCount; index += 1) {
+    const button = presetButtons.nth(index);
+    const label = ((await button.textContent()) || "").trim().replace(/\s+/g, " ");
+    if (!presetMatchers.some((matcher) => matcher.test(label))) {
+      continue;
+    }
+    if (await button.isVisible().catch(() => false) && (await button.isEnabled().catch(() => false))) {
+      await button.click({ force: true });
+      break;
+    }
+  }
+
+  const matcher = action === "BET" ? /^Bet to\b/i : /^Raise to\b/i;
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < ACTION_TIMEOUT_MS) {
+    const buttons = page.locator("button");
+    const count = await buttons.count();
+    for (let index = 0; index < count; index += 1) {
+      const button = buttons.nth(index);
+      const label = ((await button.textContent()) || "").trim().replace(/\s+/g, " ");
+      if (!matcher.test(label)) {
+        continue;
+      }
+      if (await button.isEnabled()) {
+        await button.click({ force: true });
+        return;
+      }
+    }
+    await sleep(300);
+  }
+
+  throw new Error(`No enabled sizing submit button found for ${action}`);
+}
+
+async function waitForStateAdvance(request, guestToken, code, previousStateVersion) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < STATE_ADVANCE_TIMEOUT_MS) {
-    const snapshot = await getSnapshot(request, code, guestId);
+    const snapshot = await getSnapshot(request, guestToken, code);
     if (snapshot.stateVersion > previousStateVersion) {
       return snapshot;
     }
@@ -218,6 +272,7 @@ async function createBrowserPlayers(browser, iterationTag, consoleMessages, page
       label,
       nickname,
       guestId: "",
+      guestToken: "",
       context,
       page,
       request: context.request,
@@ -241,12 +296,33 @@ async function runTournament(options = {}) {
     players = await createBrowserPlayers(browser, iterationTag, consoleMessages, pageErrors);
 
     for (const player of players) {
-      const session = await requestJson(player.request, "POST", "/api/v1/guests", { nickname: player.nickname });
+      const session = await requestJson(player.request, null, "POST", "/api/v1/guests", { nickname: player.nickname });
       player.guestId = session.guestId;
+      player.guestToken = session.guestToken;
+      await player.page.addInitScript((guestSession) => {
+        window.localStorage.setItem(
+          "texas-holdem-guest-session",
+          JSON.stringify({
+            guestId: guestSession.guestId,
+            guestToken: guestSession.guestToken,
+          }),
+        );
+        const raw = window.localStorage.getItem("texas-holdem-ui");
+        const parsed = raw ? JSON.parse(raw) : {};
+        window.localStorage.setItem(
+          "texas-holdem-ui",
+          JSON.stringify({
+            ...parsed,
+            guestId: guestSession.guestId,
+            nickname: guestSession.nickname,
+            stackDisplayMode: parsed.stackDisplayMode === "bb" ? "bb" : "chips",
+          }),
+        );
+      }, session);
     }
 
     const owner = players[0];
-    const created = await requestJson(owner.request, "POST", "/api/v1/tournaments", {
+    const created = await requestJson(owner.request, owner.guestToken, "POST", "/api/v1/tournaments", {
       nickname: owner.nickname,
       roomName: `${iterationTag}-${Date.now()}`,
       visibility: "PUBLIC",
@@ -255,18 +331,18 @@ async function runTournament(options = {}) {
 
     for (let index = 1; index < players.length; index += 1) {
       const player = players[index];
-      await requestJson(player.request, "POST", `/api/v1/tournaments/${code}/join`, {
+      await requestJson(player.request, player.guestToken, "POST", `/api/v1/tournaments/${code}/join`, {
         nickname: player.nickname,
       });
     }
 
     for (const player of players) {
-      await requestJson(player.request, "POST", `/api/v1/tournaments/${code}/ready`, {
+      await requestJson(player.request, player.guestToken, "POST", `/api/v1/tournaments/${code}/ready`, {
         ready: true,
       });
     }
 
-    await requestJson(owner.request, "POST", `/api/v1/tournaments/${code}/start`, {});
+    await requestJson(owner.request, owner.guestToken, "POST", `/api/v1/tournaments/${code}/start`, {});
 
     await Promise.all(
       players.map(async (player) => {
@@ -275,11 +351,11 @@ async function runTournament(options = {}) {
       }),
     );
 
-    let ownerSnapshot = await waitForStateAdvance(owner.request, code, owner.guestId, -1);
+    let ownerSnapshot = await waitForStateAdvance(owner.request, owner.guestToken, code, -1);
     if (!ownerSnapshot) {
       issues.push("Tournament did not advance after start.");
       await captureFailure(players, artifactDir, "start-timeout");
-      ownerSnapshot = await getSnapshot(owner.request, code, owner.guestId);
+      ownerSnapshot = await getSnapshot(owner.request, owner.guestToken, code);
     }
 
     statusHistory.push({
@@ -294,7 +370,7 @@ async function runTournament(options = {}) {
     let lastHandResultVersion = null;
 
     while (actionCount < (options.actionLimit || ACTION_LIMIT)) {
-      const table = await getSnapshot(owner.request, code, owner.guestId);
+      const table = await getSnapshot(owner.request, owner.guestToken, code);
       const lastState = statusHistory[statusHistory.length - 1];
       if (
         !lastState ||
@@ -361,6 +437,9 @@ async function runTournament(options = {}) {
           }
           const button = await waitForEnabledActionButton(player.page, action);
           await button.click({ force: true });
+          if (action === "BET" || action === "RAISE") {
+            await submitSizedAction(player.page, action);
+          }
           clicked = true;
           break;
         } catch (error) {
@@ -377,7 +456,7 @@ async function runTournament(options = {}) {
       }
 
       actionCount += 1;
-      const advanced = await waitForStateAdvance(owner.request, code, owner.guestId, table.stateVersion);
+      const advanced = await waitForStateAdvance(owner.request, owner.guestToken, code, table.stateVersion);
       if (!advanced) {
         issues.push(
           `State did not advance after ${action} by ${player.label}/seat ${actor.seatIndex + 1} from version ${table.stateVersion}`,
@@ -387,7 +466,7 @@ async function runTournament(options = {}) {
       }
     }
 
-    const finalSnapshot = await getSnapshot(owner.request, code, owner.guestId);
+    const finalSnapshot = await getSnapshot(owner.request, owner.guestToken, code);
     const finalDomState = {};
     for (const player of players) {
       finalDomState[player.label] = await collectDomState(player.page);

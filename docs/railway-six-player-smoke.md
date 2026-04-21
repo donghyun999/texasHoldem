@@ -24,6 +24,8 @@
 PLAYER_COUNT=2..9 node scripts/railway-seat-smoke.cjs
 ```
 
+- 최신 range 검증 결과: `test-results/railway-seat-smoke/railway-seat-smoke-20260421-070010336Z`
+
 반복 smoke:
 
 ```bash
@@ -42,6 +44,7 @@ ALLOW_INFINITE_CONTINUOUS_RAILWAY_TESTS=true
   - 현재 좌석 smoke의 기본 wrapper
 - `scripts/railway-seat-continuous.cjs`
   - 좌석 smoke 반복 실행 wrapper
+- 현재 wrapper는 guest token bootstrap과 현재 `data-testid` 기준 로비/테이블 selector를 사용한다.
 - `scripts/railway-six-player-smoke.cjs`
   - 6인 회귀와 호환을 위한 기존 본체
 - `scripts/railway-six-player-continuous.cjs`

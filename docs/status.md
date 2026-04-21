@@ -56,6 +56,9 @@
   - `backend\.\gradlew.bat test` 통과
 - frontend
   - `frontend\npm.cmd run build` 통과
+- Railway smoke
+  - `PLAYER_COUNT=2..9 node .\scripts\railway-seat-smoke.cjs` 통과
+  - 결과: `test-results/railway-seat-smoke/railway-seat-smoke-20260421-070010336Z`
 - 로컬 좌석 검증
   - `node .\scripts\local-seat-flow-verify.cjs` 기준 2인, 6인, 9인 묶음 실행 통과
   - 개별 재검증도 2인 / 6인 / 9인 각각 통과
@@ -93,6 +96,8 @@
   - `test-results/local-seat-flow-verify/20260421-034413399Z`
 - range(`2-3`) 통과:
   - `test-results/local-seat-flow-verify/20260421-033900069Z`
+- Railway range(`2..9`) 통과:
+  - `test-results/railway-seat-smoke/railway-seat-smoke-20260421-070010336Z`
 
 ## 현재 남은 리스크
 
