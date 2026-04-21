@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
+import { TOURNAMENT_MAX_SEATS } from "@/features/table/model/tournament-table-layout";
 import { TOURNAMENT_WS_URL } from "@/shared/config/runtime";
 
 type TournamentOverviewProps = {
@@ -104,7 +105,7 @@ export function TournamentOverview({ snapshot, syncState, currentPlayer }: Tourn
         <div className="grid w-full grid-cols-2 gap-2 text-xs sm:w-auto sm:grid-cols-4">
           <HeaderChip label="Blind" value={formatBlindLevel(snapshot.currentLevel.smallBlind, snapshot.currentLevel.bigBlind)} />
           <HeaderChip label="Next" value={formatCountdown(liveSecondsUntilNextLevel)} />
-          <HeaderChip label="Players" value={`${seatSummary.seatedPlayers}/6`} />
+          <HeaderChip label="Players" value={`${seatSummary.seatedPlayers}/${TOURNAMENT_MAX_SEATS}`} />
           <HeaderChip
             label="You"
             value={currentPlayer ? `S${currentPlayer.seatIndex + 1} ${currentPlayer.stack}` : "Out"}

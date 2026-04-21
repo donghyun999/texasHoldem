@@ -83,11 +83,18 @@ function httpFetch(url, init) {
   return fetch(url, init);
 }
 
-async function waitForHttpOk(url, timeoutMs = STARTUP_TIMEOUT_MS) {
+async function waitForHttpOk(url, timeoutMs = STARTUP_TIMEOUT_MS, options = {}) {
   const startedAt = Date.now();
   let lastError = null;
 
   while (Date.now() - startedAt < timeoutMs) {
+    if (options.child && options.child.exitCode != null) {
+      const logSuffix = options.logFile ? ` Check ${options.logFile} for details.` : "";
+      throw new Error(
+        `${options.label || "Process"} exited before ${url} became healthy (exitCode=${options.child.exitCode}).${logSuffix}`,
+      );
+    }
+
     try {
       const response = await httpFetch(url, { method: "GET" });
       if (response.ok) {
@@ -100,7 +107,8 @@ async function waitForHttpOk(url, timeoutMs = STARTUP_TIMEOUT_MS) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 
-  throw new Error(`Timed out waiting for ${url}: ${lastError?.message || lastError}`);
+  const logSuffix = options.logFile ? ` Check ${options.logFile} for details.` : "";
+  throw new Error(`Timed out waiting for ${url}: ${lastError?.message || lastError}.${logSuffix}`);
 }
 
 function buildBackendEnv() {

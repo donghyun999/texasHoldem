@@ -1,41 +1,45 @@
 # backend-agent status
 
-- last_updated: `2026-04-17 Asia/Seoul`
-- status: `closed`
-- branch: `main`
-- worktree: `C:\Users\user\texasHoldem`
+- last_updated: `2026-04-21 Asia/Seoul`
+- status: `idle`
+- current_task: `No active backend task assigned`
+- branch: `not-assigned`
+- worktree: `C:\Users\user\texasHoldem-wt-backend`
+- worktree_status: `not-created`
 
-## Scope Owned This Session
+## Current Ownership
 
-- `backend/src/main/java/**`
-- `backend/src/test/java/**`
+- owned_scope:
+  - `backend/src/main/java/**`
+  - `backend/src/test/java/**`
+  - only when explicitly assigned: `backend/src/main/resources/**`
+- editable_now:
+  - none until a backend session/worktree is created
+- do_not_edit_now:
+  - `frontend/**`
+  - `scripts/**`
+  - docs outside explicit handoff/status instructions
 
-## Completed Work
+## Last Decision
 
-- Confirmed live legacy payload bug from Railway evidence:
-  - some persisted tournament players had `guestId = null`
-  - `PersistentTournamentStateStore.findActiveTournamentCodeByGuestId(...)` used null-unsafe comparison
-- Implemented defensive fix:
-  - `PersistentTournamentStateStore`
-  - `InMemoryTournamentStateStore`
-  - null-safe guest matching
-  - `countActiveGuests()` ignores null guest ids
-- Added persistence tests for legacy null `guestId`.
-- Fixed compile blocker in `TournamentStateJpaRepository` by removing invalid method declarations that broke JPA generic typing.
+- Latest committed backend-facing state already includes showdown hand label support and the backend changes that feed it to snapshots.
+- No new backend-only uncommitted change is currently assigned from orchestrator.
 
-## Validation Reported
+## Next Actions
 
-- `compileJava testClasses --no-daemon` passed
-- persistence-focused tests passed
-- earlier controller/session narrow tests were also reported green during the session
+1. Reopen only if a bounded backend task is assigned.
+2. If Railway create-path `503` investigation resumes, inspect backend capacity/cleanup/TTL paths first.
+3. Validate any future backend change with the narrowest relevant Gradle tests before handoff.
 
-## Remaining Backend Risks
+## Blockers / Confirmation Needed
 
-- Production data may contain malformed payload shapes beyond null `guestId`.
-- `payload::jsonb` native-query assumptions remain risky in production because payload storage shape was reported as large-object/OID text.
-- Hole-card regression likely still needs backend follow-up on viewer-aware event snapshots.
+- No active backend blocker because there is no active backend task.
+- Live deployment behavior may still require backend investigation, but that is not assigned in this snapshot.
 
-## Next Backend Action
+## Resume Files
 
-- After redeploy, verify whether `create`, `join`, and `active-tournament` stop returning `500`.
-- If not, inspect the next failing payload shape from Railway logs.
+- `AGENTS.md`
+- `docs/multi-agent-cli-operations.md`
+- `docs/agent-roles.md`
+- `docs/status.md`
+- `backend/src/main/java/com/texasholdem/tournament/application/TournamentService.java`

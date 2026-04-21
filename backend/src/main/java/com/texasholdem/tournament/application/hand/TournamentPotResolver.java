@@ -1,5 +1,6 @@
 package com.texasholdem.tournament.application.hand;
 import com.texasholdem.tournament.application.state.TournamentPlayerState;
+import com.texasholdem.tournament.application.state.TournamentRules;
 import com.texasholdem.tournament.domain.PotView;
 import com.texasholdem.tournament.domain.ShowdownHandView;
 import com.texasholdem.tournament.domain.ShowdownPayoutView;
@@ -17,10 +18,12 @@ import java.util.Map;
 public final class TournamentPotResolver {
 
     private final PokerHandEvaluator handEvaluator;
+    private final TournamentRules rules;
 
     // Wires the pot resolver to the hand evaluator used for showdown comparisons.
-    public TournamentPotResolver(PokerHandEvaluator handEvaluator) {
+    public TournamentPotResolver(PokerHandEvaluator handEvaluator, TournamentRules rules) {
         this.handEvaluator = handEvaluator;
+        this.rules = rules;
     }
 
     // Builds the public main-pot and side-pot snapshot view from player contributions.
@@ -275,7 +278,9 @@ public final class TournamentPotResolver {
         if (dealerSeat == null) {
             return seatIndex;
         }
-        return seatIndex >= dealerSeat ? seatIndex - dealerSeat : 6 - dealerSeat + seatIndex;
+        return seatIndex >= dealerSeat
+                ? seatIndex - dealerSeat
+                : rules.maxSeats() - dealerSeat + seatIndex;
     }
 
     record PlayerPotState(

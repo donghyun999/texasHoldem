@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { TournamentPlayer, TournamentSnapshot } from "@/entities/tournament/model/types";
 import { formatAmountDisplay, type StackDisplayMode } from "@/features/table/model/stack-display";
+import { TOURNAMENT_TABLE_LAYOUT } from "@/features/table/model/tournament-table-layout";
 import { PlayerSeat } from "@/features/player/ui/PlayerSeat";
 import { PlayingCard } from "@/shared/ui/PlayingCard";
 
@@ -58,25 +59,6 @@ type SeatPulse = {
   guestId: string;
 };
 
-const TOTAL_SEATS = 6;
-const HERO_TABLE_POSITION_INDEX = 4;
-const SEAT_POSITIONS: Record<number, { left: string; top: string }> = {
-  0: { left: "24%", top: "18%" },
-  1: { left: "50%", top: "11.5%" },
-  2: { left: "76%", top: "18%" },
-  3: { left: "91%", top: "47%" },
-  4: { left: "50%", top: "73.8%" },
-  5: { left: "9%", top: "47%" },
-};
-const BET_MARKER_POSITIONS: Record<number, { left: string; top: string }> = {
-  0: { left: "34%", top: "31%" },
-  1: { left: "50%", top: "25.6%" },
-  2: { left: "66%", top: "31%" },
-  3: { left: "80.8%", top: "48.6%" },
-  4: { left: "50%", top: "61.4%" },
-  5: { left: "19.2%", top: "48.6%" },
-};
-const POT_COLLECTION_POSITION = { left: "50%", top: "40.8%" };
 const BET_CHIP_ANIMATION_MS = 680;
 const BET_CHIP_CLEANUP_BUFFER_MS = 80;
 const POT_CHIP_ANIMATION_MS = 620;
@@ -93,8 +75,8 @@ const ACTOR_FOCUS_DELAY_WITH_BOARD_REVEAL_MS = 140;
 const POT_PULSE_LANDING_OFFSET_MS = 420;
 const EMPTY_CARDS: string[] = [];
 
-function buildSeatMap(players: TournamentPlayer[]) {
-  const seats: Array<TournamentPlayer | undefined> = new Array(TOTAL_SEATS).fill(undefined);
+function buildSeatMap(players: TournamentPlayer[], totalSeats: number) {
+  const seats: Array<TournamentPlayer | undefined> = new Array(totalSeats).fill(undefined);
 
   for (const player of players) {
     seats[player.seatIndex] = player;
@@ -103,13 +85,20 @@ function buildSeatMap(players: TournamentPlayer[]) {
   return seats;
 }
 
-function isAnimatableChipTransition(previousBetState: PreviousBetState, snapshot: TournamentSnapshot) {
+function isSequentialChipTransition(previousBetState: PreviousBetState, snapshot: TournamentSnapshot) {
   return (
     previousBetState.code === snapshot.code &&
-    previousBetState.handNumber === snapshot.handNumber &&
     snapshot.stateVersion > previousBetState.stateVersion &&
     snapshot.stateVersion - previousBetState.stateVersion <= MAX_ANIMATABLE_STATE_GAP
   );
+}
+
+function isSameHandChipTransition(previousBetState: PreviousBetState, snapshot: TournamentSnapshot) {
+  return previousBetState.handNumber === snapshot.handNumber && isSequentialChipTransition(previousBetState, snapshot);
+}
+
+function isCarryOverHandTransition(previousBetState: PreviousBetState, snapshot: TournamentSnapshot) {
+  return snapshot.handNumber === previousBetState.handNumber + 1 && isSequentialChipTransition(previousBetState, snapshot);
 }
 
 function buildWinnerGuestIds(snapshot: TournamentSnapshot) {
@@ -229,14 +218,14 @@ function buildDealingOrder(players: TournamentPlayer[], dealerSeat: number | nul
   }
 
   return [...eligiblePlayers].sort((left, right) => {
-    const leftOffset = normalizeSeatIndex(left.seatIndex - dealerSeat);
-    const rightOffset = normalizeSeatIndex(right.seatIndex - dealerSeat);
+    const leftOffset = normalizeSeatIndex(left.seatIndex - dealerSeat, TOURNAMENT_TABLE_LAYOUT.totalSeats);
+    const rightOffset = normalizeSeatIndex(right.seatIndex - dealerSeat, TOURNAMENT_TABLE_LAYOUT.totalSeats);
     return leftOffset - rightOffset;
   });
 }
 
-function normalizeSeatIndex(index: number) {
-  return (index + TOTAL_SEATS) % TOTAL_SEATS;
+function normalizeSeatIndex(index: number, totalSeats: number) {
+  return (index + totalSeats) % totalSeats;
 }
 
 function resolveDisplayedHeroGuestId(
@@ -257,13 +246,18 @@ function resolveDisplayedHeroGuestId(
   return viewerGuestId ?? currentGuestId;
 }
 
-function buildDisplayedSeatIndexes(players: TournamentPlayer[], heroGuestId?: string) {
+function buildDisplayedSeatIndexes(
+  players: TournamentPlayer[],
+  totalSeats: number,
+  heroTablePositionIndex: number,
+  heroGuestId?: string,
+) {
   const currentPlayerSeat = players.find((player) => player.guestId === heroGuestId)?.seatIndex;
   const rotationOffset =
-    currentPlayerSeat === undefined ? 0 : normalizeSeatIndex(currentPlayerSeat - HERO_TABLE_POSITION_INDEX);
+    currentPlayerSeat === undefined ? 0 : normalizeSeatIndex(currentPlayerSeat - heroTablePositionIndex, totalSeats);
 
-  return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) =>
-    normalizeSeatIndex(tablePositionIndex + rotationOffset),
+  return Array.from({ length: totalSeats }, (_, tablePositionIndex) =>
+    normalizeSeatIndex(tablePositionIndex + rotationOffset, totalSeats),
   );
 }
 
@@ -444,8 +438,8 @@ function getPausedLevelTimerState() {
   };
 }
 
-function buildBetMarkers(snapshot: TournamentSnapshot, displayedSeatIndexes: number[]) {
-  return Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
+function buildBetMarkers(snapshot: TournamentSnapshot, displayedSeatIndexes: number[], totalSeats: number) {
+  return Array.from({ length: totalSeats }, (_, tablePositionIndex) => {
     const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
     const player = snapshot.players.find((candidate) => candidate.seatIndex === actualSeatIndex);
     if (!player || player.roundContribution <= 0 || snapshot.status !== "IN_HAND") {
@@ -651,17 +645,18 @@ function BetMarker({
   acting,
   bigBlind,
   stackDisplayMode,
-  tablePositionIndex,
+  isHeroMarker,
+  compact,
+  reverse,
 }: {
   amount: number;
   acting: boolean;
   bigBlind: number;
   stackDisplayMode: StackDisplayMode;
-  tablePositionIndex: number;
+  isHeroMarker: boolean;
+  compact: boolean;
+  reverse: boolean;
 }) {
-  const isHeroMarker = tablePositionIndex === HERO_TABLE_POSITION_INDEX;
-  const isSideMarker = tablePositionIndex === 3 || tablePositionIndex === 5;
-  const isLeftSideMarker = tablePositionIndex === 5;
   const amountLabel = formatAmountDisplay({
     amount,
     bigBlind,
@@ -672,13 +667,13 @@ function BetMarker({
   return (
     <div
       className={`pointer-events-none flex items-center ${
-        isSideMarker ? "gap-0.5 sm:gap-0.75" : "gap-1"
-      } ${isLeftSideMarker ? "flex-row-reverse" : ""}`}
+        compact ? "gap-0.5 sm:gap-0.75" : "gap-1"
+      } ${reverse ? "flex-row-reverse" : ""}`}
     >
-      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} compact={isSideMarker} />
+      <PokerChipStack amount={amount} acting={acting} bigBlind={bigBlind} hero={isHeroMarker} compact={compact} />
       <span
         className={`rounded-full border font-semibold leading-none text-white shadow-md shadow-black/30 ${
-          isSideMarker ? "px-1 py-0.5 text-[7px] sm:px-1.25 sm:text-[8px]" : "px-1.5 py-0.5 text-[8px] sm:text-[9px]"
+          compact ? "px-1 py-0.5 text-[7px] sm:px-1.25 sm:text-[8px]" : "px-1.5 py-0.5 text-[8px] sm:text-[9px]"
         } ${
           acting ? "border-amber-200/35 bg-black/60 text-amber-50" : "border-white/10 bg-black/50"
         }`}
@@ -696,6 +691,7 @@ export function TournamentTable({
   onStackDisplayModeChange,
   actionBar,
 }: TournamentTableProps) {
+  const tableLayout = TOURNAMENT_TABLE_LAYOUT;
   const [secondsRemaining, setSecondsRemaining] = useState(() => buildDisplayedLevelSeconds(snapshot));
   const [actionTimerNow, setActionTimerNow] = useState(() => Date.now());
   const [flyingBetChips, setFlyingBetChips] = useState<FlyingChipMotion[]>([]);
@@ -707,7 +703,9 @@ export function TournamentTable({
   const [foldPulses, setFoldPulses] = useState<SeatPulse[]>([]);
   const [actorFocusPulses, setActorFocusPulses] = useState<SeatPulse[]>([]);
   const [winnerPulses, setWinnerPulses] = useState<SeatPulse[]>([]);
+  const [potAnimationSequence, setPotAnimationSequence] = useState(0);
   const previousBetStateRef = useRef<PreviousBetState | null>(null);
+  const lastCollectibleBetStateRef = useRef<PreviousBetState | null>(null);
   const flyingChipIdRef = useRef(0);
   const uiEffectIdRef = useRef(0);
   const flyingBetChipsRef = useRef<FlyingChipMotion[]>([]);
@@ -719,10 +717,16 @@ export function TournamentTable({
     () => resolveDisplayedHeroGuestId(snapshot.players, snapshot.viewerGuestId, currentGuestId),
     [currentGuestId, snapshot.players, snapshot.viewerGuestId],
   );
-  const seats = useMemo(() => buildSeatMap(snapshot.players), [snapshot.players]);
+  const seats = useMemo(() => buildSeatMap(snapshot.players, tableLayout.totalSeats), [snapshot.players, tableLayout.totalSeats]);
   const displayedSeatIndexes = useMemo(
-    () => buildDisplayedSeatIndexes(snapshot.players, displayedHeroGuestId),
-    [displayedHeroGuestId, snapshot.players],
+    () =>
+      buildDisplayedSeatIndexes(
+        snapshot.players,
+        tableLayout.totalSeats,
+        tableLayout.heroTablePositionIndex,
+        displayedHeroGuestId,
+      ),
+    [displayedHeroGuestId, snapshot.players, tableLayout.heroTablePositionIndex, tableLayout.totalSeats],
   );
   const showdownHoleCardsByGuestId = useMemo(
     () => new Map(snapshot.showdownHands.map((hand) => [hand.guestId, hand.holeCards] as const)),
@@ -736,7 +740,10 @@ export function TournamentTable({
   const winnerGuestIdsKey = useMemo(() => winnerGuestIds.join("|"), [winnerGuestIds]);
   const winnerGuestIdSet = useMemo(() => new Set(winnerGuestIds), [winnerGuestIds]);
   const boardSlots = useMemo(() => Array.from({ length: 5 }, (_, index) => snapshot.boardCards[index] ?? null), [snapshot.boardCards]);
-  const betMarkers = useMemo(() => buildBetMarkers(snapshot, displayedSeatIndexes), [snapshot.players, snapshot.status, displayedSeatIndexes]);
+  const betMarkers = useMemo(
+    () => buildBetMarkers(snapshot, displayedSeatIndexes, tableLayout.totalSeats),
+    [displayedSeatIndexes, snapshot, tableLayout.totalSeats],
+  );
   const sidePotSummary = useMemo(() => buildSidePotSummary(snapshot), [snapshot.sidePots]);
   const revealedBoardCardSet = useMemo(() => new Set(revealedBoardCards), [revealedBoardCards]);
   const seatActionFlashByGuestId = useMemo(
@@ -807,6 +814,22 @@ export function TournamentTable({
       window.clearTimeout(timeoutId);
     }
     timeoutIdsRef.current = [];
+  };
+
+  const resetTransientUiState = () => {
+    clearTrackedTimeouts(betChipTimeoutIdsRef);
+    clearTrackedTimeouts(potChipTimeoutIdsRef);
+    clearTrackedTimeouts(potCollectionTimeoutIdsRef);
+    clearTrackedTimeouts(uiEffectTimeoutIdsRef);
+    replaceFlyingBetChips([]);
+    replaceFlyingPotChips([]);
+    setPotPulseId(null);
+    setRevealedBoardCards([]);
+    setSeatActionFlashes([]);
+    setDealPulses([]);
+    setFoldPulses([]);
+    setActorFocusPulses([]);
+    setWinnerPulses([]);
   };
 
   const scheduleTrackedTimeout = (
@@ -916,21 +939,22 @@ export function TournamentTable({
   }, []);
 
   useEffect(() => {
-    const previousBetState = previousBetStateRef.current;
+    setPotAnimationSequence(0);
+  }, [snapshot.code]);
 
-    clearTrackedTimeouts(betChipTimeoutIdsRef);
-    clearTrackedTimeouts(potChipTimeoutIdsRef);
-    clearTrackedTimeouts(potCollectionTimeoutIdsRef);
-    clearTrackedTimeouts(uiEffectTimeoutIdsRef);
-    replaceFlyingBetChips([]);
-    replaceFlyingPotChips([]);
-    setPotPulseId(null);
-    setRevealedBoardCards([]);
-    setSeatActionFlashes([]);
-    setDealPulses([]);
-    setFoldPulses([]);
-    setActorFocusPulses([]);
-    setWinnerPulses([]);
+  useEffect(() => {
+    const previousBetState = previousBetStateRef.current;
+    const shouldHardResetEffects =
+      !previousBetState ||
+      previousBetState.code !== snapshot.code ||
+      snapshot.handNumber < previousBetState.handNumber ||
+      snapshot.handNumber - previousBetState.handNumber > 1 ||
+      snapshot.stateVersion < previousBetState.stateVersion ||
+      snapshot.stateVersion - previousBetState.stateVersion > MAX_ANIMATABLE_STATE_GAP;
+
+    if (shouldHardResetEffects) {
+      resetTransientUiState();
+    }
 
     if (
       previousBetState &&
@@ -961,14 +985,31 @@ export function TournamentTable({
       0,
     );
     const previousBetState = previousBetStateRef.current;
-    const canAnimateTransition = previousBetState ? isAnimatableChipTransition(previousBetState, snapshot) : false;
+    const collectionSourceState =
+      lastCollectibleBetStateRef.current &&
+      lastCollectibleBetStateRef.current.code === snapshot.code &&
+      snapshot.stateVersion > lastCollectibleBetStateRef.current.stateVersion &&
+      snapshot.handNumber >= lastCollectibleBetStateRef.current.handNumber &&
+      snapshot.handNumber - lastCollectibleBetStateRef.current.handNumber <= 1
+        ? lastCollectibleBetStateRef.current
+        : previousBetState;
+    const isSameHandTransition = previousBetState ? isSameHandChipTransition(previousBetState, snapshot) : false;
+    const isCarryOverTransition = previousBetState ? isCarryOverHandTransition(previousBetState, snapshot) : false;
+    const canAnimateTransition = isSameHandTransition || isCarryOverTransition;
+    const canCollectToPot =
+      !!collectionSourceState &&
+      collectionSourceState.code === snapshot.code &&
+      snapshot.stateVersion > collectionSourceState.stateVersion &&
+      snapshot.handNumber >= collectionSourceState.handNumber &&
+      snapshot.handNumber - collectionSourceState.handNumber <= 1;
 
     if (previousBetState && canAnimateTransition) {
       const actionFlash =
-        previousBetState.status === "IN_HAND" && snapshot.status === "IN_HAND"
+        isSameHandTransition && previousBetState.status === "IN_HAND" && snapshot.status === "IN_HAND"
           ? buildPreviousActorFlash(previousBetState, snapshot)
           : null;
       const didRevealBoard =
+        isSameHandTransition &&
         snapshot.status === "IN_HAND" &&
         previousBetState.status === "IN_HAND" &&
         snapshot.boardCards.length > previousBetState.boardCards.length;
@@ -996,7 +1037,7 @@ export function TournamentTable({
       }
 
       let hasNewBetFlight = false;
-      if (previousBetState.status === "IN_HAND" && snapshot.status === "IN_HAND") {
+      if (isSameHandTransition && previousBetState.status === "IN_HAND" && snapshot.status === "IN_HAND") {
         const nextFlyingBetChips: FlyingChipMotion[] = [];
         const animationStartedAt = Date.now();
 
@@ -1021,12 +1062,13 @@ export function TournamentTable({
               amount: contributionDelta,
               bigBlind: snapshot.currentLevel.bigBlind,
               expiresAt: animationStartedAt + BET_CHIP_ANIMATION_MS + BET_CHIP_CLEANUP_BUFFER_MS + index * 45,
-              startLeft: SEAT_POSITIONS[tablePositionIndex].left,
-              startTop: SEAT_POSITIONS[tablePositionIndex].top,
-              endLeft: BET_MARKER_POSITIONS[tablePositionIndex].left,
-              endTop: BET_MARKER_POSITIONS[tablePositionIndex].top,
+              startLeft: tableLayout.seatPositions[tablePositionIndex].left,
+              startTop: tableLayout.seatPositions[tablePositionIndex].top,
+              endLeft: tableLayout.betMarkerPositions[tablePositionIndex].left,
+              endTop: tableLayout.betMarkerPositions[tablePositionIndex].top,
               startOffsetX: (index - (burstCount - 1) / 2) * 5,
-              startOffsetY: tablePositionIndex === HERO_TABLE_POSITION_INDEX ? -12 - index * 2 : -4 - index,
+              startOffsetY:
+                tablePositionIndex === tableLayout.heroTablePositionIndex ? -12 - index * 2 : -4 - index,
               endOffsetX: (index - (burstCount - 1) / 2) * 4,
               endOffsetY: index % 2 === 0 ? -1 : 1,
               lift: 18 + index * 4,
@@ -1045,77 +1087,6 @@ export function TournamentTable({
           }
         }
       }
-
-      const shouldCollectToPot =
-        previousBetState.totalContribution > 0 &&
-        currentTotalContribution === 0 &&
-        (snapshot.mainPot > previousBetState.mainPot || snapshot.status !== previousBetState.status);
-      let collectionDelayMs = 0;
-
-      if (shouldCollectToPot) {
-        const latestBetChipExpiry = flyingBetChipsRef.current.reduce(
-          (latestExpiry, chip) => Math.max(latestExpiry, chip.expiresAt),
-          0,
-        );
-        collectionDelayMs =
-          latestBetChipExpiry > 0
-            ? Math.max(0, latestBetChipExpiry - Date.now()) + POT_COLLECTION_SETTLE_BUFFER_MS
-            : 0;
-
-        scheduleTrackedTimeout(potCollectionTimeoutIdsRef, () => {
-          const nextFlyingPotChips: FlyingChipMotion[] = [];
-          const animationStartedAt = Date.now();
-
-          for (const player of snapshot.players) {
-            const previousContribution = previousBetState.contributionByGuest.get(player.guestId) ?? 0;
-            if (previousContribution <= 0) {
-              continue;
-            }
-
-            const tablePositionIndex = displayedSeatIndexes.findIndex((seatIndex) => seatIndex === player.seatIndex);
-            if (tablePositionIndex < 0) {
-              continue;
-            }
-
-            const burstCount = buildFlyingChipBurstCount(previousContribution, snapshot.currentLevel.bigBlind);
-            for (let index = 0; index < burstCount; index += 1) {
-              const chipId = `pot-chip-${snapshot.stateVersion}-${flyingChipIdRef.current}`;
-              flyingChipIdRef.current += 1;
-              nextFlyingPotChips.push({
-                id: chipId,
-                amount: previousContribution,
-                bigBlind: snapshot.currentLevel.bigBlind,
-                expiresAt: animationStartedAt + POT_CHIP_ANIMATION_MS + POT_CHIP_CLEANUP_BUFFER_MS + index * 35,
-                startLeft: BET_MARKER_POSITIONS[tablePositionIndex].left,
-                startTop: BET_MARKER_POSITIONS[tablePositionIndex].top,
-                endLeft: POT_COLLECTION_POSITION.left,
-                endTop: POT_COLLECTION_POSITION.top,
-                startOffsetX: (index - (burstCount - 1) / 2) * 3,
-                startOffsetY: index % 2 === 0 ? -1 : 1,
-                endOffsetX: (index - (burstCount - 1) / 2) * 5,
-                endOffsetY: -2 - index,
-                lift: 12 + index * 3,
-                delayMs: index * 35,
-              });
-            }
-          }
-
-          if (nextFlyingPotChips.length > 0) {
-            replaceFlyingPotChips((current) => [...current, ...nextFlyingPotChips]);
-            for (const chip of nextFlyingPotChips) {
-              scheduleTrackedTimeout(potChipTimeoutIdsRef, () => {
-                replaceFlyingPotChips((current) => current.filter((entry) => entry.id !== chip.id));
-              }, POT_CHIP_ANIMATION_MS + POT_CHIP_CLEANUP_BUFFER_MS + chip.delayMs);
-            }
-          }
-        }, collectionDelayMs);
-      }
-
-      if (totalPot > previousBetState.totalPot) {
-        const potPulseDelayMs = shouldCollectToPot ? collectionDelayMs + POT_PULSE_LANDING_OFFSET_MS : 0;
-        triggerPotPulse(potPulseDelayMs);
-      }
-
       if (snapshot.status === "IN_HAND" && snapshot.actingSeat !== previousBetState.actingSeat && snapshot.actingSeat !== null) {
         const nextActorGuestId = currentGuestIdBySeat.get(snapshot.actingSeat);
         if (nextActorGuestId) {
@@ -1138,7 +1109,88 @@ export function TournamentTable({
       }
     }
 
-    previousBetStateRef.current = {
+    if (collectionSourceState && canCollectToPot) {
+      const didAdvanceHand = snapshot.handNumber > collectionSourceState.handNumber;
+      const didSweepPreviousContributions =
+        collectionSourceState.totalContribution > 0 &&
+        (didAdvanceHand || currentTotalContribution < collectionSourceState.totalContribution);
+      const shouldCollectToPot =
+        didSweepPreviousContributions &&
+        (totalPot > collectionSourceState.totalPot ||
+          snapshot.mainPot > collectionSourceState.mainPot ||
+          snapshot.status !== collectionSourceState.status ||
+          snapshot.handNumber !== collectionSourceState.handNumber);
+      let collectionDelayMs = 0;
+
+      if (shouldCollectToPot) {
+        const latestBetChipExpiry = flyingBetChipsRef.current.reduce(
+          (latestExpiry, chip) => Math.max(latestExpiry, chip.expiresAt),
+          0,
+        );
+        collectionDelayMs =
+          latestBetChipExpiry > 0
+            ? Math.max(0, latestBetChipExpiry - Date.now()) + POT_COLLECTION_SETTLE_BUFFER_MS
+            : 0;
+
+        scheduleTrackedTimeout(potCollectionTimeoutIdsRef, () => {
+          const nextFlyingPotChips: FlyingChipMotion[] = [];
+          const animationStartedAt = Date.now();
+
+          for (const [seatIndex, guestId] of collectionSourceState.guestIdBySeat.entries()) {
+            const previousContribution = collectionSourceState.contributionByGuest.get(guestId) ?? 0;
+            if (previousContribution <= 0) {
+              continue;
+            }
+
+            const tablePositionIndex = displayedSeatIndexes.findIndex((displayedSeatIndex) => displayedSeatIndex === seatIndex);
+            if (tablePositionIndex < 0) {
+              continue;
+            }
+
+            const burstCount = buildFlyingChipBurstCount(previousContribution, snapshot.currentLevel.bigBlind);
+            for (let index = 0; index < burstCount; index += 1) {
+              const chipId = `pot-chip-${snapshot.stateVersion}-${flyingChipIdRef.current}`;
+              flyingChipIdRef.current += 1;
+              nextFlyingPotChips.push({
+                id: chipId,
+                amount: previousContribution,
+                bigBlind: snapshot.currentLevel.bigBlind,
+                expiresAt: animationStartedAt + POT_CHIP_ANIMATION_MS + POT_CHIP_CLEANUP_BUFFER_MS + index * 35,
+                startLeft: tableLayout.betMarkerPositions[tablePositionIndex].left,
+                startTop: tableLayout.betMarkerPositions[tablePositionIndex].top,
+                endLeft: tableLayout.potCollectionPosition.left,
+                endTop: tableLayout.potCollectionPosition.top,
+                startOffsetX: (index - (burstCount - 1) / 2) * 3,
+                startOffsetY: index % 2 === 0 ? -1 : 1,
+                endOffsetX: (index - (burstCount - 1) / 2) * 5,
+                endOffsetY: -2 - index,
+                lift: 12 + index * 3,
+                delayMs: index * 35,
+              });
+            }
+          }
+
+          if (nextFlyingPotChips.length > 0) {
+            setPotAnimationSequence((current) => current + 1);
+            replaceFlyingPotChips((current) => [...current, ...nextFlyingPotChips]);
+            for (const chip of nextFlyingPotChips) {
+              scheduleTrackedTimeout(potChipTimeoutIdsRef, () => {
+                replaceFlyingPotChips((current) => current.filter((entry) => entry.id !== chip.id));
+              }, POT_CHIP_ANIMATION_MS + POT_CHIP_CLEANUP_BUFFER_MS + chip.delayMs);
+            }
+          }
+        }, collectionDelayMs);
+
+        lastCollectibleBetStateRef.current = null;
+      }
+
+      if (totalPot > collectionSourceState.totalPot) {
+        const potPulseDelayMs = shouldCollectToPot ? collectionDelayMs + POT_PULSE_LANDING_OFFSET_MS : 0;
+        triggerPotPulse(potPulseDelayMs);
+      }
+    }
+
+    const nextBetState = {
       code: snapshot.code,
       handNumber: snapshot.handNumber,
       stateVersion: snapshot.stateVersion,
@@ -1154,6 +1206,10 @@ export function TournamentTable({
       mainPot: snapshot.mainPot,
       status: snapshot.status,
     };
+    previousBetStateRef.current = nextBetState;
+    if (currentTotalContribution > 0) {
+      lastCollectibleBetStateRef.current = nextBetState;
+    }
   }, [
     displayedSeatIndexes,
     snapshot.code,
@@ -1171,12 +1227,13 @@ export function TournamentTable({
     <div
       data-testid="tournament-table"
       data-viewer-guest-id={displayedHeroGuestId ?? ""}
-      className="relative mx-auto h-[760px] w-full max-w-[430px] overflow-hidden rounded-[2.2rem] border border-white/12 bg-[linear-gradient(180deg,_rgba(6,16,13,0.98),_rgba(2,7,6,0.99))] shadow-2xl shadow-black/40 sm:h-[840px] sm:max-w-[520px]"
+      data-pot-animation-sequence={potAnimationSequence}
+      className={tableLayout.containerClassName}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.1),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(103,232,249,0.12),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(250,204,21,0.09),_transparent_22%),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[540px] w-[76%] min-w-[286px] max-w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border-[12px] border-[#355f56] bg-[radial-gradient(circle_at_50%_34%,_rgba(103,232,249,0.22),_rgba(35,163,116,0.92)_38%,_rgba(7,33,26,0.98)_78%)] shadow-[0_35px_80px_rgba(0,0,0,0.5),inset_0_0_70px_rgba(0,0,0,0.48)] sm:h-[620px] sm:max-w-[388px] sm:border-[16px]" />
-      <div className="absolute left-1/2 top-[43.5%] h-[505px] w-[68%] min-w-[258px] max-w-[312px] -translate-x-1/2 -translate-y-1/2 rounded-[46%] border border-white/10 bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.08),_transparent_30%)] sm:h-[578px] sm:max-w-[345px]" />
-      <div className="absolute left-1/2 top-[69%] h-24 w-48 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(250,204,21,0.2),_transparent_70%)] blur-2xl sm:h-28 sm:w-60" />
+      <div className={tableLayout.feltOuterClassName} />
+      <div className={tableLayout.feltInnerClassName} />
+      <div className={tableLayout.bottomGlowClassName} />
 
       <div className="absolute inset-x-3 top-3 z-30 sm:inset-x-4 sm:top-4">
         <div className="social-surface flex min-w-0 items-center gap-2 rounded-[1.15rem] px-3 py-1.5 text-[10px] font-medium text-zinc-100 sm:rounded-[1.35rem] sm:px-3.5 sm:py-2 sm:text-xs">
@@ -1353,17 +1410,17 @@ export function TournamentTable({
         </div>
       </div>
 
-      {Array.from({ length: TOTAL_SEATS }, (_, tablePositionIndex) => {
+      {Array.from({ length: tableLayout.totalSeats }, (_, tablePositionIndex) => {
         const actualSeatIndex = displayedSeatIndexes[tablePositionIndex];
-        const isHeroPosition = tablePositionIndex === HERO_TABLE_POSITION_INDEX;
+        const isHeroPosition = tablePositionIndex === tableLayout.heroTablePositionIndex;
 
         return (
           <div
             key={`seat-${tablePositionIndex}`}
             className={`absolute z-20 ${isHeroPosition ? "z-30" : ""}`}
             style={{
-              left: SEAT_POSITIONS[tablePositionIndex].left,
-              top: SEAT_POSITIONS[tablePositionIndex].top,
+              left: tableLayout.seatPositions[tablePositionIndex].left,
+              top: tableLayout.seatPositions[tablePositionIndex].top,
               transform: "translate(-50%, -50%)",
             }}
           >
@@ -1371,6 +1428,7 @@ export function TournamentTable({
               player={seats[actualSeatIndex]}
               seatIndex={actualSeatIndex}
               tablePositionIndex={tablePositionIndex}
+              isHeroSeat={isHeroPosition}
               dealerSeat={snapshot.dealerSeat}
               smallBlindSeat={snapshot.smallBlindSeat}
               bigBlindSeat={snapshot.bigBlindSeat}
@@ -1403,10 +1461,11 @@ export function TournamentTable({
       {betMarkers.map((marker) => (
         <div
           key={`bet-marker-${marker.player.guestId}`}
-          className={`absolute z-20 ${marker.tablePositionIndex === HERO_TABLE_POSITION_INDEX ? "z-30" : ""}`}
+          data-testid={`bet-marker-${marker.player.seatIndex}`}
+          className={`absolute z-20 ${marker.tablePositionIndex === tableLayout.heroTablePositionIndex ? "z-30" : ""}`}
           style={{
-            left: BET_MARKER_POSITIONS[marker.tablePositionIndex].left,
-            top: BET_MARKER_POSITIONS[marker.tablePositionIndex].top,
+            left: tableLayout.betMarkerPositions[marker.tablePositionIndex].left,
+            top: tableLayout.betMarkerPositions[marker.tablePositionIndex].top,
             transform: "translate(-50%, -50%)",
           }}
         >
@@ -1415,7 +1474,9 @@ export function TournamentTable({
             acting={marker.player.acting}
             bigBlind={snapshot.currentLevel.bigBlind}
             stackDisplayMode={stackDisplayMode}
-            tablePositionIndex={marker.tablePositionIndex}
+            isHeroMarker={marker.tablePositionIndex === tableLayout.heroTablePositionIndex}
+            compact={tableLayout.betMarkerDisplays[marker.tablePositionIndex]?.compact ?? false}
+            reverse={tableLayout.betMarkerDisplays[marker.tablePositionIndex]?.reverse ?? false}
           />
         </div>
       ))}
@@ -1437,7 +1498,7 @@ export function TournamentTable({
             } as CSSProperties;
 
             return (
-              <div key={chip.id} className="flying-bet-chip" style={style}>
+              <div key={chip.id} data-testid="flying-bet-chip" className="flying-bet-chip" style={style}>
                 <FlyingChipToken amount={chip.amount} bigBlind={chip.bigBlind} />
               </div>
             );
@@ -1462,7 +1523,7 @@ export function TournamentTable({
             } as CSSProperties;
 
             return (
-              <div key={chip.id} className="flying-pot-chip" style={style}>
+              <div key={chip.id} data-testid="flying-pot-chip" className="flying-pot-chip" style={style}>
                 <FlyingChipToken amount={chip.amount} bigBlind={chip.bigBlind} />
               </div>
             );
@@ -1470,7 +1531,11 @@ export function TournamentTable({
         </div>
       ) : null}
 
-      {actionBar ? <div className="absolute inset-x-3 bottom-3 z-40 sm:inset-x-4 sm:bottom-4">{actionBar}</div> : null}
+      {actionBar ? (
+        <div data-testid="table-action-bar" className="absolute inset-x-3 bottom-3 z-40 sm:inset-x-4 sm:bottom-4">
+          {actionBar}
+        </div>
+      ) : null}
     </div>
   );
 }

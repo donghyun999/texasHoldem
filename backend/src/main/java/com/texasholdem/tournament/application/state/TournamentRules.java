@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public final class TournamentRules {
 
-    private static final int MAX_SEATS = 6;
+    private static final int DEFAULT_MAX_SEATS = 9;
     private static final int STARTING_STACK = 2_000;
     private static final List<BlindLevel> DEFAULT_LEVELS = List.of(
             new BlindLevel(1, 10, 20, 300),
@@ -18,10 +18,22 @@ public final class TournamentRules {
             new BlindLevel(5, 75, 150, 300),
             new BlindLevel(6, 100, 200, 300)
     );
+    private final int maxSeats;
+
+    public TournamentRules() {
+        this(DEFAULT_MAX_SEATS);
+    }
+
+    public TournamentRules(int maxSeats) {
+        if (maxSeats < 2) {
+            throw new IllegalArgumentException("Tournament seat cap must be at least 2.");
+        }
+        this.maxSeats = maxSeats;
+    }
 
     // Returns the seat cap for one single-table tournament.
     public int maxSeats() {
-        return MAX_SEATS;
+        return maxSeats;
     }
 
     // Returns the starting stack assigned when the tournament begins.

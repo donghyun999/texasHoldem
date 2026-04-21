@@ -22,7 +22,7 @@ async function main() {
   ensureDir(RESULTS_ROOT);
 
   const startedAt = new Date().toISOString();
-  const batchName = `railway-six-player-continuous-${timestampId()}`;
+  const batchName = `railway-seat-continuous-${timestampId()}`;
   const batchDir = path.join(RESULTS_ROOT, batchName);
   const latestFile = path.join(RESULTS_ROOT, "latest-batch.json");
   const pidFile = path.join(RESULTS_ROOT, "continuous-run.pid");
@@ -143,7 +143,13 @@ async function main() {
   finalize();
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  main,
+};
