@@ -1,8 +1,9 @@
 package com.texasholdem.tournament.application.state;
 
+import com.texasholdem.auth.GuestTokenService;
 import com.texasholdem.tournament.domain.GuestSession;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -14,10 +15,20 @@ import java.util.function.Predicate;
 public final class TournamentIdentityFactory {
 
     private static final BCryptPasswordEncoder ROOM_PASSWORD_ENCODER = new BCryptPasswordEncoder();
+    private final GuestTokenService guestTokenService;
+
+    public TournamentIdentityFactory(GuestTokenService guestTokenService) {
+        this.guestTokenService = guestTokenService;
+    }
 
     // Issues a normalized guest session for the tournament flow.
     public GuestSession registerGuest(String nickname) {
-        return new GuestSession(nextGuestId(), normalizeNickname(nickname));
+        var guestId = nextGuestId();
+        return new GuestSession(
+                guestId,
+                normalizeNickname(nickname),
+                guestTokenService.issueToken(guestId)
+        );
     }
 
     // Trims user-facing nicknames before persisting them in memory.

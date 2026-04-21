@@ -10,6 +10,7 @@ import {
   sendTournamentReady,
   sendTournamentStart,
 } from "@/shared/api/stomp-client";
+import { readPersistedGuestToken } from "@/shared/model/guest-session-storage";
 import {
   buildWaitingLeaveSnapshot,
   findCurrentPlayer,
@@ -71,6 +72,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
   const lastSyncedSnapshotKeyRef = useRef("");
   const lastHydratedSnapshotKeyRef = useRef("");
   const normalizedCode = code.trim().toUpperCase();
+  const guestToken = readPersistedGuestToken();
   const currentPlayer = findCurrentPlayer(snapshot, guestId);
   const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
 
@@ -208,7 +210,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       return;
     }
 
-    const client = createTournamentClient();
+    const client = createTournamentClient(guestToken);
     clientRef.current = client;
     setRealtimeState("CONNECTING");
 
@@ -235,7 +237,7 @@ export function useTournamentRealtimeSnapshot(code: string, guestId: string, see
       setRealtimeState("IDLE");
       void client.deactivate();
     };
-  }, [normalizedCode]);
+  }, [guestId, guestToken, normalizedCode]);
 
   // Restores the player's seat connectivity when the browser rejoins the tournament topic.
   useEffect(() => {

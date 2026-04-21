@@ -85,6 +85,7 @@ Railway 배포 메모:
 ```bash
 # backend service
 APP_CORS_ALLOWED_ORIGINS=https://<frontend-domain>
+APP_GUEST_TOKEN_SECRET=<stable-random-secret>
 DB_HOST=${{Postgres.PGHOST}}
 DB_PORT=${{Postgres.PGPORT}}
 DB_NAME=${{Postgres.PGDATABASE}}
@@ -95,6 +96,8 @@ DB_PASSWORD=${{Postgres.PGPASSWORD}}
 VITE_API_BASE_URL=https://<backend-domain>
 VITE_TOURNAMENT_WS_URL=wss://<backend-domain>/ws
 ```
+
+- deployed guest token signing??`APP_GUEST_TOKEN_SECRET`媛 諛고룷 媛꾧꺽?먯꽌??怨좎젙???덉뼱???⑸땲??
 
 - Railway config-as-code 파일은 `/backend/railway.json`, `/frontend/railway.json`을 사용한다
 - Railway backend 서비스는 MVP 기준으로 replica 1개를 유지하고 sleep은 비활성화한다
@@ -165,6 +168,7 @@ PLAYER_COUNTS=2..9 node scripts/local-seat-flow-verify.cjs
 ## 주요 문서
 
 - `docs/setup.md`
+- `docs/guest-token-session-transition.md`
 - `docs/multi-agent-cli-operations.md`
 - `docs/agent-roles.md`
 - `docs/worktree-and-session-setup.md`

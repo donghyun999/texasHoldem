@@ -1,6 +1,7 @@
 package com.texasholdem.tournament.presentation;
 
 import com.texasholdem.auth.GuestSessionAttributes;
+import com.texasholdem.auth.GuestTokenService;
 import com.texasholdem.auth.GuestSessionResolver;
 import com.texasholdem.tournament.application.command.TournamentService;
 import com.texasholdem.tournament.application.snapshot.TournamentBroadcast;
@@ -24,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(TournamentController.class)
-@Import(GuestSessionResolver.class)
+@Import({GuestSessionResolver.class, GuestTokenService.class})
 class TournamentControllerTest {
 
     @Autowired
@@ -35,6 +36,9 @@ class TournamentControllerTest {
 
     @MockBean
     private TournamentTopicPublisher topicPublisher;
+
+    @Autowired
+    private GuestTokenService guestTokenService;
 
     @Test
     void getTournamentUsesSessionIdentityWhenQueryParamIsMissing() throws Exception {
@@ -93,6 +97,22 @@ class TournamentControllerTest {
     }
 
     @Test
+    void createTournamentUsesBearerGuestIdentity() throws Exception {
+        when(tournamentService.createTournament("guest-token", "Owner", "Friday", null, TournamentVisibility.PUBLIC))
+                .thenReturn(null);
+
+        mockMvc.perform(post("/api/v1/tournaments")
+                        .header("Authorization", "Bearer " + guestTokenService.issueToken("guest-token"))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"nickname":"Owner","roomName":"Friday","visibility":"PUBLIC"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(tournamentService).createTournament("guest-token", "Owner", "Friday", null, TournamentVisibility.PUBLIC);
+    }
+
+    @Test
     void joinTournamentUsesSessionGuestIdentity() throws Exception {
         when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-session", "Player2", null))
                 .thenReturn(new TournamentBroadcast(java.util.List.of(
@@ -122,5 +142,23 @@ class TournamentControllerTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(status().reason("Guest session is required."));
+    }
+
+    @Test
+    void joinTournamentUsesBearerGuestIdentity() throws Exception {
+        when(tournamentService.joinTournamentBroadcast("ABCD1", "guest-token", "Player2", null))
+                .thenReturn(new TournamentBroadcast(java.util.List.of(
+                        new TournamentEvent("tournamentSnapshot", null, java.util.Map.of())
+                )));
+
+        mockMvc.perform(post("/api/v1/tournaments/ABCD1/join")
+                        .header("Authorization", "Bearer " + guestTokenService.issueToken("guest-token"))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"nickname":"Player2"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(tournamentService).joinTournamentBroadcast("ABCD1", "guest-token", "Player2", null);
     }
 }

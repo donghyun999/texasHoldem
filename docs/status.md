@@ -32,6 +32,12 @@
 
 ## 이번 세션 반영 사항
 
+- `docs/guest-token-session-transition.md`
+  - Safari / iPhone `Unauthorized` ?댁뒋 ?먯쓣 ?댄빐 guest token 湲곕컲 ?꾪솚 workflow瑜??묐━
+- guest auth compatibility patch
+  - backend媛 `guestToken`??諛섑솚?섍퀬 REST? WebSocket CONNECT?먯꽌 bearer token?쇰줈 guest瑜??몄떇?섎룄濡?蹂닿컯
+  - frontend媛 `guestId + guestToken`??濡쒖뺄????ν븯怨?protected API / STOMP connect header?먯꽌 token???꾩꽑 ?ъ슜?섎룄濡?蹂닿컯
+  - 湲곗〈 session cookie??fallback?쇰줈 ?좎??섏뿬 local ?먮쫫怨?湲곗〈 遺뚮윭?ㅽ뒪???묒떇?먯꽌 break ?섏? ?딄쾶 ?섎룞
 - `frontend/src/widgets/tournament/ui/TournamentTable.tsx`
   - 팟 수거 애니메이션 계산을 hand 경계와 state gap에서 더 안정적으로 이어지도록 보강
   - 마지막 non-zero contribution snapshot을 별도로 추적해 다인원 hand 전환에서도 팟 수거 출발점을 유지

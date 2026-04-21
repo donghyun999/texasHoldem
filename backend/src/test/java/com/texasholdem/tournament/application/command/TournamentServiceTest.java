@@ -1182,7 +1182,7 @@ class TournamentServiceTest {
     @Test
     void reconnectsDisconnectedPlayerAfterPersistenceReload() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
@@ -1426,7 +1426,7 @@ class TournamentServiceTest {
     @Test
     void refreshesLatestPersistedTournamentBeforeLockedCommandAcrossServiceInstances() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
@@ -1514,7 +1514,7 @@ class TournamentServiceTest {
     @Test
     void restoresPersistedTournamentStateAcrossServiceInstances() {
         var rules = new TournamentRules();
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);
@@ -1680,7 +1680,7 @@ class TournamentServiceTest {
             long hardTtlSeconds
     ) {
         var rules = new TournamentRules(maxSeats);
-        var identityFactory = new TournamentIdentityFactory();
+        var identityFactory = new TournamentIdentityFactory(new com.texasholdem.auth.GuestTokenService("test-guest-token-secret"));
         var snapshotFactory = new TournamentSnapshotFactory(rules, new PokerHandEvaluator(), 20);
         var eventFactory = new TournamentEventFactory(snapshotFactory);
         var stateAccess = new TournamentStateAccess(rules);

@@ -4,7 +4,8 @@ import { createGuestSession, getActiveTournamentForCurrentGuest, isUnauthorizedE
 import {
   clearPersistedGuestId,
   readPersistedGuestId,
-  writePersistedGuestId,
+  readPersistedGuestToken,
+  writePersistedGuestAuth,
 } from "@/shared/model/guest-session-storage";
 import { useUiStore } from "@/shared/model/ui-store";
 
@@ -19,6 +20,7 @@ type UseGuestSessionOptions = {
 export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions = {}) {
   const queryClient = useQueryClient();
   const [guestId, setGuestId] = useState(() => readPersistedGuestId());
+  const [guestToken, setGuestToken] = useState(() => readPersistedGuestToken());
   const nickname = useUiStore((state) => state.nickname);
   const setNickname = useUiStore((state) => state.setNickname);
   const guestSessionQueryOptions = {
@@ -56,6 +58,7 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
     }
 
     setGuestId("");
+    setGuestToken("");
     clearPersistedGuestId();
     void queryClient.resetQueries({ queryKey: guestSessionBootstrapQueryKey, exact: true });
   }, [guestSessionValidationQuery.data, queryClient]);
@@ -67,7 +70,8 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
     }
 
     setGuestId(guestSessionQuery.data.guestId);
-    writePersistedGuestId(guestSessionQuery.data.guestId);
+    setGuestToken(guestSessionQuery.data.guestToken);
+    writePersistedGuestAuth(guestSessionQuery.data.guestId, guestSessionQuery.data.guestToken);
     setNickname(guestSessionQuery.data.nickname);
   }, [guestSessionQuery.data, setNickname]);
 
@@ -91,19 +95,22 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
         }
 
         setGuestId("");
+        setGuestToken("");
         clearPersistedGuestId();
       }
     }
 
     const session = await queryClient.fetchQuery(guestSessionQueryOptions);
     setGuestId(session.guestId);
-    writePersistedGuestId(session.guestId);
+    setGuestToken(session.guestToken);
+    writePersistedGuestAuth(session.guestId, session.guestToken);
     setNickname(session.nickname);
     return session.guestId;
   }
 
   return {
     guestId,
+    guestToken,
     nickname,
     setNickname,
     ensureGuestSession,
