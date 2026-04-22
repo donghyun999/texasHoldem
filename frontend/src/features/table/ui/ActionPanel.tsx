@@ -764,73 +764,73 @@ export function ActionPanel({
             </button>
 
             {isSizingOpen && sizeAction ? (
-              <div className="absolute bottom-[calc(100%+0.5rem)] left-0 right-0 z-50 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45 sm:left-auto sm:right-0 sm:w-[20rem]">
-                <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
+              <div className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[min(14rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.1rem] border border-white/10 bg-[linear-gradient(180deg,_rgba(10,14,12,0.98),_rgba(6,9,8,0.98))] shadow-2xl shadow-black/45 sm:w-[20rem] sm:rounded-[1.35rem]">
+                <div className="flex items-start justify-between gap-2 border-b border-white/10 px-2 py-1.5 sm:gap-3 sm:px-2.5 sm:py-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                    <p className="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500 sm:text-[10px] sm:tracking-[0.18em]">
                       {getSizedActionLabel(sizeAction)} amount
                     </p>
-                    <p className="mt-1 truncate text-[1.4rem] font-black leading-none text-white sm:text-2xl">
+                    <p className="mt-0.5 truncate text-[1rem] font-black leading-none text-white sm:mt-1 sm:text-2xl">
                       {sizingDisplayAmount}
                     </p>
-                    <p className={`mt-1 text-[10px] leading-tight ${targetHelper.tone}`}>{targetHelper.text}</p>
-                    <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">
+                    <p className={`mt-0.5 text-[9px] leading-tight sm:mt-1 sm:text-[10px] ${targetHelper.tone}`}>{targetHelper.text}</p>
+                    <p className="mt-0.5 text-[9px] leading-tight text-zinc-500 sm:text-[10px]">
                       {stackDisplayMode === "bb" ? "Enter BB total" : "Enter chip total"}
                     </p>
                     {stackDisplayMode === "bb" && parsedTargetAmount !== null ? (
-                      <p className="mt-0.5 text-[10px] leading-tight text-zinc-500">{parsedTargetAmount} chips total</p>
+                      <p className="mt-0.5 text-[9px] leading-tight text-zinc-500 sm:text-[10px]">{parsedTargetAmount} chips total</p>
                     ) : null}
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsSizingOpen(false)}
-                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-medium text-zinc-200 transition hover:bg-white/10"
+                    className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-medium text-zinc-200 transition hover:bg-white/10 sm:px-2.5 sm:py-1 sm:text-[10px]"
                   >
                     Close
                   </button>
                 </div>
 
-                <div className="grid grid-cols-[minmax(0,1fr)_3.25rem] gap-0">
+                <div className="grid grid-cols-[minmax(0,1fr)_2.5rem] gap-0 sm:grid-cols-[minmax(0,1fr)_3.25rem]">
                   <div>
-                    <div className="flex flex-wrap gap-1 border-b border-white/10 px-3 py-1.5 text-[10px] text-zinc-200 sm:px-2.5 sm:py-1.5">
-                      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                    <div className="flex flex-wrap gap-1 border-b border-white/10 px-2 py-1 text-[9px] text-zinc-200 sm:px-2.5 sm:py-1.5 sm:text-[10px]">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 sm:px-2 sm:py-1">
                         Pot {formatAmountDisplay({ amount: potSize, bigBlind, mode: stackDisplayMode })}
                       </span>
-                      <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-2 py-1 text-fuchsia-50">
+                      <span className="rounded-full border border-fuchsia-300/20 bg-fuchsia-400/10 px-1.5 py-0.5 text-fuchsia-50 sm:px-2 sm:py-1">
                         To{" "}
                         {sliderCommitment
                           ? formatAmountDisplay({ amount: sliderCommitment, bigBlind, mode: stackDisplayMode })
                           : "--"}
                       </span>
                       {sliderDeltaLabel ? (
-                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">{sliderDeltaLabel}</span>
+                        <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 sm:px-2 sm:py-1">{sliderDeltaLabel}</span>
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 px-3 py-2 sm:px-2.5 sm:py-2">
+                    <div className="grid grid-cols-3 gap-1 border-b border-white/10 px-2 py-1.5 sm:gap-1.5 sm:px-2.5 sm:py-2">
                       {presetTargets.map((preset) => (
                         <button
                           key={preset.label}
                           type="button"
                           onClick={() => handlePresetSelect(preset.value)}
                           disabled={!preset.enabled}
-                          className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-1 py-1.5 text-center text-[10px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 sm:min-h-9"
+                          className="min-h-7 rounded-lg border border-white/10 bg-white/5 px-1 py-1 text-center text-[8px] font-medium text-zinc-100 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35 sm:min-h-9 sm:rounded-xl sm:py-1.5 sm:text-[10px]"
                         >
                           <span className="block truncate">{preset.label}</span>
-                          <span className="mt-0.5 block text-[11px] font-semibold leading-none text-white sm:text-[13px]">
+                          <span className="mt-0.5 block text-[9px] font-semibold leading-none text-white sm:text-[13px]">
                             {formatAmountDisplay({ amount: preset.value, bigBlind, mode: stackDisplayMode })}
                           </span>
                         </button>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1.5 p-2.5 sm:p-2">
+                    <div className="grid grid-cols-3 gap-1 p-2 sm:gap-1.5 sm:p-2">
                       {keypadRows.flat().map((key) => (
                         <button
                           key={key}
                           type="button"
                           onClick={() => handleCalculatorKey(key)}
-                          className={`min-h-10 rounded-xl border border-white/10 bg-black/30 px-2 py-2 text-base font-semibold text-white transition hover:bg-white/10 sm:min-h-9 sm:text-sm ${
+                          className={`min-h-8 rounded-lg border border-white/10 bg-black/30 px-1.5 py-1 text-sm font-semibold text-white transition hover:bg-white/10 sm:min-h-9 sm:rounded-xl sm:px-2 sm:py-2 sm:text-sm ${
                             stackDisplayMode === "bb" && key === "<-" ? "col-span-3" : ""
                           }`}
                         >
@@ -839,27 +839,27 @@ export function ActionPanel({
                       ))}
                     </div>
 
-                    <div className="border-t border-white/10 px-3 py-2.5 sm:px-2.5 sm:py-2">
+                    <div className="border-t border-white/10 px-2 py-1.5 sm:px-2.5 sm:py-2">
                       <button
                         type="button"
                         onClick={submitSizedAction}
                         disabled={!canSubmitSizedAction || !hasValidTargetAmount}
-                        className={`min-h-11 w-full rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${getButtonClass("size")}`}
+                        className={`min-h-8 w-full rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-11 sm:rounded-xl sm:px-3 sm:py-2 sm:text-sm ${getButtonClass("size")}`}
                       >
                         {buildSizedSubmitLabel({ action: sizeAction, amount: parsedTargetAmount, bigBlind, stackDisplayMode })}
                       </button>
                     </div>
                   </div>
 
-                  <div className="border-l border-white/10 bg-[linear-gradient(180deg,_rgba(17,24,39,0.44),_rgba(5,8,7,0.14))] px-2 py-2">
-                    <div className="flex h-full flex-col items-center justify-between gap-2">
+                  <div className="border-l border-white/10 bg-[linear-gradient(180deg,_rgba(17,24,39,0.44),_rgba(5,8,7,0.14))] px-1 py-1.5 sm:px-2 sm:py-2">
+                    <div className="flex h-full flex-col items-center justify-between gap-1.5 sm:gap-2">
                       <div className="text-center">
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">Max</p>
-                        <p className="mt-1 text-[10px] font-semibold text-zinc-100">
+                        <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px] sm:tracking-[0.16em]">Max</p>
+                        <p className="mt-0.5 text-[8px] font-semibold text-zinc-100 sm:mt-1 sm:text-[10px]">
                           {formatAmountDisplay({ amount: maxCommitment, bigBlind, mode: stackDisplayMode })}
                         </p>
                       </div>
-                      <div className="flex min-h-[11.5rem] items-center justify-center">
+                      <div className="flex min-h-[8rem] items-center justify-center sm:min-h-[11.5rem]">
                         <input
                           type="range"
                           min={minimumTarget}
@@ -873,8 +873,8 @@ export function ActionPanel({
                         />
                       </div>
                       <div className="text-center">
-                        <p className="text-[9px] uppercase tracking-[0.16em] text-zinc-500">Min</p>
-                        <p className="mt-1 text-[10px] font-semibold text-zinc-100">
+                        <p className="text-[8px] uppercase tracking-[0.14em] text-zinc-500 sm:text-[9px] sm:tracking-[0.16em]">Min</p>
+                        <p className="mt-0.5 text-[8px] font-semibold text-zinc-100 sm:mt-1 sm:text-[10px]">
                           {formatAmountDisplay({ amount: minimumTarget, bigBlind, mode: stackDisplayMode })}
                         </p>
                       </div>
