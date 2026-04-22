@@ -36,6 +36,27 @@ function buildViewerSnapshotKey(snapshot: TournamentSnapshot) {
   ].join("|");
 }
 
+function hasIncompleteViewerActionState(snapshot: TournamentSnapshot, guestId: string) {
+  const resolvedViewerGuestId = resolveSnapshotViewerGuestId(snapshot, guestId);
+  if (!resolvedViewerGuestId) {
+    return false;
+  }
+
+  const viewerPlayer = snapshot.players.find((player) => player.guestId === resolvedViewerGuestId);
+  if (!viewerPlayer?.acting) {
+    return false;
+  }
+
+  if (snapshot.availableActions.includes("CALL") && snapshot.chipsToCall <= 0) {
+    return true;
+  }
+
+  return (
+    (snapshot.availableActions.includes("BET") || snapshot.availableActions.includes("RAISE")) &&
+    snapshot.minimumRaiseTo <= 0
+  );
+}
+
 function needsViewerHydration(snapshot: TournamentSnapshot | null, guestId: string) {
   if (!snapshot) {
     return false;
@@ -52,6 +73,10 @@ function needsViewerHydration(snapshot: TournamentSnapshot | null, guestId: stri
 
   if (snapshot.status === "WAITING" || snapshot.status === "FINISHED") {
     return false;
+  }
+
+  if (hasIncompleteViewerActionState(snapshot, guestId)) {
+    return true;
   }
 
   return snapshot.players.some((player) => player.guestId === resolvedViewerGuestId);
