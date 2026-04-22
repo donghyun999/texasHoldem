@@ -689,7 +689,7 @@ export function ActionPanel({
 
   return (
     <>
-      <div className={shouldUseStickyTray ? "fixed inset-x-3 bottom-3 z-[70] sm:static sm:inset-auto sm:z-auto" : ""}>
+      <div className={shouldUseStickyTray ? "relative z-[70] w-full max-w-full" : ""}>
         <MemoizedActionTimer
           actionDeadlineAtEpochMilli={actionDeadlineAtEpochMilli}
           actionTimeoutSeconds={actionTimeoutSeconds}
@@ -699,7 +699,7 @@ export function ActionPanel({
         />
 
         <div
-          className={`relative border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
+          className={`relative w-full max-w-full border border-white/10 bg-[linear-gradient(180deg,_rgba(6,10,9,0.95),_rgba(5,8,7,0.92))] shadow-2xl shadow-black/35 backdrop-blur-md ${
             shouldUseStickyTray
               ? "rounded-[1.6rem] px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] sm:rounded-[1.4rem] sm:p-3"
               : "rounded-[1.4rem] p-2.5 sm:p-3"
