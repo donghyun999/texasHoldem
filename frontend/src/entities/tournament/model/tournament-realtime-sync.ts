@@ -96,6 +96,54 @@ export function isStaleSnapshot(currentSnapshot: TournamentSnapshot | null, next
   );
 }
 
+function buildCurrentBet(snapshot: TournamentSnapshot) {
+  return snapshot.players.reduce((largestContribution, player) => Math.max(largestContribution, player.roundContribution), 0);
+}
+
+function buildViewerChipsToCall(snapshot: TournamentSnapshot, viewerGuestId: string | null | undefined) {
+  if (!viewerGuestId) {
+    return 0;
+  }
+
+  const viewerPlayer = snapshot.players.find((player) => player.guestId === viewerGuestId);
+  if (!viewerPlayer) {
+    return 0;
+  }
+
+  return Math.max(0, buildCurrentBet(snapshot) - viewerPlayer.roundContribution);
+}
+
+function buildViewerMinimumRaiseTo(currentSnapshot: TournamentSnapshot, nextSnapshot: TournamentSnapshot) {
+  const bigBlind = Math.max(0, nextSnapshot.currentLevel.bigBlind);
+  const previousCurrentBet = buildCurrentBet(currentSnapshot);
+  const nextCurrentBet = buildCurrentBet(nextSnapshot);
+  if (nextCurrentBet <= 0) {
+    return bigBlind;
+  }
+
+  const previousRaiseIncrement =
+    previousCurrentBet > 0
+      ? Math.max(bigBlind, currentSnapshot.minimumRaiseTo - previousCurrentBet)
+      : Math.max(bigBlind, currentSnapshot.minimumRaiseTo || bigBlind);
+  if (nextCurrentBet <= previousCurrentBet) {
+    return nextCurrentBet + previousRaiseIncrement;
+  }
+
+  const observedIncrease = nextCurrentBet - previousCurrentBet;
+  const raisingPlayer = nextSnapshot.players.find((player) => {
+    if (player.roundContribution !== nextCurrentBet) {
+      return false;
+    }
+
+    const previousPlayer = currentSnapshot.players.find((candidate) => candidate.guestId === player.guestId);
+    return (previousPlayer?.roundContribution ?? 0) < player.roundContribution;
+  });
+  const isShortAllInRaise =
+    !!raisingPlayer && raisingPlayer.status === "ALL_IN" && observedIncrease < previousRaiseIncrement;
+  const raiseIncrement = isShortAllInRaise ? previousRaiseIncrement : Math.max(previousRaiseIncrement, observedIncrease);
+  return nextCurrentBet + raiseIncrement;
+}
+
 // Preserves the viewer's own hole cards only across shared websocket snapshots for the same hand.
 export function mergeSnapshotForViewer(
   currentSnapshot: TournamentSnapshot | null,
@@ -136,6 +184,8 @@ export function mergeSnapshotForViewer(
 
   return {
     ...nextSnapshot,
+    chipsToCall: buildViewerChipsToCall(nextSnapshot, currentSnapshot.viewerGuestId),
+    minimumRaiseTo: buildViewerMinimumRaiseTo(currentSnapshot, nextSnapshot),
     snapshotAudience: "VIEWER",
     viewerGuestId: currentSnapshot.viewerGuestId,
     viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
