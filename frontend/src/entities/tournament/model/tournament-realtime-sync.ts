@@ -139,8 +139,6 @@ export function mergeSnapshotForViewer(
     snapshotAudience: "VIEWER",
     viewerGuestId: currentSnapshot.viewerGuestId,
     viewerHoleCardsIncluded: currentSnapshot.viewerHoleCardsIncluded,
-    chipsToCall: currentSnapshot.chipsToCall,
-    minimumRaiseTo: currentSnapshot.minimumRaiseTo,
     selfHandLabel: describeSelfHandLabel(nextSnapshot.boardCards, currentSnapshot.selfHoleCards),
     selfHoleCards: currentSnapshot.selfHoleCards,
   };
