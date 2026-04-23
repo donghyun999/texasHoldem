@@ -736,6 +736,14 @@ export function TournamentTable({
     () => snapshot.mainPot + snapshot.sidePots.reduce((total, pot) => total + pot.amount, 0),
     [snapshot.mainPot, snapshot.sidePots],
   );
+  const streetContributionTotal = useMemo(
+    () => snapshot.players.reduce((total, player) => total + player.roundContribution, 0),
+    [snapshot.players],
+  );
+  const displayedCenterPot = useMemo(
+    () => (snapshot.status === "IN_HAND" ? Math.max(0, totalPot - streetContributionTotal) : totalPot),
+    [snapshot.status, streetContributionTotal, totalPot],
+  );
   const winnerGuestIds = useMemo(() => buildWinnerGuestIds(snapshot), [snapshot.status, snapshot.showdownPots]);
   const winnerGuestIdsKey = useMemo(() => winnerGuestIds.join("|"), [winnerGuestIds]);
   const winnerGuestIdSet = useMemo(() => new Set(winnerGuestIds), [winnerGuestIds]);
@@ -772,7 +780,7 @@ export function TournamentTable({
     ? getPausedLevelTimerState()
     : getLevelTimerState(secondsRemaining, snapshot.currentLevel.durationSeconds);
   const totalPotLabel = formatAmountDisplay({
-    amount: totalPot,
+    amount: displayedCenterPot,
     bigBlind: snapshot.currentLevel.bigBlind,
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
@@ -783,6 +791,13 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
+  const streetContributionLabel = formatAmountDisplay({
+    amount: streetContributionTotal,
+    bigBlind: snapshot.currentLevel.bigBlind,
+    mode: stackDisplayMode,
+    includeUnit: stackDisplayMode === "bb",
+  });
+  const shouldShowStreetContribution = snapshot.status === "IN_HAND" && streetContributionTotal > 0;
   const visibilityLabel = snapshot.visibility === "PUBLIC" ? "Public table" : "Private table";
   const currentBlindsLabel = `${snapshot.currentLevel.smallBlind}/${snapshot.currentLevel.bigBlind}`;
   const nextBlindsLabel = `${snapshot.nextLevel.smallBlind}/${snapshot.nextLevel.bigBlind}`;
@@ -1375,6 +1390,10 @@ export function TournamentTable({
           </p>
         </div>
         <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
+          {shouldShowStreetContribution ? (
+            <span className="social-chip px-2 py-1">Street bets {streetContributionLabel}</span>
+          ) : (
+            <>
           <span className="social-chip px-2 py-1">메인 {mainPotLabel}</span>
           {sidePotSummary.map((pot) => (
             <span key={pot.id} className="social-chip px-2 py-1">
@@ -1387,6 +1406,8 @@ export function TournamentTable({
               })}
             </span>
           ))}
+            </>
+          )}
         </div>
         <div className="mt-2.5 flex scale-[0.88] justify-center gap-0.5 sm:mt-3.5 sm:gap-2 sm:scale-100">
           {boardSlots.map((card, index) =>
