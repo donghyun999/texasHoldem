@@ -791,12 +791,6 @@ export function TournamentTable({
     mode: stackDisplayMode,
     includeUnit: stackDisplayMode === "bb",
   });
-  const streetContributionLabel = formatAmountDisplay({
-    amount: streetContributionTotal,
-    bigBlind: snapshot.currentLevel.bigBlind,
-    mode: stackDisplayMode,
-    includeUnit: stackDisplayMode === "bb",
-  });
   const shouldShowStreetContribution = snapshot.status === "IN_HAND" && streetContributionTotal > 0;
   const visibilityLabel = snapshot.visibility === "PUBLIC" ? "Public table" : "Private table";
   const currentBlindsLabel = `${snapshot.currentLevel.smallBlind}/${snapshot.currentLevel.bigBlind}`;
@@ -1389,11 +1383,8 @@ export function TournamentTable({
             {totalPotLabel}
           </p>
         </div>
-        <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
-          {shouldShowStreetContribution ? (
-            <span className="social-chip px-2 py-1">Street bets {streetContributionLabel}</span>
-          ) : (
-            <>
+        {!shouldShowStreetContribution ? (
+          <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-[9px] text-zinc-200 sm:text-[10px]">
           <span className="social-chip px-2 py-1">메인 {mainPotLabel}</span>
           {sidePotSummary.map((pot) => (
             <span key={pot.id} className="social-chip px-2 py-1">
@@ -1406,9 +1397,8 @@ export function TournamentTable({
               })}
             </span>
           ))}
-            </>
-          )}
-        </div>
+          </div>
+        ) : null}
         <div className="mt-2.5 flex scale-[0.88] justify-center gap-0.5 sm:mt-3.5 sm:gap-2 sm:scale-100">
           {boardSlots.map((card, index) =>
             card ? (
