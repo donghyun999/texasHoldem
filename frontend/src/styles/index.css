@@ -238,6 +238,38 @@ body {
   }
 }
 
+.showdown-payout-chip {
+  position: absolute;
+  left: var(--chip-start-left);
+  top: var(--chip-start-top);
+  animation: showdown-payout-chip 680ms cubic-bezier(0.2, 0.82, 0.3, 1) forwards;
+  will-change: left, top, transform, opacity;
+}
+
+@keyframes showdown-payout-chip {
+  0% {
+    left: calc(var(--chip-start-left) + var(--chip-start-offset-x));
+    top: calc(var(--chip-start-top) + var(--chip-start-offset-y));
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.84);
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  52% {
+    transform: translate(-50%, calc(-50% - var(--chip-lift))) scale(1);
+  }
+
+  100% {
+    left: calc(var(--chip-end-left) + var(--chip-end-offset-x));
+    top: calc(var(--chip-end-top) + var(--chip-end-offset-y));
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.76);
+  }
+}
+
 .table-pot-pulse-ring {
   position: absolute;
   inset: -0.3rem -0.65rem;
@@ -447,6 +479,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .flying-bet-chip,
   .flying-pot-chip,
+  .showdown-payout-chip,
   .table-pot-pulse-ring,
   .table-pot-value-pulse,
   .seat-action-flash,
