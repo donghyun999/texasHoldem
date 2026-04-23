@@ -1552,7 +1552,7 @@ export function TournamentTable({
       data-pot-animation-sequence={potAnimationSequence}
       className={tableLayout.containerClassName}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.1),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(103,232,249,0.12),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(250,204,21,0.09),_transparent_22%),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,_rgba(255,255,255,0.12),_transparent_24%),radial-gradient(circle_at_28%_22%,_rgba(93,228,209,0.14),_transparent_24%),radial-gradient(circle_at_72%_18%,_rgba(243,194,77,0.12),_transparent_22%),repeating-linear-gradient(135deg,rgba(255,255,255,0.012)_0_2px,transparent_2px_11px),linear-gradient(180deg,_rgba(10,24,19,0.96),_rgba(1,6,6,0.98))]" />
       <div className={tableLayout.feltOuterClassName} />
       <div className={tableLayout.feltInnerClassName} />
       <div className={tableLayout.bottomGlowClassName} />

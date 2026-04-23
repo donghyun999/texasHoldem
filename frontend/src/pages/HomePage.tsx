@@ -272,7 +272,9 @@ export function HomePage() {
 
   return (
     <section className="space-y-6">
-      <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
+      <div className="social-surface social-surface-strong relative overflow-hidden rounded-[2rem] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.3)] sm:p-8">
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-[linear-gradient(135deg,_rgba(243,194,77,0.08),_transparent_58%)]" />
+        <div className="absolute inset-y-0 left-0 w-2/5 bg-[linear-gradient(180deg,_rgba(93,228,209,0.08),_transparent_62%)]" />
         <div className="absolute -right-10 top-6 h-32 w-32 rounded-full bg-cyan-300/10 blur-3xl" />
         <div className="absolute -bottom-10 left-6 h-36 w-36 rounded-full bg-amber-300/10 blur-3xl" />
         <div className="relative space-y-5">

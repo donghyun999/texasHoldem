@@ -10,11 +10,11 @@ export function AppShell() {
 
   return (
     <div className="social-shell min-h-screen text-zinc-100">
-      <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,_rgba(103,232,249,0.08),_transparent)]" />
-      <header className="relative z-10 border-b border-white/10 bg-black/20 backdrop-blur-xl">
+      <div className="absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,_rgba(93,228,209,0.1),_rgba(243,194,77,0.04)_45%,_transparent)]" />
+      <header className="relative z-10 border-b border-white/10 bg-[linear-gradient(180deg,_rgba(7,12,10,0.82),_rgba(7,12,10,0.58))] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
-            <div className="social-chip flex h-12 w-12 items-center justify-center border-white/15 bg-[linear-gradient(135deg,_rgba(103,232,249,0.24),_rgba(250,204,21,0.18))] text-sm font-black text-white shadow-lg shadow-black/20">
+            <div className="social-chip flex h-12 w-12 items-center justify-center border-white/15 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.14),_rgba(93,228,209,0.18)_42%,_rgba(14,34,28,0.96))] text-sm font-black text-white shadow-lg shadow-black/20">
               W
             </div>
             <div>

@@ -249,8 +249,8 @@ function CompactMeta({
     <div
       className={`min-w-0 rounded-full border px-2 py-1 backdrop-blur-sm ${
         hero
-          ? "border-white/10 bg-black/60 shadow-lg shadow-black/30 sm:px-3"
-          : "border-transparent bg-black/45 shadow-md shadow-black/20"
+          ? "border-white/12 bg-[linear-gradient(180deg,_rgba(7,13,11,0.82),_rgba(6,11,10,0.62))] shadow-lg shadow-black/30 sm:px-3"
+          : "border-white/6 bg-[linear-gradient(180deg,_rgba(8,13,11,0.68),_rgba(6,10,9,0.5))] shadow-md shadow-black/20"
       } ${highlight ? "ring-1 ring-cyan-200/40" : ""}`}
       style={{ textShadow: "0 1px 6px rgba(0, 0, 0, 0.95)" }}
     >
@@ -469,7 +469,7 @@ function PlayerSeatView({
               <ActingDot />
             </div>
           ) : null}
-          <div className={`relative rounded-[1.3rem] bg-black/20 px-1.5 py-1 ${actingTone} ${winnerTone}`}>
+            <div className={`relative rounded-[1.3rem] border border-white/8 bg-[linear-gradient(180deg,_rgba(11,20,17,0.72),_rgba(5,10,9,0.32))] px-1.5 py-1 shadow-[0_10px_24px_rgba(0,0,0,0.2)] ${actingTone} ${winnerTone}`}>
             {actorFocusPulseId ? <span key={actorFocusPulseId} className="seat-actor-focus-ring" /> : null}
             {winnerPulseId ? <span key={winnerPulseId} className="seat-winner-burst" /> : null}
             <div className={cardAnimationClass}>
