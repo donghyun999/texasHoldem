@@ -12,7 +12,6 @@ import { ActionPanel } from "@/features/table/ui/ActionPanel";
 import { getTournamentSnapshot, joinTournament } from "@/shared/api/http";
 import { useGuestSession } from "@/shared/model/use-guest-session";
 import { useUiStore } from "@/shared/model/ui-store";
-import { TournamentShowdownPanel } from "@/widgets/tournament/ui/TournamentShowdownPanel";
 import { TournamentTable } from "@/widgets/tournament/ui/TournamentTable";
 
 // Renders a tournament table from the live server snapshot.
@@ -265,7 +264,6 @@ export function TablePage() {
           />
         }
       />
-      <TournamentShowdownPanel snapshot={snapshot} />
     </section>
   );
 }
