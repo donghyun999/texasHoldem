@@ -19,12 +19,12 @@ type PersistedUiState = {
 // Restores locally persisted guest identity for the current browser.
 function readPersistedUiState(): PersistedUiState {
   if (typeof window === "undefined") {
-    return { nickname: "player_one", stackDisplayMode: "chips" };
+    return { nickname: "", stackDisplayMode: "chips" };
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    const initialState = { nickname: "player_one", stackDisplayMode: "chips" as StackDisplayMode };
+    const initialState = { nickname: "", stackDisplayMode: "chips" as StackDisplayMode };
     writePersistedUiState(initialState);
     return initialState;
   }
@@ -37,13 +37,13 @@ function readPersistedUiState(): PersistedUiState {
     }
 
     const nextState: PersistedUiState = {
-      nickname: parsed.nickname?.trim() || "player_one",
+      nickname: parsed.nickname?.trim() || "",
       stackDisplayMode: parsed.stackDisplayMode === "bb" ? "bb" : "chips",
     };
     writePersistedUiState(nextState);
     return nextState;
   } catch {
-    const fallbackState = { nickname: "player_one", stackDisplayMode: "chips" as StackDisplayMode };
+    const fallbackState = { nickname: "", stackDisplayMode: "chips" as StackDisplayMode };
     writePersistedUiState(fallbackState);
     return fallbackState;
   }

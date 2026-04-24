@@ -125,7 +125,7 @@ test.describe("private room lobby and table smoke", () => {
 
       await expect(viewerPage.getByTestId("direct-join-submit")).toBeVisible();
       await expect(viewerPage.getByTestId("direct-join-password-input")).toBeVisible();
-      await expect(viewerPage.locator("text=Bad Request")).toBeVisible();
+      await expect(viewerPage.locator("text=비밀번호가 일치하지 않습니다.")).toBeVisible();
 
       await viewerPage.getByTestId("direct-join-password-input").fill("8642");
       await viewerPage.getByTestId("direct-join-submit").click();

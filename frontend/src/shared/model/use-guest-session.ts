@@ -24,9 +24,10 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
   const nickname = useUiStore((state) => state.nickname);
   const setNickname = useUiStore((state) => state.setNickname);
   const persistedGuestId = guestId.trim();
+  const normalizedNickname = nickname.trim();
   const guestSessionQueryOptions = {
     queryKey: guestSessionBootstrapQueryKey,
-    queryFn: () => createGuestSession(nickname),
+    queryFn: () => createGuestSession(normalizedNickname),
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   } as const;
@@ -52,7 +53,7 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
     !!persistedGuestId && guestSessionValidationQuery.fetchStatus === "fetching";
   const guestSessionQuery = useQuery({
     ...guestSessionQueryOptions,
-    enabled: autoBootstrap && !persistedGuestId && !isValidatingPersistedGuest,
+    enabled: autoBootstrap && !!normalizedNickname && !persistedGuestId && !isValidatingPersistedGuest,
   });
   const isBootstrappingGuest =
     isValidatingPersistedGuest || (autoBootstrap && guestSessionQuery.fetchStatus === "fetching");
