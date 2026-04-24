@@ -43,6 +43,7 @@ export function TablePage() {
   const createdRoomPasswordFromState = (location.state as { createdRoomPassword?: string | null } | null)?.createdRoomPassword ?? null;
   const [joinPassword, setJoinPassword] = useState(invitePasswordFromUrl);
   const [joinValidationError, setJoinValidationError] = useState<string | null>(null);
+  const [autoJoinArmed, setAutoJoinArmed] = useState(autoJoinRequested);
   const wasSeatedRef = useRef(false);
   const autoJoinAttemptedRef = useRef(false);
 
@@ -63,8 +64,9 @@ export function TablePage() {
   useEffect(() => {
     setJoinPassword(invitePasswordFromUrl);
     setJoinValidationError(null);
+    setAutoJoinArmed(autoJoinRequested);
     autoJoinAttemptedRef.current = false;
-  }, [invitePasswordFromUrl, snapshot?.code]);
+  }, [autoJoinRequested, invitePasswordFromUrl, snapshot?.code]);
 
   const joinMutation = useMutation({
     mutationFn: ({
@@ -86,6 +88,9 @@ export function TablePage() {
       });
       navigate(`/tournaments/${joinedSnapshot.code}`, { replace: true });
     },
+    onError: () => {
+      setAutoJoinArmed(false);
+    },
   });
 
   // Returns the user to the lobby after an explicit waiting-room leave removes the seat.
@@ -101,22 +106,28 @@ export function TablePage() {
     }
   }, [currentPlayer, navigate, snapshot?.status]);
 
-  async function handleDirectJoin() {
+  async function handleDirectJoin(mode: "auto" | "manual" = "manual") {
+    if (mode === "manual") {
+      setAutoJoinArmed(false);
+    }
     setJoinValidationError(null);
     joinMutation.reset();
 
     if (!snapshot) {
       setJoinValidationError("Tournament snapshot is still loading.");
+      setAutoJoinArmed(false);
       return;
     }
 
     if (!nickname.trim()) {
       setJoinValidationError("Enter a nickname before joining.");
+      setAutoJoinArmed(false);
       return;
     }
 
     if (snapshot.visibility === "PRIVATE" && !joinPassword.trim()) {
       setJoinValidationError("Enter the room password before joining.");
+      setAutoJoinArmed(false);
       return;
     }
 
@@ -129,12 +140,13 @@ export function TablePage() {
       });
     } catch (error) {
       setJoinValidationError(error instanceof Error && error.message ? error.message : "Could not prepare this browser for joining.");
+      setAutoJoinArmed(false);
     }
   }
 
   useEffect(() => {
     const automaticJoinReady =
-      autoJoinRequested &&
+      autoJoinArmed &&
       snapshot?.status === "WAITING" &&
       !currentPlayer &&
       !joinMutation.isPending &&
@@ -147,9 +159,9 @@ export function TablePage() {
     }
 
     autoJoinAttemptedRef.current = true;
-    void handleDirectJoin();
+    void handleDirectJoin("auto");
   }, [
-    autoJoinRequested,
+    autoJoinArmed,
     currentPlayer,
     joinMutation.isPending,
     joinPassword,
@@ -162,19 +174,24 @@ export function TablePage() {
   const directJoinError =
     joinValidationError ||
     (joinMutation.error instanceof Error && joinMutation.error.message ? joinMutation.error.message : null);
+  const autoJoinResolving =
+    autoJoinArmed && autoJoinAttemptedRef.current && !joinMutation.error && !joinValidationError;
   const expectedViewerGuestId = guestId.trim();
   const hasCreateNavigationContext = createdRoomPasswordFromState !== null;
-  const waitingForViewerSeatResolution =
-    snapshot?.status === "WAITING" &&
-    !currentPlayer &&
-    !!expectedViewerGuestId &&
+  const shouldHoldViewerSeatResolution =
+    !directJoinError &&
     (isBootstrappingGuest ||
       hasCreateNavigationContext ||
-      autoJoinRequested ||
+      autoJoinResolving ||
       joinMutation.isPending ||
       snapshotQuery.isFetching ||
       realtimeSnapshot.realtimeState === "CONNECTING" ||
       realtimeSnapshot.realtimeState === "RECONNECTING");
+  const waitingForViewerSeatResolution =
+    snapshot?.status === "WAITING" &&
+    !currentPlayer &&
+    !!expectedViewerGuestId &&
+    shouldHoldViewerSeatResolution;
 
   if (!snapshot) {
     return (
@@ -230,7 +247,7 @@ export function TablePage() {
             setJoinPassword(value);
           }}
           onJoin={() => {
-            void handleDirectJoin();
+            void handleDirectJoin("manual");
           }}
         />
       ) : null}

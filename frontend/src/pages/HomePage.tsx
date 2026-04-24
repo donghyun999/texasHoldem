@@ -53,7 +53,7 @@ type TableNavigationState = {
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { nickname, setNickname, ensureGuestSession, isBootstrappingGuest } = useGuestSession();
+  const { guestId, nickname, setNickname, ensureGuestSession, isBootstrappingGuest } = useGuestSession();
   const [roomVisibility, setRoomVisibility] = useState<TournamentVisibility>("PUBLIC");
   const [createRoomName, setCreateRoomName] = useState("");
   const [createPassword, setCreatePassword] = useState("");
@@ -93,8 +93,12 @@ export function HomePage() {
   const waitingRooms = waitingRoomListQuery.data ?? [];
   const liveOpenRooms = waitingRooms.filter((room) => room.visibility === "PUBLIC").length;
   const liveLockedRooms = waitingRooms.length - liveOpenRooms;
+  const hasPersistedGuestSession = !!guestId.trim();
+  const isResolvingActiveTournament =
+    isBootstrappingGuest ||
+    (hasPersistedGuestSession && activeTournamentQuery.data === undefined && !activeTournamentQuery.error);
   const isCheckingActiveTournament =
-    !isBootstrappingGuest &&
+    hasPersistedGuestSession &&
     activeTournamentQuery.fetchStatus === "fetching";
 
   const createMutation = useMutation({
@@ -141,15 +145,15 @@ export function HomePage() {
   });
 
   const controlsDisabled =
+    isResolvingActiveTournament ||
     !!activeTournament ||
-    isCheckingActiveTournament ||
     createMutation.isPending ||
     joinMutation.isPending;
   const busyLabel = createMutation.isPending
     ? "테이블을 만드는 중..."
     : joinMutation.isPending
       ? "테이블에 참가하는 중..."
-      : isCheckingActiveTournament
+      : isResolvingActiveTournament
         ? "이미 활성 테이블이 있는지 확인하는 중..."
         : null;
   const createError =
@@ -202,7 +206,7 @@ export function HomePage() {
   }
 
   async function ensureAvailableGuest(nicknameRequiredMessage: string) {
-    if (isCheckingActiveTournament) {
+    if (isResolvingActiveTournament || isCheckingActiveTournament) {
       throw new Error("이미 다른 세션이 활성화되어 있는지 확인하는 중입니다.");
     }
     if (activeTournament) {

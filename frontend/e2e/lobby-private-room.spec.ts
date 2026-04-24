@@ -107,4 +107,34 @@ test.describe("private room lobby and table smoke", () => {
     await expectWaitingOwnerControls(page);
     await expect(page.locator(selectors.inviteLinkValue)).toContainText(`/tournaments/${tournamentCode}`);
   });
+
+  test("invite join can recover after a wrong password attempt", async ({ browser }) => {
+    const roomName = uniqueRoomName("e2e-private-invite-retry");
+    const ownerPage = await browser.newPage();
+    const viewerPage = await browser.newPage();
+
+    try {
+      await bootstrapGuest(ownerPage, "owner-invite-retry");
+      const tournamentCode = await createPrivateRoomAndCaptureCode(ownerPage, roomName, "8642");
+
+      await viewerPage.goto(`/tournaments/${tournamentCode}?join=1&password=0000`);
+      await expect(viewerPage.getByTestId("direct-join-submit")).toBeVisible();
+
+      await viewerPage.getByTestId("direct-join-nickname-input").fill("viewer-invite-retry");
+      await viewerPage.getByTestId("direct-join-submit").click();
+
+      await expect(viewerPage.getByTestId("direct-join-submit")).toBeVisible();
+      await expect(viewerPage.getByTestId("direct-join-password-input")).toBeVisible();
+      await expect(viewerPage.locator("text=Bad Request")).toBeVisible();
+
+      await viewerPage.getByTestId("direct-join-password-input").fill("8642");
+      await viewerPage.getByTestId("direct-join-submit").click();
+
+      await expectTournamentTableReady(viewerPage);
+      await expect(viewerPage.getByTestId("direct-join-submit")).toHaveCount(0);
+    } finally {
+      await ownerPage.close();
+      await viewerPage.close();
+    }
+  });
 });
