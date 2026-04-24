@@ -23,6 +23,7 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
   const [guestToken, setGuestToken] = useState(() => readPersistedGuestToken());
   const nickname = useUiStore((state) => state.nickname);
   const setNickname = useUiStore((state) => state.setNickname);
+  const persistedGuestId = guestId.trim();
   const guestSessionQueryOptions = {
     queryKey: guestSessionBootstrapQueryKey,
     queryFn: () => createGuestSession(nickname),
@@ -43,14 +44,18 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
         throw error;
       }
     },
-    enabled: !!guestId.trim(),
+    enabled: !!persistedGuestId,
     retry: false,
     staleTime: Number.POSITIVE_INFINITY,
   });
+  const isValidatingPersistedGuest =
+    !!persistedGuestId && guestSessionValidationQuery.fetchStatus === "fetching";
   const guestSessionQuery = useQuery({
     ...guestSessionQueryOptions,
-    enabled: autoBootstrap && !guestId && !guestSessionValidationQuery.isPending,
+    enabled: autoBootstrap && !persistedGuestId && !isValidatingPersistedGuest,
   });
+  const isBootstrappingGuest =
+    isValidatingPersistedGuest || (autoBootstrap && guestSessionQuery.fetchStatus === "fetching");
 
   useEffect(() => {
     if (guestSessionValidationQuery.data !== false) {
@@ -114,6 +119,6 @@ export function useGuestSession({ autoBootstrap = true }: UseGuestSessionOptions
     nickname,
     setNickname,
     ensureGuestSession,
-    isBootstrappingGuest: (autoBootstrap && guestSessionQuery.isPending) || guestSessionValidationQuery.isPending,
+    isBootstrappingGuest,
   };
 }
